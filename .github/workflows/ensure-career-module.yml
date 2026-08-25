@@ -1,0 +1,42 @@
+name: Ensure Plano de Carreira loader
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ensure-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure Plano de Carreira script is loaded
+        shell: bash
+        run: |
+          set -e
+          if grep -q 'plano-carreira-v2.js' index.html; then
+            echo 'Plano de Carreira já está referenciado no index.html.'
+            exit 0
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '</body>'
+          tag = '  <script src="./plano-carreira-v2.js"></script>\n'
+          if marker not in s:
+              raise SystemExit('Não encontrei </body> no index.html')
+          p.write_text(s.replace(marker, tag + marker, 1), encoding='utf-8')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix: carrega modulo Plano de Carreira'
+          git push
