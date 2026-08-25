@@ -1,0 +1,16 @@
+name: Verify Career Final
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax
+        run: node --check plano-carreira-v2.js
+      - name: Index reference
+        run: grep -n 'plano-carreira-v2.js' index.html
