@@ -1,6 +1,6 @@
 name: Corrigir sincronizacao cloud
 
-on:
+"on":
   push:
     branches:
       - main
