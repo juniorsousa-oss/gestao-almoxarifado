@@ -1,0 +1,50 @@
+name: Ativar módulo de Plano de Carreira
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  activate-career:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Inserir script do Plano de Carreira no index
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("index.html")
+          text = path.read_text(encoding="utf-8")
+          tag = '<script src="./plano-carreira-v2.js"></script>'
+
+          if tag not in text:
+              marker = "</body>"
+              if marker not in text:
+                  raise SystemExit("index.html não contém </body>")
+              text = text.replace(marker, f"{tag}\n{marker}", 1)
+              path.write_text(text, encoding="utf-8")
+              print("Script do Plano de Carreira ativado no index.html")
+          else:
+              print("Script do Plano de Carreira já está ativo")
+
+      - name: Publicar alteração no main
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Nenhuma alteração necessária."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore: ativar plano de carreira"
+          git push
