@@ -1,0 +1,39 @@
+name: Fix Plano de Carreira syntax
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix invalid template expression
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('plano-carreira-v2.js')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          replacement="""window.careerAssess=(pid,plid)=>{const p=people().find(x=>String(x.id)===String(pid)),pl=career()?.plans.find(x=>String(x.id)===String(plid));if(!p||!pl)return;const a=assessment(pid,plid);const items=(pl.requirements||[]).map((r,i)=>'<div class=\"assessment\"><div><b>'+esc((i+1)+'. '+r.label)+'</b><small>'+esc(r.type||'Critério')+'</small></div><button id=\"ca_'+esc(r.id)+'\" class=\"'+(a[String(r.id)]===true?'ok':'')+'\" onclick=\"careerToggle(\\''+esc(pid)+'\\',\\''+esc(plid)+'\\',\\''+esc(r.id)+'\\')\">'+(a[String(r.id)]===true?'CUMPRIDO':'PENDENTE')+'</button></div>').join('');const body='<div class=\"career-muted\" style=\"margin-bottom:12px\">'+esc(p.name||'')+' · '+esc(pl.name)+'</div>'+(items||'<div class=\"career-muted\">Nenhum pré-requisito cadastrado.</div>');modal('careerAssessmentModal','AVALIAÇÃO DE PRONTIDÃO',body,'<button class=\"btn btn-primary\" onclick=\"careerClose(\\'careerAssessmentModal\\');render()\">CONCLUIR AVALIAÇÃO</button>')};"""
+          found=False
+          for i,line in enumerate(lines):
+              if line.startswith('window.careerAssess='):
+                  lines[i]=replacement
+                  found=True
+                  break
+          if not found:
+              raise SystemExit('Linha careerAssess não encontrada')
+          p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          print('careerAssess corrigido')
+      - name: Validate
+        run: node --check plano-carreira-v2.js
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add plano-carreira-v2.js
+          git commit -m 'fix: corrige sintaxe do plano de carreira'
+          git push
