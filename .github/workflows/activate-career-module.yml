@@ -48,3 +48,5 @@ jobs:
           git add index.html
           git commit -m "chore: ativar plano de carreira"
           git push
+
+# força uma nova execução para garantir a ativação no index.html
