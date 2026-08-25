@@ -1,0 +1,48 @@
+name: Ativar Cloud Sync V2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Inserir script de sincronização
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text(encoding='utf-8')
+          tag = '<script src="./cloud-sync-v2.js"></script>'
+          if tag not in text:
+              marker = '<script src="./supabase-sync.js"></script>'
+              if marker not in text:
+                  raise SystemExit('Marcador supabase-sync.js não encontrado')
+              text = text.replace(marker, marker + '\n' + tag, 1)
+              p.write_text(text, encoding='utf-8')
+              print('Script inserido.')
+          else:
+              print('Script já estava inserido.')
+          PY
+
+      - name: Commit e push
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'Nenhuma alteração necessária.'
+            exit 0
+          fi
+          git commit -m 'Ativa sincronização cloud v2 [skip ci]'
+          git push
