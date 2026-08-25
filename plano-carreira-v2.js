@@ -48,6 +48,28 @@ window.careerRemoveReq=(planId,rid)=>{let p=career().plans.find(x=>String(x.id)=
 window.careerAssess=(pid,plid)=>{let p=people().find(x=>String(x.id)===String(pid)),pl=career().plans.find(x=>String(x.id)===String(plid));if(!p||!pl)return;let a=assessment(pid,plid);let body=`<div class="career-muted" style="margin-bottom:12px">${esc(p.name||'')} · ${esc(pl.name)}</div>${pl.requirements.length?pl.requirements.map((r,i)=>`<div class="assessment"><div><b>${i+1}. ${esc(r.label)}</b><small>${esc(r.type||'Critério')}</small></div><button id="ca_${r.id}" class="${a[String(r.id)]===true?'ok':''}" onclick="careerToggle('${pid}','${plid}','${r.id}')">${a[String(r.id)]===true?'CUMPRIDO':'PENDENTE'}</button></div>`).join(''):'<div class="career-muted">Nenhum pré-requisito cadastrado.</div>`;modal('careerAssessmentModal','AVALIAÇÃO DE PRONTIDÃO',body,`<button class="btn btn-primary" onclick="careerClose('careerAssessmentModal');render()">CONCLUIR AVALIAÇÃO</button>`)};
 window.careerToggle=(pid,plid,rid)=>{let d=career();d.assessments[String(pid)]=d.assessments[String(pid)]||{};d.assessments[String(pid)][String(plid)]=d.assessments[String(pid)][String(plid)]||{};let a=d.assessments[String(pid)][String(plid)];a[String(rid)]=a[String(rid)]!==true;persist();let b=document.getElementById('ca_'+rid);if(b){b.classList.toggle('ok',a[String(rid)]===true);b.textContent=a[String(rid)]===true?'CUMPRIDO':'PENDENTE'}};
 window.careerClose=id=>document.getElementById(id)?.classList.remove('open');
-function boot(){ensure();addNav();addView();if(career().plans.length&&!window.careerPlanId)window.careerPlanId=career().plans[0].id;let nav=document.querySelector('.nav');if(nav)new MutationObserver(()=>addNav()).observe(nav,{childList:true})}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();window.renderCareerModule=render;
+function installNavObserver(){
+  const attach=()=>{
+    addNav();
+    addView();
+    const nav=document.querySelector('.nav');
+    if(nav && !nav.__careerObserver){
+      nav.__careerObserver=new MutationObserver(()=>addNav());
+      nav.__careerObserver.observe(nav,{childList:true});
+    }
+  };
+  attach();
+  if(document.body && !document.body.__careerObserver){
+    document.body.__careerObserver=new MutationObserver(()=>attach());
+    document.body.__careerObserver.observe(document.body,{childList:true,subtree:true});
+  }
+}
+function boot(){
+  ensure();
+  if(career().plans.length&&!window.careerPlanId)window.careerPlanId=career().plans[0].id;
+  installNavObserver();
+}
+window.openCareerModule=open;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+window.renderCareerModule=render;
 })();
