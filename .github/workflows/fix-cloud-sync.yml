@@ -1,0 +1,260 @@
+name: Corrigir sincronizacao cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-cloud-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Corrigir sincronizacao automatica
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('supabase-sync.js')
+          text = path.read_text(encoding='utf-8')
+
+          start = text.index('/* ============================================================\n   SINCRONIZAÇÃO CLOUD — GESTÃO ALMOXARIFADO')
+          marker = '/* ============================================================\n   PATCH ORGANOGRAMA V9'
+          end = text.index(marker, start)
+
+          cloud = r'''/* ============================================================
+   SINCRONIZAÇÃO CLOUD — GESTÃO ALMOXARIFADO
+   Banco: Supabase / almox_app_state
+   ============================================================ */
+(function(){
+  const SUPABASE_URL = 'https://cuixazpxkvniqldmmnth.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye';
+  const STATE_ID = 'main';
+  const POLL_MS = 5000;
+  const WATCH_MS = 1000;
+
+  if(!window.supabase || !window.supabase.createClient){
+    console.error('[CLOUD] Supabase JS não carregado.');
+    return;
+  }
+
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let lastCloudUpdatedAt = '';
+  let applyingRemote = false;
+  let lastLocalSaveAt = 0;
+  let lastLocalSnapshot = '';
+  let writeInProgress = false;
+  let writeQueued = false;
+
+  function buildCloudState(){
+    try{
+      return JSON.parse(JSON.stringify(state));
+    }catch(err){
+      console.error('[CLOUD] Não foi possível serializar o estado.',err);
+      return null;
+    }
+  }
+
+  function snapshotString(snapshot){
+    try{return JSON.stringify(snapshot);}catch(err){return ''}
+  }
+
+  async function readCloud(){
+    const {data,error} = await client
+      .from('almox_app_state')
+      .select('id,estado,atualizado_em')
+      .eq('id',STATE_ID)
+      .maybeSingle();
+    if(error) throw error;
+    return data || null;
+  }
+
+  async function writeCloud(){
+    if(applyingRemote) return false;
+    if(writeInProgress){
+      writeQueued=true;
+      return false;
+    }
+
+    const snapshot=buildCloudState();
+    if(!snapshot) return false;
+    const serialized=snapshotString(snapshot);
+    if(!serialized) return false;
+
+    writeInProgress=true;
+    try{
+      const {data,error}=await client
+        .from('almox_app_state')
+        .upsert({
+          id:STATE_ID,
+          estado:snapshot,
+          atualizado_em:new Date().toISOString()
+        },{onConflict:'id'})
+        .select('atualizado_em')
+        .single();
+
+      if(error){
+        console.error('[CLOUD] Falha ao sincronizar:',error);
+        showCloudStatus('ERRO DE SINCRONIZAÇÃO',true);
+        return false;
+      }
+
+      lastLocalSaveAt=Date.now();
+      lastCloudUpdatedAt=data?.atualizado_em||new Date().toISOString();
+      lastLocalSnapshot=serialized;
+      showCloudStatus('SINCRONIZADO',false);
+      return true;
+    }finally{
+      writeInProgress=false;
+      if(writeQueued){
+        writeQueued=false;
+        setTimeout(()=>writeCloud(),50);
+      }
+    }
+  }
+
+  function showCloudStatus(text,isError){
+    let el=document.getElementById('cloudSyncStatus');
+    if(!el){
+      el=document.createElement('div');
+      el.id='cloudSyncStatus';
+      el.style.cssText='position:fixed;right:14px;bottom:14px;z-index:9999;padding:7px 10px;border:1px solid #35403b;border-radius:8px;background:#111715;color:#b9c0bd;font:700 9px Inter,Segoe UI,Arial,sans-serif;opacity:.86;pointer-events:none;transition:opacity .3s;';
+      document.body.appendChild(el);
+    }
+    el.textContent='● '+text;
+    el.style.color=isError?'#ff9c9c':'#72e6a0';
+    el.style.opacity='0.86';
+    clearTimeout(el.__timer);
+    el.__timer=setTimeout(()=>el.style.opacity='0',1800);
+  }
+
+  function normalizeRemote(remote){
+    if(!remote?.estado || typeof remote.estado!=='object') return null;
+    const remoteState=remote.estado;
+    remoteState.orphanPeople=remoteState.orphanPeople||[];
+    remoteState.collaborators=remoteState.collaborators||[];
+    remoteState.teams=remoteState.teams||[];
+    remoteState.freeOrg=Object.assign({selected:[],parents:{},order:[],sizes:{}},remoteState.freeOrg||{});
+    remoteState.texts=Object.assign({},base?.texts||{},remoteState.texts||{});
+    remoteState.macroOrg=Object.assign({title:'ORGANOGRAMA MACRO',root:'ALMOXARIFADO',teamOrder:[]},remoteState.macroOrg||{});
+    return remoteState;
+  }
+
+  function renderEverything(){
+    render();
+    renderBrand();
+    renderTeams();
+    renderCollaborators();
+    renderFreeOrg();
+    if(document.getElementById('config')?.classList.contains('active')) loadConfigForm();
+  }
+
+  async function bootstrap(){
+    try{
+      showCloudStatus('CONECTANDO...',false);
+      const remote=await readCloud();
+
+      if(remote?.estado && typeof remote.estado==='object' && Object.keys(remote.estado).length){
+        applyingRemote=true;
+        const remoteState=normalizeRemote(remote);
+        if(remoteState) state=remoteState;
+        lastCloudUpdatedAt=remote.atualizado_em||'';
+        lastLocalSnapshot=snapshotString(buildCloudState())||'';
+        applyingRemote=false;
+
+        renderEverything();
+        showCloudStatus('DADOS DA NUVEM CARREGADOS',false);
+      }else{
+        lastLocalSnapshot=snapshotString(buildCloudState())||'';
+        await writeCloud();
+      }
+    }catch(err){
+      applyingRemote=false;
+      console.error('[CLOUD] Falha na inicialização:',err);
+      showCloudStatus('MODO LOCAL — SEM CONEXÃO',true);
+    }
+  }
+
+  async function refreshFromCloud(){
+    if(applyingRemote || writeInProgress) return;
+    try{
+      const remote=await readCloud();
+      if(!remote?.estado || !remote.atualizado_em) return;
+
+      const remoteTime=new Date(remote.atualizado_em).getTime();
+      const knownTime=lastCloudUpdatedAt?new Date(lastCloudUpdatedAt).getTime():0;
+      if(remoteTime<=knownTime || remoteTime<=lastLocalSaveAt) return;
+
+      applyingRemote=true;
+      const remoteState=normalizeRemote(remote);
+      if(remoteState) state=remoteState;
+      lastCloudUpdatedAt=remote.atualizado_em;
+      lastLocalSnapshot=snapshotString(buildCloudState())||'';
+      applyingRemote=false;
+
+      renderEverything();
+      showCloudStatus('ATUALIZADO DA NUVEM',false);
+    }catch(err){
+      applyingRemote=false;
+      console.warn('[CLOUD] Falha ao atualizar:',err);
+    }
+  }
+
+  function detectLocalChanges(){
+    if(applyingRemote || writeInProgress) return;
+    const current=snapshotString(buildCloudState());
+    if(!current) return;
+    if(!lastLocalSnapshot){
+      lastLocalSnapshot=current;
+      return;
+    }
+    if(current!==lastLocalSnapshot){
+      lastLocalSnapshot=current;
+      clearTimeout(window.__cloudSaveTimer);
+      window.__cloudSaveTimer=setTimeout(()=>writeCloud(),150);
+    }
+  }
+
+  const originalSave=window.save;
+  if(typeof originalSave==='function'){
+    window.save=function(){
+      const result=originalSave.apply(this,arguments);
+      if(!applyingRemote){
+        lastLocalSaveAt=Date.now();
+        setTimeout(()=>writeCloud(),0);
+      }
+      return result;
+    };
+  }
+
+  window.syncCloudNow=writeCloud;
+  window.reloadFromCloud=refreshFromCloud;
+
+  bootstrap();
+  setInterval(refreshFromCloud,POLL_MS);
+  setInterval(detectLocalChanges,WATCH_MS);
+})();
+
+'''
+
+          new_text = text[:start] + cloud + text[end:]
+          if new_text != text:
+              path.write_text(new_text, encoding='utf-8')
+  
+      - name: Commitar correção
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase-sync.js
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração necessária."
+            exit 0
+          fi
+          git commit -m "Corrige sincronizacao automatica com Supabase"
+          git push
