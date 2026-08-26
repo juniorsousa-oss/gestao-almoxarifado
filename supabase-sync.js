@@ -1,7 +1,4 @@
-/* Loader de compatibilidade — sincronização cloud original + fallback seguro do Plano de Carreira.
-   O módulo principal continua sendo carregado diretamente pelo index.html.
-   Este arquivo NÃO substitui o módulo e NÃO o carrega em duplicidade.
-*/
+/* Loader de compatibilidade — sincronização cloud original + fallback seguro do Plano de Carreira. */
 (function(){
   'use strict';
 
@@ -25,7 +22,6 @@
   function ensureCareerNav(){
     const nav=document.querySelector('.nav');
     if(!nav)return false;
-
     let btn=document.getElementById('navCarreira');
     if(!btn){
       btn=document.createElement('button');
@@ -33,15 +29,10 @@
       btn.type='button';
       btn.innerHTML='PLANO DE CARREIRA';
       const teamBtn=Array.from(nav.querySelectorAll('button')).find(b=>normalize(b.textContent).includes('GESTAO DE EQUIPES'));
-      if(teamBtn)teamBtn.insertAdjacentElement('afterend',btn);
-      else nav.appendChild(btn);
+      if(teamBtn)teamBtn.insertAdjacentElement('afterend',btn);else nav.appendChild(btn);
     }
-
     btn.onclick=function(){
-      if(typeof window.openCareerModule==='function'){
-        window.openCareerModule();
-        return;
-      }
+      if(typeof window.openCareerModule==='function'){window.openCareerModule();return;}
       if(fallbackLoading)return;
       fallbackLoading=true;
       loadScript(CAREER+'?fallback='+Date.now(),function(){
@@ -49,55 +40,149 @@
         if(typeof window.openCareerModule==='function')window.openCareerModule();
         else if(typeof window.renderCareerModule==='function')window.renderCareerModule();
         else alert('Não foi possível inicializar o Plano de Carreira.');
-      },function(){
-        fallbackLoading=false;
-        alert('Não foi possível carregar o Plano de Carreira.');
-      });
+      },function(){fallbackLoading=false;alert('Não foi possível carregar o Plano de Carreira.');});
     };
     return true;
   }
 
   function installProfessionalSidebar(){
-    if(document.getElementById('professional-sidebar-v2'))return;
+    const OLD='professional-sidebar-v2';
+    const old=document.getElementById(OLD);
+    if(old)old.remove();
+
     const style=document.createElement('style');
-    style.id='professional-sidebar-v2';
+    style.id='professional-sidebar-final';
     style.textContent=`
-      .sidebar{width:264px!important;padding:26px 14px 18px!important;background:#090c0b!important;border-right:1px solid #222a26!important;box-shadow:8px 0 30px rgba(0,0,0,.10)!important}
-      .brand{height:78px!important;margin:0 8px 24px!important;padding:0!important;justify-content:center!important;border-bottom:1px solid rgba(255,255,255,.055)}
-      .brand img{max-width:168px!important;max-height:60px!important}.placeholder{font-size:34px!important}
-      .nav{display:flex!important;flex-direction:column!important;gap:5px!important;width:100%!important}
-      .nav button{position:relative!important;width:100%!important;min-height:48px!important;height:48px!important;margin:0!important;padding:0 14px!important;display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;align-items:center!important;column-gap:8px!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;color:#b9c1bd!important;text-align:left!important;font-size:12px!important;font-weight:800!important;letter-spacing:.15px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;transition:background .16s ease,color .16s ease,transform .16s ease!important}
-      .nav button:hover{background:#151b18!important;color:#f5f7f6!important;transform:translateX(1px)!important}
-      .nav button.active{background:#ffd20a!important;color:#111!important;border-color:#ffd20a!important;box-shadow:0 6px 18px rgba(255,210,10,.13)!important}
-      .nav button .menu-icon{width:30px!important;height:30px!important;display:grid!important;place-items:center!important;color:#aeb8b3!important}.nav button.active .menu-icon{color:#111!important}
-      .nav button .menu-icon svg{width:17px!important;height:17px!important;display:block!important;stroke:currentColor!important;fill:none!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
-      .nav button .menu-label{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-      .sidebar-footer{margin-top:auto!important;padding:12px 10px 4px!important;color:#59625e!important}
-      @media(max-width:1050px){.sidebar{width:224px!important}.main{margin-left:224px!important;width:calc(100% - 224px)!important}}
-      @media(max-width:700px){.sidebar{width:100%!important;padding:16px!important}.brand{margin-bottom:12px!important}.nav{flex-direction:row!important;overflow-x:auto!important;gap:5px!important}.nav button{min-width:160px!important}}
+      .sidebar{
+        width:252px!important;
+        position:fixed!important;
+        inset:0 auto 0 0!important;
+        padding:0 12px 18px!important;
+        background:#090c0b!important;
+        border-right:1px solid #252b28!important;
+        box-shadow:none!important;
+        z-index:20!important;
+      }
+      .brand{
+        height:108px!important;
+        margin:0 0 10px!important;
+        padding:10px 10px 16px!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        border-bottom:1px solid #1e2522!important;
+      }
+      .brand img{
+        display:block!important;
+        width:auto!important;
+        max-width:170px!important;
+        max-height:68px!important;
+        object-fit:contain!important;
+      }
+      .placeholder{font-size:34px!important;font-weight:800!important}
+      .nav{
+        display:flex!important;
+        flex-direction:column!important;
+        gap:3px!important;
+        width:100%!important;
+        margin:0!important;
+        padding:0!important;
+      }
+      .nav button,
+      .nav button#navCarreira{
+        width:100%!important;
+        height:54px!important;
+        min-height:54px!important;
+        margin:0!important;
+        padding:0 12px!important;
+        display:grid!important;
+        grid-template-columns:34px minmax(0,1fr)!important;
+        align-items:center!important;
+        column-gap:8px!important;
+        border:1px solid transparent!important;
+        border-radius:11px!important;
+        background:transparent!important;
+        color:#dfe4e1!important;
+        text-align:left!important;
+        font-family:Inter,Segoe UI,Arial,sans-serif!important;
+        font-size:13px!important;
+        font-weight:800!important;
+        letter-spacing:.05px!important;
+        line-height:1!important;
+        white-space:nowrap!important;
+        overflow:hidden!important;
+        box-shadow:none!important;
+        transform:none!important;
+      }
+      .nav button:not(:last-child){border-bottom-color:#161c19!important;border-radius:0!important}
+      .nav button:hover{background:#121715!important;color:#fff!important}
+      .nav button.active{
+        background:#ffd43b!important;
+        color:#111!important;
+        border-color:#ffd43b!important;
+        border-radius:11px!important;
+        box-shadow:none!important;
+      }
+      .nav button .menu-icon{
+        width:30px!important;
+        height:30px!important;
+        display:grid!important;
+        place-items:center!important;
+        color:#c9d0cc!important;
+      }
+      .nav button.active .menu-icon{color:#111!important}
+      .nav button .menu-icon svg{
+        width:20px!important;
+        height:20px!important;
+        display:block!important;
+        stroke:currentColor!important;
+        fill:none!important;
+        stroke-width:1.8!important;
+        stroke-linecap:round!important;
+        stroke-linejoin:round!important;
+      }
+      .nav button .menu-label{
+        min-width:0!important;
+        display:block!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+      }
+      .sidebar-footer{margin-top:auto!important;padding:12px 8px 2px!important}
+      .main{margin-left:252px!important;width:calc(100% - 252px)!important}
+      @media(max-width:1050px){
+        .sidebar{width:230px!important}
+        .main{margin-left:230px!important;width:calc(100% - 230px)!important}
+      }
+      @media(max-width:700px){
+        .sidebar{position:static!important;width:100%!important;height:auto!important;padding:12px!important}
+        .brand{height:88px!important;margin-bottom:8px!important}
+        .nav{flex-direction:column!important;overflow:visible!important}
+        .nav button{height:50px!important;min-height:50px!important}
+        .main{margin-left:0!important;width:100%!important}
+      }
     `;
     document.head.appendChild(style);
 
     const icons={
-      'DASHBOARD':'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+      'DASHBOARD':'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
       'ALIMENTAR INDICADORES':'<svg viewBox="0 0 24 24"><path d="M5 19 19 5"/><path d="m14 5 5 5"/><path d="M4 20h4"/></svg>',
-      'HISTÓRICO':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>',
-      'GESTÃO DE EQUIPES':'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20c.7-3.3 2.7-5 6-5s5.3 1.7 6 5"/><path d="M5 11H3m18 0h-2"/></svg>',
-      'PLANO DE CARREIRA':'<svg viewBox="0 0 24 24"><path d="M12 20V5"/><path d="m7 10 5-5 5 5"/><path d="M7 20h10"/></svg>',
-      'CONFIGURAÇÕES':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3.9a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 2.9a8 8 0 0 0-1.7 1L5.1 6.1l-2 3.4L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9a8 8 0 0 0 1.7 1l.4 2.9h5l.4-2.9a8 8 0 0 0 1.7-1l2.3.9 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg>'
+      'HISTÓRICO':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>',
+      'GESTÃO DE EQUIPES':'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-3.5 2.5-5.5 5.5-5.5s5 2 5.5 5.5"/><path d="M15 6a3 3 0 0 1 0 5.8M17 15c2 .5 3.2 2.1 3.5 4"/></svg>',
+      'PLANO DE CARREIRA':'<svg viewBox="0 0 24 24"><path d="M12 20V4"/><path d="m6 10 6-6 6 6"/></svg>',
+      'CONFIGURAÇÕES':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.8 1.8 0 0 0 .35 1.98l.06.06-1.8 1.8-.06-.06a1.8 1.8 0 0 0-1.98-.35 1.8 1.8 0 0 0-1.08 1.65V20h-2.55v-.08a1.8 1.8 0 0 0-1.08-1.65 1.8 1.8 0 0 0-1.98.35l-.06.06-1.8-1.8.06-.06A1.8 1.8 0 0 0 7.9 15a1.8 1.8 0 0 0-1.65-1.08H6v-2.55h.25A1.8 1.8 0 0 0 7.9 10.3a1.8 1.8 0 0 0-.35-1.98l-.06-.06 1.8-1.8.06.06a1.8 1.8 0 0 0 1.98.35A1.8 1.8 0 0 0 12.4 5.2V5h2.55v.2a1.8 1.8 0 0 0 1.08 1.67 1.8 1.8 0 0 0 1.98-.35l.06-.06 1.8 1.8-.06.06a1.8 1.8 0 0 0-.35 1.98 1.8 1.8 0 0 0-1.65 1.08 7 7 0 0 0 0 2.55Z"/></svg>'
     };
 
-    function normalizeLabel(text){
-      return normalize(String(text||'').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/\s+/g,' '));
+    function labelOf(btn){
+      return normalize(String(btn.textContent||'').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,'').replace(/\s+/g,' '));
     }
     function formatButton(btn){
-      if(!btn||btn.dataset.menuV2==='1')return;
-      const label=normalizeLabel(btn.textContent);
+      if(!btn)return;
+      const label=labelOf(btn);
       const key=Object.keys(icons).find(k=>label===normalize(k)||label.includes(normalize(k)));
       if(!key)return;
-      btn.dataset.menuV2='1';
       btn.setAttribute('aria-label',key);
-      btn.innerHTML='<span class="menu-icon">'+icons[key]+'</span><span class="menu-label">'+key+'</span>';
+      btn.innerHTML='<span class="menu-icon" aria-hidden="true">'+icons[key]+'</span><span class="menu-label">'+key+'</span>';
     }
     function apply(){
       const nav=document.querySelector('.nav');
@@ -106,10 +191,11 @@
       nav.querySelectorAll('button').forEach(formatButton);
       return true;
     }
-    apply();setTimeout(apply,50);setTimeout(apply,300);setTimeout(apply,1000);setTimeout(apply,2500);
+    apply();
+    [50,200,500,1000,2000,3500].forEach(ms=>setTimeout(apply,ms));
   }
 
-  function bootCareerFallback(){
+  function boot(){
     ensureCareerNav();
     installProfessionalSidebar();
     setTimeout(ensureCareerNav,250);
@@ -118,7 +204,6 @@
   }
 
   loadScript(ORIGINAL_SYNC,function(){console.info('[BOOT] Sincronização cloud original carregada.');},function(src){console.error('[BOOT] Falha na sincronização cloud original:',src);});
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootCareerFallback,{once:true});
-  else bootCareerFallback();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
 })();
