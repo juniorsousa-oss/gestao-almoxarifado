@@ -19,6 +19,80 @@
     return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
   }
 
+  function careerMenuStyle(){
+    const id='career-menu-override-final';
+    let style=document.getElementById(id);
+    if(!style){
+      style=document.createElement('style');
+      style.id=id;
+      document.head.appendChild(style);
+    }
+    style.textContent=`
+      /* O módulo Plano de Carreira não pode substituir o padrão visual da sidebar. */
+      .sidebar .nav button#navCarreira{
+        width:100%!important;
+        height:54px!important;
+        min-height:54px!important;
+        margin:0!important;
+        padding:0 12px!important;
+        display:grid!important;
+        grid-template-columns:34px minmax(0,1fr)!important;
+        align-items:center!important;
+        column-gap:8px!important;
+        border:1px solid transparent!important;
+        border-radius:11px!important;
+        background:transparent!important;
+        color:#dfe4e1!important;
+        text-align:left!important;
+        font-family:Inter,Segoe UI,Arial,sans-serif!important;
+        font-size:13px!important;
+        font-weight:800!important;
+        line-height:1!important;
+        white-space:nowrap!important;
+        overflow:hidden!important;
+        box-shadow:none!important;
+        opacity:1!important;
+        visibility:visible!important;
+      }
+      .sidebar .nav button#navCarreira:hover{
+        background:#121715!important;
+        color:#fff!important;
+      }
+      .sidebar .nav button#navCarreira.active{
+        background:#ffd43b!important;
+        border-color:#ffd43b!important;
+        color:#111!important;
+        opacity:1!important;
+        visibility:visible!important;
+      }
+      .sidebar .nav button#navCarreira .menu-icon{
+        width:30px!important;
+        height:30px!important;
+        display:grid!important;
+        place-items:center!important;
+        color:inherit!important;
+      }
+      .sidebar .nav button#navCarreira .menu-icon svg{
+        width:20px!important;
+        height:20px!important;
+        display:block!important;
+        stroke:currentColor!important;
+        fill:none!important;
+        stroke-width:1.8!important;
+        stroke-linecap:round!important;
+        stroke-linejoin:round!important;
+      }
+      .sidebar .nav button#navCarreira .menu-label{
+        min-width:0!important;
+        display:block!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+        color:inherit!important;
+      }
+    `;
+  }
+
   function ensureCareerNav(){
     const nav=document.querySelector('.nav');
     if(!nav)return false;
@@ -32,7 +106,13 @@
       if(teamBtn)teamBtn.insertAdjacentElement('afterend',btn);else nav.appendChild(btn);
     }
     btn.onclick=function(){
-      if(typeof window.openCareerModule==='function'){window.openCareerModule();return;}
+      if(typeof window.openCareerModule==='function'){
+        window.openCareerModule();
+        setTimeout(restoreCareerNav,0);
+        setTimeout(restoreCareerNav,50);
+        setTimeout(restoreCareerNav,200);
+        return;
+      }
       if(fallbackLoading)return;
       fallbackLoading=true;
       loadScript(CAREER+'?fallback='+Date.now(),function(){
@@ -40,8 +120,27 @@
         if(typeof window.openCareerModule==='function')window.openCareerModule();
         else if(typeof window.renderCareerModule==='function')window.renderCareerModule();
         else alert('Não foi possível inicializar o Plano de Carreira.');
+        setTimeout(restoreCareerNav,0);
+        setTimeout(restoreCareerNav,100);
+        setTimeout(restoreCareerNav,300);
       },function(){fallbackLoading=false;alert('Não foi possível carregar o Plano de Carreira.');});
     };
+    careerMenuStyle();
+    restoreCareerNav();
+    return true;
+  }
+
+  function restoreCareerNav(){
+    const btn=document.getElementById('navCarreira');
+    if(!btn)return false;
+    const careerView=document.getElementById('carreira');
+    const shouldBeActive=!!(careerView&&careerView.classList.contains('active'));
+    if(!btn.querySelector('.menu-icon')){
+      btn.innerHTML='<span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20V4"/><path d="m6 10 6-6 6 6"/></svg></span><span class="menu-label">PLANO DE CARREIRA</span>';
+    }
+    if(shouldBeActive)btn.classList.add('active');
+    else if(document.getElementById('carreira'))btn.classList.remove('active');
+    careerMenuStyle();
     return true;
   }
 
@@ -170,7 +269,7 @@
       'HISTÓRICO':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>',
       'GESTÃO DE EQUIPES':'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-3.5 2.5-5.5 5.5-5.5s5 2 5.5 5.5"/><path d="M15 6a3 3 0 0 1 0 5.8M17 15c2 .5 3.2 2.1 3.5 4"/></svg>',
       'PLANO DE CARREIRA':'<svg viewBox="0 0 24 24"><path d="M12 20V4"/><path d="m6 10 6-6 6 6"/></svg>',
-      'CONFIGURAÇÕES':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.8 1.8 0 0 0 .35 1.98l.06.06-1.8 1.8-.06-.06a1.8 1.8 0 0 0-1.98-.35 1.8 1.8 0 0 0-1.08 1.65V20h-2.55v-.08a1.8 1.8 0 0 0-1.08-1.65 1.8 1.8 0 0 0-1.98.35l-.06.06-1.8-1.8.06-.06A1.8 1.8 0 0 0 7.9 15a1.8 1.8 0 0 0-1.65-1.08H6v-2.55h.25A1.8 1.8 0 0 0 7.9 10.3a1.8 1.8 0 0 0-.35-1.98l-.06-.06 1.8-1.8.06.06a1.8 1.8 0 0 0 1.98.35A1.8 1.8 0 0 0 12.4 5.2V5h2.55v.2a1.8 1.8 0 0 0 1.08 1.67 1.8 1.8 0 0 0 1.98-.35l.06-.06 1.8 1.8-.06.06a1.8 1.8 0 0 0-.35 1.98 1.8 1.8 0 0 0-1.65 1.08 7 7 0 0 0 0 2.55Z"/></svg>'
+      'CONFIGURAÇÕES':'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.8 1.8 0 0 0 .35 1.98l.06.06-1.8 1.8-.06-.06a1.8 1.8 0 0 0-1.98-.35 1.8 1.8 0 0 0-1.08 1.65V20h-2.55v-.08a1.8 1.8 0 0 0-1.08-1.65 1.8 1.8 0 0 0-1.98.35l-.06.06-1.8-1.8.06-.06A1.8 1.8 0 0 0 7.9 15a1.8 1.8 0 0 0-1.65-1.08H6v-2.55h.25A1.8 1.8 0 0 0 7.9 10.3a1.8 1.8 0 0 0-.35-1.98l-.06-.06 1.8-1.8.06.06a1.8 1.8 0 0 0 1.98.35A1.8 1.8 0 0 0 12.4 5.2V5h2.55v.2a1.8 1.8 0 0 0 1.08 1.67 1.8 1.8 0 0 0 1.08 1.67 1.8 1.8 0 0 0 1.98-.35l.06-.06 1.8 1.8-.06.06a1.8 1.8 0 0 0-.35 1.98 1.8 1.8 0 0 0-1.65 1.08 7 7 0 0 0 0 2.55Z"/></svg>'
     };
 
     function labelOf(btn){
@@ -189,6 +288,7 @@
       if(!nav)return false;
       ensureCareerNav();
       nav.querySelectorAll('button').forEach(formatButton);
+      restoreCareerNav();
       return true;
     }
     apply();
@@ -201,6 +301,7 @@
     setTimeout(ensureCareerNav,250);
     setTimeout(ensureCareerNav,1000);
     setTimeout(ensureCareerNav,2500);
+    setTimeout(restoreCareerNav,3500);
   }
 
   loadScript(ORIGINAL_SYNC,function(){console.info('[BOOT] Sincronização cloud original carregada.');},function(src){console.error('[BOOT] Falha na sincronização cloud original:',src);});
