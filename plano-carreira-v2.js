@@ -3,45 +3,32 @@
 'use strict';
 var VIEW_ID='carreira',NAV_ID='navCarreira',STYLE_ID='careerStyleStable';
 var CSS=`
-/* ==========================================================
-   PADRÃO VISUAL DO SISTEMA — MENU + CABEÇALHOS + CARREIRA
-   ========================================================== */
 .sidebar{width:245px!important;padding:25px 14px!important;background:#0a0d0c!important}
 .sidebar .brand{height:78px!important;margin:0 0 18px!important;display:flex!important;align-items:center!important;justify-content:center!important}
 .sidebar .brand img{max-width:165px!important;max-height:58px!important;object-fit:contain!important;display:block!important}
 .sidebar .placeholder{font-size:34px!important;font-weight:800!important;letter-spacing:-2px!important;line-height:1!important}
-.sidebar .nav{display:flex!important;flex-direction:column!important;gap:5px!important;padding:0!important}
-.sidebar .nav button{width:100%!important;height:46px!important;min-height:46px!important;margin:0!important;padding:0 13px!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;display:grid!important;grid-template-columns:28px minmax(0,1fr)!important;align-items:center!important;column-gap:8px!important;text-align:left!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;outline:none!important;box-shadow:none!important;font-size:13px!important;font-weight:800!important;color:#d0d6d3!important}
+.sidebar .nav{display:flex!important;flex-direction:column!important;gap:6px!important;padding:0!important}
+.sidebar .nav button{position:relative!important;width:100%!important;height:46px!important;min-height:46px!important;margin:0!important;padding:0 13px!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;align-items:center!important;column-gap:8px!important;text-align:left!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;outline:none!important;box-shadow:none!important;font-size:0!important;font-weight:800!important;color:#d0d6d3!important}
 .sidebar .nav button:hover{background:#171d1a!important;border-color:#29332f!important;color:#fff!important}
 .sidebar .nav button.active{background:var(--yellow)!important;border-color:var(--yellow)!important;color:#111!important}
 .sidebar .nav button:focus,.sidebar .nav button:focus-visible{outline:none!important;box-shadow:none!important}
-.sidebar .nav button>*{display:inline!important;min-width:0!important}
-.sidebar .nav button::before{display:none!important}
-.sidebar .nav button::after{display:none!important}
-.sidebar .nav button .nav-career-icon{grid-column:1!important;display:grid!important;place-items:center!important;width:28px!important;height:28px!important;margin:0!important;font-size:15px!important;line-height:1!important;color:inherit!important}
-.sidebar .nav button:not(#navCarreira){font-size:0!important}
-.sidebar .nav button:not(#navCarreira)::before{display:block!important;grid-column:1!important;width:28px!important;text-align:center!important;font-size:15px!important;color:#b9c0bd!important}
-.sidebar .nav button:not(#navCarreira)::after{display:block!important;grid-column:2!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:13px!important;font-weight:800!important;line-height:1!important;color:#d7dcda!important}
-.sidebar .nav button:nth-child(1)::before{content:'▦'}.sidebar .nav button:nth-child(1)::after{content:'DASHBOARD'}
-.sidebar .nav button:nth-child(2)::before{content:'✎'}.sidebar .nav button:nth-child(2)::after{content:'ALIMENTAR INDICADORES'}
-.sidebar .nav button:nth-child(3)::before{content:'◷'}.sidebar .nav button:nth-child(3)::after{content:'HISTÓRICO'}
-.sidebar .nav button:nth-child(4)::before{content:'♙'}.sidebar .nav button:nth-child(4)::after{content:'GESTÃO DE EQUIPES'}
-.sidebar .nav button:nth-child(5)::before{content:'⚙'}.sidebar .nav button:nth-child(5)::after{content:'CONFIGURAÇÕES'}
-.sidebar .nav button.active:not(#navCarreira)::before,.sidebar .nav button.active:not(#navCarreira)::after{color:#111!important}
-#navCarreira{grid-template-columns:28px minmax(0,1fr)!important;font-size:13px!important}
-#navCarreira .nav-career-icon{grid-column:1!important}
-#navCarreira{color:#d7dcda!important}
-#navCarreira.active{color:#111!important}
+.sidebar .nav button>*{display:none!important}
+.sidebar .nav button::before{display:block!important;grid-column:1!important;width:30px!important;text-align:center!important;font-size:16px!important;font-family:"Segoe UI Symbol","Segoe UI",Arial,sans-serif!important;line-height:1!important;color:#b9c0bd!important}
+.sidebar .nav button::after{display:block!important;grid-column:2!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:13px!important;font-weight:800!important;line-height:1!important;color:#d7dcda!important}
+#navDashboard::before{content:'▦'}#navDashboard::after{content:'DASHBOARD'}
+#navFeed::before{content:'✎'}#navFeed::after{content:'ALIMENTAR INDICADORES'}
+#navHistory::before{content:'◷'}#navHistory::after{content:'HISTÓRICO'}
+#navTeams::before{content:'♙'}#navTeams::after{content:'GESTÃO DE EQUIPES'}
+#navConfig::before{content:'⚙'}#navConfig::after{content:'CONFIGURAÇÕES'}
+#navCarreira::before{content:'⇧'}#navCarreira::after{content:'PLANO DE CARREIRA'}
+.sidebar .nav button.active::before,.sidebar .nav button.active::after{color:#111!important}
+#navCarreira{grid-template-columns:30px minmax(0,1fr)!important;color:#d7dcda!important}
 .main{margin-left:245px!important;width:calc(100% - 245px)!important;padding:27px 32px 45px!important}
 .view>.topbar{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:18px!important;margin:0 0 27px!important;padding:0!important}
 .view>.topbar .title{min-width:0!important}
 .view>.topbar .title h1{margin:0!important;font-size:29px!important;line-height:1.12!important;letter-spacing:-.5px!important;font-weight:900!important;color:#f4f5f4!important}
 .view>.topbar .title p{margin:6px 0 0!important;color:#9aa39f!important;font-size:13px!important;line-height:1.4!important}
 .view>.topbar>.btn{flex:0 0 auto!important}
-
-/* ==========================================================
-   PLANO DE CARREIRA — mesma linguagem da GESTÃO DE EQUIPES
-   ========================================================== */
 #carreira{display:none!important}
 #carreira.active{display:block!important}
 #carreira .career-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:0 0 13px!important}
@@ -75,23 +62,9 @@ var CSS=`
 #carreira .career-select{background:#0c110f;color:#f5f5f5;border:1px solid #3a4540;border-radius:8px;padding:8px 10px;font-size:11px;min-width:120px}
 #carreira .career-role-note{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px;margin-bottom:16px;line-height:1.45}
 #carreira .notice{margin-bottom:15px!important}
-.nav-career-icon{display:grid!important;place-items:center!important;width:28px!important;height:28px!important;margin:0!important;text-align:center!important;font-size:15px!important;font-weight:900!important}
-
-@media(max-width:1050px){
- .sidebar{width:210px!important}.main{margin-left:210px!important;width:calc(100% - 210px)!important}
- #carreira .career-layout{grid-template-columns:1fr!important}
- #carreira .career-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-}
-@media(max-width:700px){
- .sidebar{position:static!important;width:100%!important;height:auto!important}
- .main{margin:0!important;width:100%!important;padding:20px!important}
- .sidebar .nav{flex-direction:row!important;overflow:auto!important}
- .sidebar .nav button{flex:0 0 auto!important;width:auto!important;min-width:150px!important}
- .view>.topbar{align-items:flex-start!important;flex-direction:column!important}
- #carreira .career-kpis{grid-template-columns:1fr!important}
- #carreira .career-person{grid-template-columns:38px minmax(0,1fr)!important}
- #carreira .career-person>div:nth-child(3),#carreira .career-person>div:nth-child(4){grid-column:2!important}
-}
+.nav-career-icon{display:none!important}
+@media(max-width:1050px){.sidebar{width:210px!important}.main{margin-left:210px!important;width:calc(100% - 210px)!important}#carreira .career-layout{grid-template-columns:1fr!important}#carreira .career-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){.sidebar{position:static!important;width:100%!important;height:auto!important}.main{margin:0!important;width:100%!important;padding:20px!important}.sidebar .nav{flex-direction:row!important;overflow:auto!important}.sidebar .nav button{flex:0 0 auto!important;width:auto!important;min-width:150px!important}.view>.topbar{align-items:flex-start!important;flex-direction:column!important}#carreira .career-kpis{grid-template-columns:1fr!important}#carreira .career-person{grid-template-columns:38px minmax(0,1fr)!important}#carreira .career-person>div:nth-child(3),#carreira .career-person>div:nth-child(4){grid-column:2!important}}
 `;
 function normalizeRole(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase()}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
@@ -109,7 +82,7 @@ function filteredPeople(pl){return pl?people().filter(function(p){return candida
 function assessment(pid,plid){var d=careerData();if(!d)return{};return(d.assessments[String(pid)]||{})[String(plid)]||{}}
 function score(pid,pl){var req=Array.isArray(pl&&pl.requirements)?pl.requirements:[],a=assessment(pid,pl.id),done=req.filter(function(r){return a[String(r.id)]===true}).length;return{done:done,total:req.length,pct:req.length?Math.round(done/req.length*100):0,ok:req.length>0&&done===req.length}}
 function openModule(){ensureStyle();addNav();addView();var v=document.getElementById(VIEW_ID);if(!v)return false;document.querySelectorAll('.view').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav button').forEach(function(x){x.classList.remove('active')});v.classList.add('active');var b=document.getElementById(NAV_ID);if(b)b.classList.add('active');var d=careerData();if(d&&d.plans.length&&!window.careerPlanId)window.careerPlanId=d.plans[0].id;render();window.scrollTo({top:0,behavior:'smooth'});return true}
-function render(){ensureStyle();addNav();addView();var v=document.getElementById(VIEW_ID),d=careerData();if(!v||!d)return;var pl=activePlan(),ps=pl?filteredPeople(pl):[],ss=pl?ps.map(function(p){return score(p.id,pl)}):[],apt=ss.filter(function(x){return x.ok}).length,dev=ss.filter(function(x){return x.done>0&&!x.ok}).length,none=ss.filter(function(x){return x.done===0}).length;v.innerHTML='<div class="topbar"><div class="title"><h1>PLANO DE CARREIRA</h1><p>Pré-requisitos de promoção e acompanhamento de prontidão dos colaboradores.</p></div><button class="btn btn-primary" type="button" onclick="careerNewPlan()">+ NOVO PLANO</button></div><div class="career-kpis"><div class="career-kpi"><span>PLANOS</span><strong>'+d.plans.length+'</strong></div><div class="career-kpi good"><span>APTOS</span><strong>'+apt+'</strong></div><div class="career-kpi warn"><span>EM DESENVOLVIMENTO</span><strong>'+dev+'</strong></div><div class="career-kpi"><span>SEM AVALIAÇÃO</span><strong>'+none+'</strong></div></div><div class="career-layout"><div class="career-card"><div class="career-head"><div><h2>TRILHAS DE PROMOÇÃO</h2><div class="career-muted">Uma trilha para cada movimento de carreira.</div></div></div><div class="career-plans">'+(d.plans.length?d.plans.map(function(p){return '<div class="career-plan '+(pl&&String(pl.id)===String(p.id)?'active':'')+'" onclick="careerSelectPlan(\''+esc(p.id)+'\')"><b>'+esc(p.name)+'</b><small>'+esc(p.currentRole||'')+' → '+esc(p.targetRole||'')+' · '+((p.requirements||[]).length)+' requisito(s)</small></div>'}).join(''):'<div class="career-muted">Nenhum plano cadastrado.</div>')+'</div></div><div class="career-card">'+(pl?renderPlan(pl):'<div class="career-muted">Crie o primeiro plano para começar.</div>')+'</div></div>'}
+function render(){ensureStyle();addNav();addView();var v=document.getElementById(VIEW_ID),d=careerData();if(!v||!d)return;var pl=activePlan(),ps=pl?filteredPeople(pl):[],ss=pl?ps.map(function(p){return score(p.id,pl)}):[],apt=ss.filter(function(x){return x.ok}).length,dev=ss.filter(function(x){return x.done>0&&!x.ok}).length,none=ss.filter(function(x){return x.done===0}).length;v.innerHTML='<div class="topbar"><div class="title"><h1>PLANO DE CARREIRA</h1><p>Pré-requisitos de promoção e acompanhamento de prontidão dos colaboradores.</p></div><button class="btn btn-primary" type="button" onclick="careerNewPlan()">+ NOVO PLANO</button></div><div class="career-kpis"><div class="career-kpi"><span>PLANOS</span><strong>'+d.plans.length+'</strong></div><div class="career-kpi good"><span>APTOS</span><strong>'+apt+'</strong></div><div class="career-kpi warn"><span>EM DESENVOLVIMENTO</span><strong>'+dev+'</strong></div><div class="career-kpi"><span>SEM AVALIAÇÃO</span><strong>'+none+'</strong></div></div><div class="career-layout"><div class="career-card"><div class="career-head"><div><h2>TRILHAS DE PROMOÇÃO</h2><div class="career-muted">Uma trilha para cada movimento de carreira.</div></div></div><div class="career-plans">'+(d.plans.length?d.plans.map(function(p){return '<div class="career-plan '+(pl&&String(pl.id)===String(p.id)?'active':'')+'" onclick="careerSelectPlan(\''+esc(p.id)+'\')"><b>'+esc(p.name)+'</b><small>'+esc(p.currentRole||'')+' → '+esc(p.targetRole||'')+' · '+((p.requirements||[]).length)+' requisito(s)</small></div>}).join(''):'<div class="career-muted">Nenhum plano cadastrado.</div>')+'</div></div><div class="career-card">'+(pl?renderPlan(pl):'<div class="career-muted">Crie o primeiro plano para começar.</div>')+'</div></div>'}
 function renderPlan(pl){var filter=window.careerFilter||'all',role=pl.currentRole||'',ps=filteredPeople(pl),req=Array.isArray(pl.requirements)?pl.requirements:[];return '<div class="career-head"><div><h2>'+esc(pl.name)+'</h2><div class="career-muted">'+esc(role)+' → <b>'+esc(pl.targetRole||'')+'</b></div></div><div class="career-toolbar"><button class="btn btn-small" onclick="careerEditPlan(\''+esc(pl.id)+'\')">EDITAR</button><button class="btn btn-small btn-danger" onclick="careerDeletePlan(\''+esc(pl.id)+'\')">EXCLUIR</button></div></div>'+(pl.description?'<div class="notice">'+esc(pl.description)+'</div>':'')+'<div class="career-role-note"><b>CANDIDATOS:</b> somente colaboradores cujo cargo atual seja exatamente <b>'+esc(role||'TODOS')+'</b>. Cargos diferentes, inclusive superiores, não aparecem nesta trilha.</div><div class="career-head"><div><h2>PRÉ-REQUISITOS</h2><div class="career-muted">Todos os critérios cadastrados são obrigatórios para atingir APTO.</div></div><button class="btn btn-primary btn-small" onclick="careerAddReq(\''+esc(pl.id)+'\')">+ REQUISITO</button></div>'+(req.length?req.map(function(r,i){return '<div class="career-req"><div class="career-num">'+(i+1)+'</div><div><b>'+esc(r.label)+'</b><small>'+esc(r.type||'Critério')+'</small></div><button class="btn btn-small btn-danger" onclick="careerRemoveReq(\''+esc(pl.id)+'\',\''+esc(r.id)+'\')">REMOVER</button></div>'}).join(''):'<div class="career-muted" style="padding:18px 0">Adicione os pré-requisitos da promoção.</div>')+'<div class="career-head" style="margin-top:18px"><div><h2>PRONTIDÃO</h2><div class="career-muted">'+ps.length+' candidato(s) compatível(is) com o cargo atual.</div></div><select class="career-select" onchange="careerSetFilter(this.value)"><option value="all" '+(filter==='all'?'selected':'')+'>TODOS</option><option value="apt" '+(filter==='apt'?'selected':'')+'>APTOS</option><option value="dev" '+(filter==='dev'?'selected':'')+'>EM DESENVOLVIMENTO</option><option value="none" '+(filter==='none'?'selected':'')+'>SEM AVALIAÇÃO</option></select></div>'+renderPeople(pl,filter)}
 function avatar(p){var src=p&&(p.photo||p.foto||p.image||p.imagem||'');return src?'<div class="avatar"><img src="'+esc(src)+'" alt=""></div>':'<div class="avatar">'+esc(((p&&p.name)||'?').charAt(0).toUpperCase())+'</div>'}
 function renderPeople(pl,filter){var list=filteredPeople(pl);if(!list.length)return'<div class="career-muted" style="padding:20px">Nenhum colaborador encontrado com o cargo atual <b>'+esc(pl.currentRole||'informado no plano')+'</b>.</div>';var html='';list.forEach(function(p){var s=score(p.id,pl);if(filter==='apt'&&!s.ok)return;if(filter==='dev'&&!(s.done>0&&!s.ok))return;if(filter==='none'&&s.done!==0)return;html+='<div class="career-person">'+avatar(p)+'<div class="career-person-name">'+esc(p.name||'SEM NOME')+'<small>'+esc(p.role||p.funcao||p.cargo||'')+'</small></div><div><div class="career-progress"><div style="width:'+s.pct+'%"></div></div><div class="career-muted" style="margin-top:4px">'+s.done+'/'+s.total+' requisitos · '+s.pct+'%</div></div><div><div class="career-status '+(s.ok?'ok':(s.done?'warn':'bad'))+'">'+(s.ok?'APTO':(s.done?'EM DESENV.':'NÃO AVALIADO'))+'</div><button class="btn btn-small" style="width:100%;margin-top:5px" onclick="careerAssess(\''+esc(p.id)+'\',\''+esc(pl.id)+'\')">AVALIAR</button></div></div>'});return html||'<div class="career-muted" style="padding:20px">Nenhum colaborador encontrado para este filtro.</div>'}
