@@ -240,4 +240,22 @@
 
   bootstrap();
   setInterval(poll,POLL_MS);
+
+  /*
+     CARREGAMENTO EXPLÍCITO DO LAYOUT DO ORGANOGRAMA.
+     O arquivo de layout já existe no projeto, mas não estava sendo incluído
+     pelo index.html. Carregamos aqui para não alterar o restante do aplicativo.
+  */
+  function loadOrgLayout(){
+    if(document.getElementById('organograma-layout-v8-loader'))return;
+    const s=document.createElement('script');
+    s.id='organograma-layout-v8-loader';
+    s.src='./organograma-layout-v7.js?v=8';
+    s.async=false;
+    s.onload=function(){ console.info('[ORGANOGRAMA] layout V8 carregado'); };
+    s.onerror=function(){ console.error('[ORGANOGRAMA] não foi possível carregar o layout V8'); };
+    document.body.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadOrgLayout,{once:true});
+  else loadOrgLayout();
 })();
