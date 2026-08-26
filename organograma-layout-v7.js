@@ -1,27 +1,28 @@
-/* ORGANOGRAMA V11 — árvore corporativa com conectores SVG e menu alinhado. */
+/* ORGANOGRAMA V12 — menu lateral refinado e árvore corporativa com conectores SVG. */
 (function(){'use strict';
-const STYLE_ID='organograma-layout-v11-style';
+const STYLE_ID='organograma-layout-v12-style';
 function installStyle(){
  if(document.getElementById(STYLE_ID))return;
  const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
-/* MENU PRINCIPAL */
-.sidebar .nav{display:flex!important;flex-direction:column!important;gap:7px!important;padding:0!important;align-items:stretch!important}
-.sidebar .nav button{width:100%!important;height:46px!important;min-height:46px!important;margin:0!important;padding:0 14px!important;border:1px solid transparent!important;border-radius:10px!important;display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;column-gap:11px!important;justify-content:initial!important;text-align:left!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;font-size:0!important;position:relative!important;outline:none!important;box-shadow:none!important}
+/* MENU LATERAL — grade fixa, tipografia limpa e ícones consistentes */
+.sidebar{width:255px!important;padding:25px 14px!important}
+.sidebar .nav{display:flex!important;flex-direction:column!important;gap:5px!important;padding:0!important;align-items:stretch!important;width:100%!important}
+.sidebar .nav button{width:100%!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0 12px!important;border:1px solid transparent!important;border-radius:10px!important;display:grid!important;grid-template-columns:24px minmax(0,1fr)!important;align-items:center!important;column-gap:8px!important;text-align:left!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;font-size:0!important;position:relative!important;outline:none!important;box-shadow:none!important}
 .sidebar .nav button:focus,.sidebar .nav button:focus-visible{outline:none!important;box-shadow:none!important}
 .sidebar .nav button>*{display:none!important}
-.sidebar .nav button::before{grid-column:1!important;width:22px!important;min-width:22px!important;text-align:center!important;font-size:16px!important;line-height:1!important;display:block!important;color:#b9c0bd!important}
-.sidebar .nav button::after{grid-column:2!important;min-width:0!important;font-size:13px!important;font-weight:800!important;line-height:1!important;letter-spacing:.1px!important;display:block!important;color:#d7dcda!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.sidebar .nav button::before{grid-column:1!important;width:24px!important;height:24px!important;min-width:24px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:15px!important;line-height:24px!important;font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif!important;font-weight:400!important;color:#b9c3bf!important}
+.sidebar .nav button::after{grid-column:2!important;min-width:0!important;display:block!important;font-size:12px!important;font-family:Inter,Segoe UI,Arial,sans-serif!important;font-weight:800!important;line-height:48px!important;letter-spacing:.15px!important;color:#e0e5e2!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 .sidebar .nav button:nth-child(1)::before{content:'▦'}.sidebar .nav button:nth-child(1)::after{content:'DASHBOARD'}
 .sidebar .nav button:nth-child(2)::before{content:'✎'}.sidebar .nav button:nth-child(2)::after{content:'ALIMENTAR INDICADORES'}
 .sidebar .nav button:nth-child(3)::before{content:'◷'}.sidebar .nav button:nth-child(3)::after{content:'HISTÓRICO'}
 .sidebar .nav button:nth-child(4)::before{content:'♙'}.sidebar .nav button:nth-child(4)::after{content:'GESTÃO DE EQUIPES'}
 .sidebar .nav button:nth-child(5)::before{content:'⇧'}.sidebar .nav button:nth-child(5)::after{content:'PLANO DE CARREIRA'}
 .sidebar .nav button:nth-child(6)::before{content:'⚙'}.sidebar .nav button:nth-child(6)::after{content:'CONFIGURAÇÕES'}
-.sidebar .nav button:hover{background:#171d1a!important;border-color:#2d3732!important;color:#fff!important}
+.sidebar .nav button:hover{background:#171d1a!important;border-color:#2d3732!important}
 .sidebar .nav button.active{background:var(--yellow)!important;border-color:var(--yellow)!important;color:#111!important}
 .sidebar .nav button.active::before,.sidebar .nav button.active::after{color:#111!important}
 
-/* ÁREA */
+/* ÁREA DO ORGANOGRAMA */
 #equipes .free-org-area{position:relative!important;min-height:560px!important;max-height:720px!important;overflow:auto!important;padding:34px 30px 50px!important;background:linear-gradient(180deg,#0a0f0d,#0d1310)!important;border:1px solid #2b3530!important;border-radius:14px!important;display:block!important}
 #equipes .org-v11-canvas{position:relative;width:max-content;min-width:100%;min-height:480px;margin:0 auto;padding:8px 34px 42px;box-sizing:border-box}
 #equipes .org-v11-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
@@ -41,8 +42,8 @@ function installStyle(){
 #equipes .org-v11-children{display:flex;justify-content:center;align-items:flex-start;gap:28px;width:max-content;margin-top:54px}
 #equipes .org-v11-root-drop{height:28px;width:100%;margin-top:24px}
 #equipes .org-v11-empty{padding:150px 20px;color:#68736d;text-align:center;font-size:12px}
-@media(max-width:900px){#equipes .free-org-area{min-height:520px;padding:28px 20px 44px!important}#equipes .org-v11-root-list{gap:28px}#equipes .org-v11-children{gap:20px}}
-@media(max-width:700px){.sidebar .nav button{height:44px!important;min-height:44px!important}#equipes .free-org-area{min-height:470px;padding:24px 12px 34px!important}#equipes .org-v11-node{width:185px!important;min-width:185px!important;height:74px!important;min-height:74px!important}#equipes .org-v11-photo{width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;flex-basis:46px!important}#equipes .org-v11-root-list{gap:18px}#equipes .org-v11-children{gap:16px;margin-top:46px}}
+@media(max-width:900px){.sidebar{width:230px!important}.main{margin-left:230px!important;width:calc(100% - 230px)!important}#equipes .free-org-area{min-height:520px;padding:28px 20px 44px!important}#equipes .org-v11-root-list{gap:28px}#equipes .org-v11-children{gap:20px}}
+@media(max-width:700px){.sidebar{width:100%!important;padding:20px!important}.main{margin-left:0!important;width:100%!important}.sidebar .nav{flex-direction:row!important;overflow:auto!important}.sidebar .nav button{width:auto!important;min-width:170px!important;height:44px!important;min-height:44px!important}.sidebar .nav button::after{line-height:44px!important}#equipes .free-org-area{min-height:470px;padding:24px 12px 34px!important}#equipes .org-v11-node{width:185px!important;min-width:185px!important;height:74px!important;min-height:74px!important}#equipes .org-v11-photo{width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;flex-basis:46px!important}#equipes .org-v11-root-list{gap:18px}#equipes .org-v11-children{gap:16px;margin-top:46px}}
 `;
  document.head.appendChild(s);
 }
