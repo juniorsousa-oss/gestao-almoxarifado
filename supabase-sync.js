@@ -10,6 +10,7 @@
   const CAREER='./plano-carreira-v2.js';
   const NAV_ID='navCarreira';
   let careerLoading=false;
+  let careerAttempts=0;
 
   function loadScript(src,onload,onerror){
     const s=document.createElement('script');
@@ -25,61 +26,58 @@
   }
 
   function openCareer(){
-    if(careerLoading)return;
-
-    /* Se o módulo já expôs sua API pública, abre diretamente. */
     if(typeof window.openCareerModule==='function'){
       window.openCareerModule();
       return;
     }
+    if(careerLoading)return;
+    if(careerAttempts>=2){
+      console.error('[CAREER] Módulo não registrou a navegação após 2 tentativas.');
+      alert('Não foi possível abrir o Plano de Carreira. Atualize a página e tente novamente.');
+      return;
+    }
 
     careerLoading=true;
-
-    /*
-       O módulo de carreira atual é um IIFE e registra o próprio onclick
-       no botão #navCarreira. Como o loader também cria esse botão, removemos
-       somente o botão de compatibilidade antes de recarregar o módulo.
-       Assim o próprio módulo assume o controle da navegação sem alterar
-       qualquer outra parte do aplicativo.
-    */
-    const old=document.getElementById(NAV_ID);
-    if(old)old.remove();
-
-    loadScript(CAREER+'?open='+Date.now(),function(){
+    careerAttempts++;
+    loadScript(CAREER+'?boot='+careerAttempts+'&t='+Date.now(),function(){
       careerLoading=false;
-      const moduleButton=document.getElementById(NAV_ID);
-      if(moduleButton){
-        moduleButton.click();
-        return;
-      }
       if(typeof window.openCareerModule==='function'){
         window.openCareerModule();
         return;
       }
-      console.error('[CAREER] Módulo carregado, mas o botão não foi registrado.');
-      alert('O Plano de Carreira foi carregado, mas não conseguiu registrar a navegação.');
-      bootCareerNav();
+      if(typeof window.renderCareerModule==='function'){
+        window.renderCareerModule();
+        return;
+      }
+      console.error('[CAREER] Arquivo carregado, mas a API do módulo não foi registrada.');
+      setTimeout(function(){
+        if(typeof window.openCareerModule==='function')window.openCareerModule();
+        else if(typeof window.renderCareerModule==='function')window.renderCareerModule();
+        else alert('O Plano de Carreira foi carregado, mas a navegação não foi registrada.');
+      },100);
     },function(src){
       careerLoading=false;
       console.error('[CAREER] Falha ao carregar módulo:',src);
-      alert('Não foi possível carregar o Plano de Carreira.');
-      bootCareerNav();
+      if(careerAttempts<2)setTimeout(openCareer,250);
+      else alert('Não foi possível carregar o Plano de Carreira.');
     });
   }
 
   function ensureCareerNav(){
     const nav=document.querySelector('.nav');
-    if(!nav || document.getElementById(NAV_ID))return;
+    if(!nav)return;
 
-    const btn=document.createElement('button');
-    btn.id=NAV_ID;
-    btn.type='button';
-    btn.innerHTML='<span style="display:inline-block;width:18px;text-align:center;margin-right:3px;font-size:15px">⇧</span> PLANO DE CARREIRA';
+    let btn=document.getElementById(NAV_ID);
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id=NAV_ID;
+      btn.type='button';
+      btn.innerHTML='<span style="display:inline-block;width:18px;text-align:center;margin-right:3px;font-size:15px">⇧</span> PLANO DE CARREIRA';
+      const teamBtn=[...nav.querySelectorAll('button')].find(b=>normalize(b.textContent).includes('GESTAO DE EQUIPES'));
+      if(teamBtn)teamBtn.insertAdjacentElement('afterend',btn);
+      else nav.appendChild(btn);
+    }
     btn.onclick=openCareer;
-
-    const teamBtn=[...nav.querySelectorAll('button')].find(b=>normalize(b.textContent).includes('GESTAO DE EQUIPES'));
-    if(teamBtn)teamBtn.insertAdjacentElement('afterend',btn);
-    else nav.appendChild(btn);
   }
 
   function bootCareerNav(){
@@ -89,14 +87,12 @@
     setTimeout(ensureCareerNav,1500);
   }
 
-  /* A navegação é criada independentemente do módulo de carreira. */
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootCareerNav,{once:true});
   else bootCareerNav();
 
-  /* Sincronização cloud original permanece independente. */
   loadScript(ORIGINAL_SYNC,function(){
     console.info('[BOOT] Sincronização cloud original carregada.');
   },function(src){
-    console.error('[BOOT] Falha na sincronização original:',src);
+    console.error('[BOOT] Falha na sincronização cloud original:',src);
   });
 })();
