@@ -1,63 +1,197 @@
-/* ORGANOGRAMA V12 — menu lateral refinado e árvore corporativa com conectores SVG. */
-(function(){'use strict';
-const STYLE_ID='organograma-layout-v12-style';
-function installStyle(){
- if(document.getElementById(STYLE_ID))return;
- const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
-/* MENU LATERAL — grade fixa, tipografia limpa e ícones consistentes */
-.sidebar{width:255px!important;padding:25px 14px!important}
-.sidebar .nav{display:flex!important;flex-direction:column!important;gap:5px!important;padding:0!important;align-items:stretch!important;width:100%!important}
-.sidebar .nav button{width:100%!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0 12px!important;border:1px solid transparent!important;border-radius:10px!important;display:grid!important;grid-template-columns:24px minmax(0,1fr)!important;align-items:center!important;column-gap:8px!important;text-align:left!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;font-size:0!important;position:relative!important;outline:none!important;box-shadow:none!important}
-.sidebar .nav button:focus,.sidebar .nav button:focus-visible{outline:none!important;box-shadow:none!important}
-.sidebar .nav button>*{display:none!important}
-.sidebar .nav button::before{grid-column:1!important;width:24px!important;height:24px!important;min-width:24px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:15px!important;line-height:24px!important;font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif!important;font-weight:400!important;color:#b9c3bf!important}
-.sidebar .nav button::after{grid-column:2!important;min-width:0!important;display:block!important;font-size:12px!important;font-family:Inter,Segoe UI,Arial,sans-serif!important;font-weight:800!important;line-height:48px!important;letter-spacing:.15px!important;color:#e0e5e2!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-.sidebar .nav button:nth-child(1)::before{content:'▦'}.sidebar .nav button:nth-child(1)::after{content:'DASHBOARD'}
-.sidebar .nav button:nth-child(2)::before{content:'✎'}.sidebar .nav button:nth-child(2)::after{content:'ALIMENTAR INDICADORES'}
-.sidebar .nav button:nth-child(3)::before{content:'◷'}.sidebar .nav button:nth-child(3)::after{content:'HISTÓRICO'}
-.sidebar .nav button:nth-child(4)::before{content:'♙'}.sidebar .nav button:nth-child(4)::after{content:'GESTÃO DE EQUIPES'}
-.sidebar .nav button:nth-child(5)::before{content:'⇧'}.sidebar .nav button:nth-child(5)::after{content:'PLANO DE CARREIRA'}
-.sidebar .nav button:nth-child(6)::before{content:'⚙'}.sidebar .nav button:nth-child(6)::after{content:'CONFIGURAÇÕES'}
-.sidebar .nav button:hover{background:#171d1a!important;border-color:#2d3732!important}
-.sidebar .nav button.active{background:var(--yellow)!important;border-color:var(--yellow)!important;color:#111!important}
-.sidebar .nav button.active::before,.sidebar .nav button.active::after{color:#111!important}
+/* ORGANOGRAMA — layout corporativo compacto e menu lateral alinhado. */
+(function(){
+'use strict';
 
-/* ÁREA DO ORGANOGRAMA */
-#equipes .free-org-area{position:relative!important;min-height:560px!important;max-height:720px!important;overflow:auto!important;padding:34px 30px 50px!important;background:linear-gradient(180deg,#0a0f0d,#0d1310)!important;border:1px solid #2b3530!important;border-radius:14px!important;display:block!important}
-#equipes .org-v11-canvas{position:relative;width:max-content;min-width:100%;min-height:480px;margin:0 auto;padding:8px 34px 42px;box-sizing:border-box}
-#equipes .org-v11-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
-#equipes .org-v11-svg path{fill:none;stroke:#66726b;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-#equipes .org-v11-tree{position:relative;z-index:2;width:max-content;margin:0 auto;display:flex;justify-content:center;align-items:flex-start}
-#equipes .org-v11-root-list{display:flex;justify-content:center;align-items:flex-start;gap:42px;width:max-content}
-#equipes .org-v11-node-wrap{position:relative;display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
-#equipes .org-v11-node{position:relative;z-index:3;width:210px!important;min-width:210px!important;height:82px!important;min-height:82px!important;padding:10px 13px!important;box-sizing:border-box!important;border:1px solid #35413b!important;border-radius:12px!important;background:linear-gradient(145deg,#171e1b,#121815)!important;display:flex!important;align-items:center!important;gap:12px!important;box-shadow:0 8px 22px rgba(0,0,0,.30)!important;cursor:grab!important;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease!important}
-#equipes .org-v11-node:hover{transform:translateY(-2px)!important;border-color:#7b8780!important;box-shadow:0 12px 28px rgba(0,0,0,.38)!important}
-#equipes .org-v11-node.selected-anchor{border-color:var(--yellow)!important;box-shadow:0 0 0 3px rgba(255,210,10,.10),0 10px 26px rgba(0,0,0,.35)!important}
-#equipes .org-v11-node.dragging{opacity:.35!important}
-#equipes .org-v11-photo{width:52px!important;height:52px!important;min-width:52px!important;min-height:52px!important;flex:0 0 52px!important;border-radius:50%!important;object-fit:cover!important;display:block!important;border:2px solid #647069!important;margin:0!important;background:#252d29!important}
-#equipes .org-v11-photo.initials{display:grid!important;place-items:center!important;color:#fff!important;font-size:17px!important;font-weight:900!important}
-#equipes .org-v11-info{min-width:0!important;display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;text-align:left!important;overflow:hidden!important}
-#equipes .org-v11-name{font-size:13px!important;font-weight:850!important;line-height:1.2!important;color:#f3f5f4!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:128px!important}
-#equipes .org-v11-role{margin-top:5px!important;font-size:9.5px!important;font-weight:650!important;line-height:1.25!important;color:#89958e!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:128px!important;text-transform:uppercase!important}
-#equipes .org-v11-children{display:flex;justify-content:center;align-items:flex-start;gap:28px;width:max-content;margin-top:54px}
-#equipes .org-v11-root-drop{height:28px;width:100%;margin-top:24px}
-#equipes .org-v11-empty{padding:150px 20px;color:#68736d;text-align:center;font-size:12px}
-@media(max-width:900px){.sidebar{width:230px!important}.main{margin-left:230px!important;width:calc(100% - 230px)!important}#equipes .free-org-area{min-height:520px;padding:28px 20px 44px!important}#equipes .org-v11-root-list{gap:28px}#equipes .org-v11-children{gap:20px}}
-@media(max-width:700px){.sidebar{width:100%!important;padding:20px!important}.main{margin-left:0!important;width:100%!important}.sidebar .nav{flex-direction:row!important;overflow:auto!important}.sidebar .nav button{width:auto!important;min-width:170px!important;height:44px!important;min-height:44px!important}.sidebar .nav button::after{line-height:44px!important}#equipes .free-org-area{min-height:470px;padding:24px 12px 34px!important}#equipes .org-v11-node{width:185px!important;min-width:185px!important;height:74px!important;min-height:74px!important}#equipes .org-v11-photo{width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;flex-basis:46px!important}#equipes .org-v11-root-list{gap:18px}#equipes .org-v11-children{gap:16px;margin-top:46px}}
-`;
- document.head.appendChild(s);
+const STYLE_ID='org-corporate-v1-style';
+
+function installStyle(){
+  if(document.getElementById(STYLE_ID)) return;
+  const s=document.createElement('style');
+  s.id=STYLE_ID;
+  s.textContent=`
+/* ================= MENU LATERAL ================= */
+.sidebar{width:245px!important;padding:25px 14px!important}
+.sidebar .nav{display:flex!important;flex-direction:column!important;gap:5px!important;width:100%!important;padding:0!important}
+.sidebar .nav button{
+  position:relative!important;width:100%!important;height:46px!important;min-height:46px!important;
+  margin:0!important;padding:0 12px 0 43px!important;border:1px solid transparent!important;
+  border-radius:10px!important;background:transparent!important;text-align:left!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  color:#dfe4e1!important;font-size:12px!important;font-weight:800!important;
+  line-height:1!important;letter-spacing:.15px!important;white-space:nowrap!important;
 }
-function mapPeople(){return new Map((state.collaborators||[]).map(p=>[String(p.id),p]))}
-function data(){return freeOrgData()}
-function childrenOf(id){const d=data(),p=String(id||'');return d.order.filter(x=>d.selected.includes(String(x))&&String(d.parents[String(x)]||'')===p)}
-function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function avatar(p){return p?.photo?`<img class="org-v11-photo" src="${esc(p.photo)}" alt="">`:`<div class="org-v11-photo initials">${esc((p?.name||'?')[0])}</div>`}
-function nodeHtml(id,map){const sid=String(id),p=map.get(sid);if(!p)return '';const kids=childrenOf(sid);const anchor=String(freeOrgAnchorId||'')===sid;const name=esc(p.name||'Colaborador');const role=esc(p.role||p.position||p.cargo||'');return `<div class="org-v11-node-wrap" data-org-id="${esc(sid)}"><div class="org-v11-node ${anchor?'selected-anchor':''}" draggable="true" data-org-node-id="${esc(sid)}" title="Arraste para reorganizar — ${name}">${avatar(p)}<div class="org-v11-info"><div class="org-v11-name">${name}</div>${role?`<div class="org-v11-role">${role}</div>`:''}</div></div>${kids.length?`<div class="org-v11-children">${kids.map(k=>nodeHtml(k,map)).join('')}</div>`:''}</div>`}
-function drawConnectors(area){const canvas=area.querySelector('.org-v11-canvas');const svg=area.querySelector('.org-v11-svg');if(!canvas||!svg)return;const cr=canvas.getBoundingClientRect();svg.setAttribute('width',String(Math.max(canvas.scrollWidth,canvas.clientWidth)));svg.setAttribute('height',String(Math.max(canvas.scrollHeight,canvas.clientHeight)));svg.setAttribute('viewBox',`0 0 ${Math.max(canvas.scrollWidth,canvas.clientWidth)} ${Math.max(canvas.scrollHeight,canvas.clientHeight)}`);svg.innerHTML='';area.querySelectorAll('.org-v11-node-wrap').forEach(w=>{const childBox=w.querySelector(':scope > .org-v11-children');if(!childBox)return;const parent=w.querySelector(':scope > .org-v11-node');const kids=[...childBox.querySelectorAll(':scope > .org-v11-node-wrap > .org-v11-node')];if(!parent||!kids.length)return;const pr=parent.getBoundingClientRect();const pts=kids.map(n=>{const r=n.getBoundingClientRect();return{x:r.left+r.width/2-cr.left,y:r.top-cr.top}});const px=pr.left+pr.width/2-cr.left;const py=pr.bottom-cr.top;const railY=py+27;const first=pts[0],last=pts[pts.length-1];const path=document.createElementNS('http://www.w3.org/2000/svg','path');const d=pts.length===1?`M ${px} ${py} V ${first.y}`:`M ${px} ${py} V ${railY} M ${first.x} ${railY} H ${last.x} ${pts.map(p=>` M ${p.x} ${railY} V ${p.y}`).join('')}`;path.setAttribute('d',d);svg.appendChild(path)})}
-function render(){const area=document.getElementById('freeOrgArea');if(!area)return;const map=mapPeople(),roots=childrenOf('');area.innerHTML=`<div class="org-v11-canvas"><svg class="org-v11-svg" aria-hidden="true"></svg><div class="org-v11-tree">${roots.length?`<div class="org-v11-root-list">${roots.map(id=>nodeHtml(id,map)).join('')}</div>`:`<div class="org-v11-empty">Selecione os colaboradores para montar o organograma.</div>`}</div><div class="org-v11-root-drop" data-org-root-drop="1"></div>`;bind();requestAnimationFrame(()=>drawConnectors(area))}
-function bind(){const area=document.getElementById('freeOrgArea');if(!area)return;area.querySelectorAll('[data-org-node-id]').forEach(node=>{node.addEventListener('dragstart',e=>{const id=String(node.dataset.orgNodeId||'');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id);node.classList.add('dragging')});node.addEventListener('dragend',()=>node.classList.remove('dragging'));node.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move'});node.addEventListener('drop',e=>{e.preventDefault();const child=String(e.dataTransfer.getData('text/plain')||''),target=String(node.dataset.orgNodeId||'');if(!child||!target||child===target)return;if(wouldCreateFreeOrgCycle(child,target)){alert('Essa relação criaria um ciclo na hierarquia. Escolha outro superior.');return}setFreeOrgParent(child,target)})});const root=area.querySelector('[data-org-root-drop]');if(root){root.addEventListener('dragover',e=>e.preventDefault());root.addEventListener('drop',e=>{e.preventDefault();const child=String(e.dataTransfer.getData('text/plain')||'');if(child)setFreeOrgParent(child,'')})}}
-window.renderFreeOrg=render;window.freeOrgDrop=function(e,targetId){e.preventDefault();const child=String(e.dataTransfer.getData('text/plain')||''),target=String(targetId||'');if(!child)return;if(!target){setFreeOrgParent(child,'');return}if(child===target)return;if(wouldCreateFreeOrgCycle(child,target)){alert('Essa relação criaria um ciclo na hierarquia. Escolha outro superior.');return}setFreeOrgParent(child,target)};
-window.addEventListener('resize',()=>{clearTimeout(window.__orgV11Resize);window.__orgV11Resize=setTimeout(()=>drawConnectors(document.getElementById('freeOrgArea')),100)});
-const original=window.showView;if(typeof original==='function'&&!window.__orgV11Patched){window.__orgV11Patched=true;window.showView=function(id,btn){const r=original.apply(this,arguments);if(id==='equipes')setTimeout(render,60);return r}}
-installStyle();render();
+.sidebar .nav button::before{
+  content:'';position:absolute!important;left:13px!important;top:50%!important;
+  transform:translateY(-50%)!important;width:20px!important;height:20px!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  font-family:Arial,sans-serif!important;font-size:14px!important;font-weight:700!important;
+  line-height:20px!important;text-align:center!important;color:#aeb8b3!important;
+}
+.sidebar .nav button:nth-child(1)::before{content:'▦'}
+.sidebar .nav button:nth-child(2)::before{content:'✎'}
+.sidebar .nav button:nth-child(3)::before{content:'◷'}
+.sidebar .nav button:nth-child(4)::before{content:'♙'}
+.sidebar .nav button:nth-child(5)::before{content:'⇧'}
+.sidebar .nav button:nth-child(6)::before{content:'⚙'}
+.sidebar .nav button:hover{background:#171d1a!important;border-color:#29332f!important;color:#fff!important}
+.sidebar .nav button.active{background:var(--yellow)!important;border-color:var(--yellow)!important;color:#111!important}
+.sidebar .nav button.active::before{color:#111!important}
+
+/* ================= ORGANOGRAMA ================= */
+#equipes .free-org-area{
+  position:relative!important;min-height:560px!important;max-height:650px!important;
+  overflow:auto!important;padding:30px 24px 44px!important;
+  background:linear-gradient(180deg,#0b100e 0%,#0e1411 100%)!important;
+  border:1px solid #2d3833!important;border-radius:14px!important;
+  scrollbar-color:#4b554f #101512!important;
+}
+#equipes .org-canvas{
+  position:relative!important;width:max-content!important;min-width:100%!important;
+  min-height:470px!important;padding:8px 18px 34px!important;box-sizing:border-box!important;
+}
+#equipes .org-svg{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  pointer-events:none!important;z-index:1!important;overflow:visible!important;
+}
+#equipes .org-svg path{
+  fill:none!important;stroke:#56625b!important;stroke-width:1.5!important;
+  stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;
+}
+#equipes .org-tree{position:relative!important;z-index:2!important;width:max-content!important;margin:0 auto!important;display:flex!important;justify-content:center!important}
+#equipes .org-level{display:flex!important;justify-content:center!important;align-items:flex-start!important;gap:18px!important;width:max-content!important}
+#equipes .org-wrap{position:relative!important;display:flex!important;flex-direction:column!important;align-items:center!important;flex:0 0 auto!important}
+#equipes .org-node{
+  width:156px!important;min-width:156px!important;height:62px!important;min-height:62px!important;
+  padding:8px 10px!important;box-sizing:border-box!important;
+  display:flex!important;align-items:center!important;gap:9px!important;
+  border:1px solid #344039!important;border-radius:10px!important;
+  background:linear-gradient(145deg,#171e1b,#111714)!important;
+  box-shadow:0 5px 15px rgba(0,0,0,.25)!important;cursor:grab!important;
+  transition:transform .15s ease,border-color .15s ease,background .15s ease!important;
+}
+#equipes .org-node:hover{transform:translateY(-2px)!important;border-color:#737e77!important;background:#19211d!important}
+#equipes .org-node.anchor{border-color:var(--yellow)!important;box-shadow:0 0 0 2px rgba(255,210,10,.10),0 7px 18px rgba(0,0,0,.30)!important}
+#equipes .org-node.dragging{opacity:.35!important}
+#equipes .org-photo{
+  width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;
+  flex:0 0 38px!important;border-radius:50%!important;object-fit:cover!important;
+  display:block!important;margin:0!important;border:1.5px solid var(--yellow)!important;background:#252d29!important;
+}
+#equipes .org-initials{display:grid!important;place-items:center!important;color:#fff!important;font-size:13px!important;font-weight:900!important}
+#equipes .org-info{min-width:0!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;justify-content:center!important;text-align:left!important}
+#equipes .org-name{font-size:11px!important;line-height:1.15!important;font-weight:900!important;color:#f1f4f2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+#equipes .org-role{margin-top:4px!important;font-size:8px!important;line-height:1.15!important;font-weight:700!important;color:#89958e!important;text-transform:uppercase!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+#equipes .org-children{display:flex!important;justify-content:center!important;align-items:flex-start!important;gap:18px!important;width:max-content!important;margin-top:46px!important}
+#equipes .org-root-drop{height:20px!important;width:100%!important;margin-top:20px!important}
+#equipes .org-empty{padding:150px 25px!important;color:#69746e!important;text-align:center!important;font-size:12px!important}
+#equipes .org-caption{font-size:9px!important;color:#68736d!important;text-align:center!important;margin-top:18px!important;letter-spacing:.3px!important}
+@media(max-width:900px){
+ .sidebar{width:230px!important}.main{margin-left:230px!important;width:calc(100% - 230px)!important}
+ #equipes .free-org-area{padding:25px 18px 40px!important}
+ #equipes .org-level{gap:14px!important}#equipes .org-children{gap:14px!important}
+}
+@media(max-width:700px){
+ .sidebar{width:100%!important;padding:18px!important}.main{margin-left:0!important;width:100%!important}
+ .sidebar .nav{flex-direction:row!important;overflow-x:auto!important}.sidebar .nav button{min-width:165px!important}
+ #equipes .org-node{width:145px!important;min-width:145px!important;height:58px!important;min-height:58px!important}
+ #equipes .org-photo{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;flex-basis:34px!important}
+}
+`;
+  document.head.appendChild(s);
+}
+
+function peopleMap(){
+  return new Map((state.collaborators||[]).map(p=>[String(p.id),p]));
+}
+function orgData(){return freeOrgData();}
+function childrenOf(id){
+  const d=orgData(), parent=String(id||'');
+  return d.order.filter(x=>d.selected.includes(String(x)) && String(d.parents[String(x)]||'')===parent);
+}
+function esc(v){return String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));}
+function avatar(p){
+  if(p?.photo) return `<img class="org-photo" src="${esc(p.photo)}" alt="">`;
+  return `<div class="org-photo org-initials">${esc((p?.name||'?')[0])}</div>`;
+}
+function nodeHtml(id,map){
+  const sid=String(id), p=map.get(sid); if(!p)return '';
+  const kids=childrenOf(sid);
+  const anchor=String(freeOrgAnchorId||'')===sid;
+  const name=esc(p.name||'Colaborador');
+  const role=esc(p.role||p.position||p.cargo||'');
+  return `<div class="org-wrap" data-org-wrap="${esc(sid)}">
+    <div class="org-node ${anchor?'anchor':''}" draggable="true" data-org-node-id="${esc(sid)}" title="Arraste para reorganizar — ${name}">
+      ${avatar(p)}<div class="org-info"><div class="org-name">${name}</div>${role?`<div class="org-role">${role}</div>`:''}</div>
+    </div>
+    ${kids.length?`<div class="org-children">${kids.map(k=>nodeHtml(k,map)).join('')}</div>`:''}
+  </div>`;
+}
+function drawConnectors(area){
+  const canvas=area.querySelector('.org-canvas'), svg=area.querySelector('.org-svg');
+  if(!canvas||!svg)return;
+  const rect=canvas.getBoundingClientRect();
+  const w=Math.max(canvas.scrollWidth,canvas.clientWidth),h=Math.max(canvas.scrollHeight,canvas.clientHeight);
+  svg.setAttribute('width',w);svg.setAttribute('height',h);svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML='';
+  area.querySelectorAll('.org-wrap').forEach(wrap=>{
+    const children=wrap.querySelector(':scope > .org-children');
+    const parent=wrap.querySelector(':scope > .org-node');
+    if(!children||!parent)return;
+    const childNodes=[...children.querySelectorAll(':scope > .org-wrap > .org-node')];
+    if(!childNodes.length)return;
+    const pr=parent.getBoundingClientRect();
+    const px=pr.left+pr.width/2-rect.left, py=pr.bottom-rect.top;
+    const pts=childNodes.map(n=>{const r=n.getBoundingClientRect();return{x:r.left+r.width/2-rect.left,y:r.top-rect.top};});
+    const rail=py+22;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    let d=`M ${px} ${py} V ${rail}`;
+    if(pts.length===1)d+=` M ${px} ${rail} V ${pts[0].y}`;
+    else{
+      d+=` M ${pts[0].x} ${rail} H ${pts[pts.length-1].x}`;
+      pts.forEach(p=>{d+=` M ${p.x} ${rail} V ${p.y}`;});
+    }
+    path.setAttribute('d',d);svg.appendChild(path);
+  });
+}
+function render(){
+  const area=document.getElementById('freeOrgArea'); if(!area)return;
+  const map=peopleMap(),roots=childrenOf('');
+  area.innerHTML=`<div class="org-canvas"><svg class="org-svg" aria-hidden="true"></svg><div class="org-tree">${roots.length?`<div class="org-level">${roots.map(id=>nodeHtml(id,map)).join('')}</div>`:`<div class="org-empty">Selecione os colaboradores para montar o organograma.</div>`}</div><div class="org-root-drop" data-org-root-drop="1"></div></div>`;
+  bind();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>drawConnectors(area)));
+}
+function bind(){
+  const area=document.getElementById('freeOrgArea');if(!area)return;
+  area.querySelectorAll('[data-org-node-id]').forEach(node=>{
+    node.addEventListener('dragstart',e=>{const id=String(node.dataset.orgNodeId||'');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id);node.classList.add('dragging');});
+    node.addEventListener('dragend',()=>node.classList.remove('dragging'));
+    node.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
+    node.addEventListener('drop',e=>{
+      e.preventDefault();
+      const child=String(e.dataTransfer.getData('text/plain')||''),target=String(node.dataset.orgNodeId||'');
+      if(!child||!target||child===target)return;
+      if(wouldCreateFreeOrgCycle(child,target)){alert('Essa relação criaria um ciclo na hierarquia. Escolha outro superior.');return;}
+      setFreeOrgParent(child,target);
+    });
+  });
+  const root=area.querySelector('[data-org-root-drop="1"]');
+  if(root){root.addEventListener('dragover',e=>e.preventDefault());root.addEventListener('drop',e=>{e.preventDefault();const child=String(e.dataTransfer.getData('text/plain')||'');if(child)setFreeOrgParent(child,'');});}
+}
+
+window.renderFreeOrg=render;
+window.freeOrgDrop=function(e,targetId){
+  e.preventDefault();const child=String(e.dataTransfer.getData('text/plain')||''),target=String(targetId||'');
+  if(!child)return;if(!target){setFreeOrgParent(child,'');return}if(child===target)return;
+  if(wouldCreateFreeOrgCycle(child,target)){alert('Essa relação criaria um ciclo na hierarquia. Escolha outro superior.');return}
+  setFreeOrgParent(child,target);
+};
+window.addEventListener('resize',()=>{clearTimeout(window.__orgCorporateResize);window.__orgCorporateResize=setTimeout(()=>drawConnectors(document.getElementById('freeOrgArea')),120);});
+
+const original=window.showView;
+if(typeof original==='function'&&!window.__orgCorporatePatched){
+  window.__orgCorporatePatched=true;
+  window.showView=function(id,btn){const r=original.apply(this,arguments);if(id==='equipes')setTimeout(render,80);return r;};
+}
+
+installStyle();
+render();
 })();
