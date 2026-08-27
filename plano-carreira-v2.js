@@ -24,16 +24,24 @@ var CSS=`
 #navCarreira::before{content:'⇧'}
 #navCarreira{font-size:13px!important;font-weight:800!important}
 @media(max-width:1050px){.sidebar{width:210px!important}.main{margin-left:210px!important;width:calc(100% - 210px)!important}}
-@media(max-width:700px){.sidebar{position:static!important;width:100%!important;height:auto!important}.main{margin:0!important;width:100%!important}.sidebar .nav{flex-direction:row!important;overflow:auto!important}.sidebar .nav button{flex:0 0 auto!important;width:auto!important;min-width:150px!important}}
+@media(max-width:700px){.sidebar{position:static!important;width:100%!important}.main{margin:0!important;width:100%!important}.sidebar .nav{flex-direction:row!important;overflow:auto!important}.sidebar .nav button{flex:0 0 auto!important;width:auto!important;min-width:150px!important}}
 `;
 function apply(){
   var old=document.getElementById(STYLE_ID);if(old)old.remove();
   var s=document.createElement('style');s.id=STYLE_ID;s.textContent=CSS;document.head.appendChild(s);
 }
+function loadDashboardEditor(){
+  if(document.querySelector('script[data-dashboard-kpi-editor]'))return;
+  var s=document.createElement('script');
+  s.src='./dashboard-kpi-editor.js';
+  s.async=false;
+  s.dataset.dashboardKpiEditor='1';
+  document.head.appendChild(s);
+}
 function loadCore(){
   var s=document.createElement('script');
   s.src=CORE;s.async=false;
-  s.onload=function(){apply();setTimeout(apply,100);setTimeout(apply,500)};
+  s.onload=function(){apply();setTimeout(apply,100);setTimeout(apply,500);loadDashboardEditor()};
   s.onerror=function(){console.error('[Plano de Carreira] falha ao carregar modulo principal')};
   document.head.appendChild(s);
 }
