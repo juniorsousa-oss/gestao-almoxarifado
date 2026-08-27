@@ -258,4 +258,167 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadOrgLayout,{once:true});
   else loadOrgLayout();
+
+  /* =========================================================
+     EDITOR ISOLADO — CABEÇALHOS DO DASHBOARD
+     Não altera menu, Gestão de Equipes, organograma ou Plano de Carreira.
+     ========================================================= */
+  (function dashboardHeaderEditor(){
+    const STYLE_ID='dashboard-header-editor-style';
+    const MODAL_ID='dashboardHeaderModal';
+
+    function installStyle(){
+      if(document.getElementById(STYLE_ID))return;
+      const s=document.createElement('style');
+      s.id=STYLE_ID;
+      s.textContent=`
+        #dashboardHeaderEditBtn{margin-left:auto;}
+        #dashboardHeaderModal .modal-box{width:min(820px,100%);}
+        #dashboardHeaderModal .dashboard-header-section{border:1px solid #29332f;border-radius:10px;background:#0d1210;padding:14px;margin-top:12px;}
+        #dashboardHeaderModal .dashboard-header-section:first-child{margin-top:0;}
+        #dashboardHeaderModal .dashboard-header-section h4{margin:0 0 11px;color:#fff;font-size:12px;}
+        #dashboardHeaderModal .dashboard-header-help{color:var(--muted);font-size:10px;line-height:1.4;margin-bottom:10px;}
+        #dashboardHeaderModal .dashboard-header-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+      `;
+      document.head.appendChild(s);
+    }
+
+    function ensureModal(){
+      if(document.getElementById(MODAL_ID))return;
+      const modal=document.createElement('div');
+      modal.className='modal';
+      modal.id=MODAL_ID;
+      modal.innerHTML=`
+        <div class="modal-box">
+          <div class="modal-head">
+            <h3>Editar cabeçalhos do Dashboard</h3>
+            <button class="close" type="button" data-dash-head-close>×</button>
+          </div>
+          <div class="notice">Edite somente os títulos e rótulos exibidos no Dashboard. Os números dos indicadores não são alterados nesta tela.</div>
+          <div class="dashboard-header-section">
+            <h4>01 · ACURÁCIA DE ESTOQUE</h4>
+            <div class="dashboard-header-help">Título da seção e os três cabeçalhos dos cards.</div>
+            <div class="form-grid">
+              <div class="field full"><label>TÍTULO DA SEÇÃO</label><input id="dashHeadAccSection"></div>
+              <div class="field"><label>CARD 1</label><input id="dashHeadAccKpi1"></div>
+              <div class="field"><label>CARD 2</label><input id="dashHeadAccKpi2"></div>
+              <div class="field"><label>CARD 3</label><input id="dashHeadAccKpi3"></div>
+            </div>
+          </div>
+          <div class="dashboard-header-section">
+            <h4>02 · ENTREGAS NO PRAZO</h4>
+            <div class="dashboard-header-help">Título da seção e os quatro cabeçalhos dos cards.</div>
+            <div class="form-grid">
+              <div class="field full"><label>TÍTULO DA SEÇÃO</label><input id="dashHeadDelSection"></div>
+              <div class="field"><label>CARD 1</label><input id="dashHeadDelKpi1"></div>
+              <div class="field"><label>CARD 2</label><input id="dashHeadDelKpi2"></div>
+              <div class="field"><label>CARD 3</label><input id="dashHeadDelKpi3"></div>
+              <div class="field"><label>CARD 4</label><input id="dashHeadDelKpi4"></div>
+            </div>
+          </div>
+          <div class="dashboard-header-section">
+            <h4>GRÁFICOS E BARRAS</h4>
+            <div class="form-grid">
+              <div class="field"><label>GRÁFICO — ACURÁCIA</label><input id="dashHeadAccChart"></div>
+              <div class="field"><label>GRÁFICO — ENTREGAS</label><input id="dashHeadDelChart"></div>
+              <div class="field"><label>BARRA 1</label><input id="dashHeadProg1"></div>
+              <div class="field"><label>BARRA 2</label><input id="dashHeadProg2"></div>
+            </div>
+          </div>
+          <div class="dashboard-header-actions">
+            <button class="btn" type="button" data-dash-head-cancel>CANCELAR</button>
+            <button class="btn btn-primary" type="button" data-dash-head-save>SALVAR CABEÇALHOS</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click',e=>{
+        if(e.target===modal)e.target.classList.remove('open');
+        if(e.target.closest('[data-dash-head-close],[data-dash-head-cancel]'))modal.classList.remove('open');
+        if(e.target.closest('[data-dash-head-save]'))saveHeaders();
+      });
+    }
+
+    function value(id){return document.getElementById(id)?.value.trim()||'';}
+    function setValue(id,v){const e=document.getElementById(id);if(e)e.value=v||'';}
+
+    function openHeaders(){
+      ensureStyle();
+      ensureModal();
+      const t=state?.texts||{};
+      setValue('dashHeadAccSection',t.accSection);
+      setValue('dashHeadAccKpi1',t.accKpi1);
+      setValue('dashHeadAccKpi2',t.accKpi2);
+      setValue('dashHeadAccKpi3',t.accKpi3);
+      setValue('dashHeadDelSection',t.delSection);
+      setValue('dashHeadDelKpi1',t.delKpi1);
+      setValue('dashHeadDelKpi2',t.delKpi2);
+      setValue('dashHeadDelKpi3',t.delKpi3);
+      setValue('dashHeadDelKpi4',t.delKpi4);
+      setValue('dashHeadAccChart',t.accChart);
+      setValue('dashHeadDelChart',t.delChart);
+      setValue('dashHeadProg1',t.prog1);
+      setValue('dashHeadProg2',t.prog2);
+      document.getElementById(MODAL_ID).classList.add('open');
+    }
+
+    function saveHeaders(){
+      if(!state)return;
+      state.texts=state.texts||{};
+      const fields={
+        accSection:'dashHeadAccSection',accKpi1:'dashHeadAccKpi1',accKpi2:'dashHeadAccKpi2',accKpi3:'dashHeadAccKpi3',
+        delSection:'dashHeadDelSection',delKpi1:'dashHeadDelKpi1',delKpi2:'dashHeadDelKpi2',delKpi3:'dashHeadDelKpi3',delKpi4:'dashHeadDelKpi4',
+        accChart:'dashHeadAccChart',delChart:'dashHeadDelChart',prog1:'dashHeadProg1',prog2:'dashHeadProg2'
+      };
+      Object.entries(fields).forEach(([key,id])=>{const v=value(id);if(v)state.texts[key]=v;});
+      try{
+        if(typeof save==='function')save();
+        else localStorage.setItem(KEY,JSON.stringify(state));
+      }catch(e){
+        alert('Não foi possível salvar os cabeçalhos.');
+        return;
+      }
+      try{if(typeof render==='function')render();}catch(e){}
+      document.getElementById(MODAL_ID)?.classList.remove('open');
+      status('CABEÇALHOS SALVOS',false);
+    }
+
+    function ensureButton(){
+      const dashboard=document.getElementById('dashboard');
+      if(!dashboard || document.getElementById('dashboardHeaderEditBtn'))return;
+      const firstTitle=document.getElementById('accSectionTitle');
+      if(!firstTitle)return;
+      const wrap=document.createElement('div');
+      wrap.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:12px;';
+      firstTitle.style.marginBottom='0';
+      firstTitle.parentNode.insertBefore(wrap,firstTitle);
+      wrap.appendChild(firstTitle);
+      const btn=document.createElement('button');
+      btn.id='dashboardHeaderEditBtn';
+      btn.className='btn btn-small';
+      btn.type='button';
+      btn.textContent='EDITAR CABEÇALHOS';
+      btn.title='Editar títulos e rótulos do Dashboard';
+      btn.addEventListener('click',openHeaders);
+      wrap.appendChild(btn);
+    }
+
+    function init(){
+      ensureStyle();
+      ensureModal();
+      ensureButton();
+    }
+
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+    else init();
+
+    const oldShowView=window.showView;
+    if(typeof oldShowView==='function'&&!window.__dashboardHeaderEditorPatched){
+      window.__dashboardHeaderEditorPatched=true;
+      window.showView=function(id,b){
+        const result=oldShowView.apply(this,arguments);
+        if(id==='dashboard')setTimeout(ensureButton,0);
+        return result;
+      };
+    }
+  })();
 })();
