@@ -343,9 +343,9 @@ elif pagina == "equipes":
     .ge-kpi .value{font-size:32px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:8px}
     .ge-kpi .sub{font-size:11px;color:#ffd43d;margin-top:7px}
     .ge-overview-panel,.ge-team-card,.ge-person-card{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}
-    .ge-overview-panel{padding:20px;margin-top:16px}
-    .ge-panel-title{font-size:15px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:15px}
-    .ge-mini{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #26302c}
+    .ge-overview-panel{padding:12px 16px 10px;margin-top:16px;height:auto;min-height:0;align-self:flex-start;box-sizing:border-box}
+    .ge-panel-title{font-size:15px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;line-height:1.2}
+    .ge-mini{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #26302c}
     .ge-mini:last-child{border-bottom:0}
     .ge-mini .rank{width:28px;height:28px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
     .ge-mini .main{flex:1}.ge-mini .name{font-size:12px;font-weight:800;color:#f4f5f4}.ge-mini .desc{font-size:10px;color:#8e9893;margin-top:2px}
