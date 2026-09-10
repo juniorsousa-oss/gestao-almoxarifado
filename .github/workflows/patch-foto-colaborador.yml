@@ -1,0 +1,52 @@
+name: Patch foto colaborador
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar cadastro de colaborador
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''                foto_url = st.text_input("URL da foto", placeholder="Opcional")'''
+          new = '''                foto_arquivo = st.file_uploader("Foto do colaborador *", type=["png", "jpg", "jpeg", "webp"], help="Inclua a foto do colaborador. Tamanho máximo: 2 MB.")'''
+          if old not in s:
+              raise SystemExit('Campo URL da foto no cadastro não encontrado')
+          s = s.replace(old, new, 1)
+
+          old = '''            else:\n                try:\n                    novo = client.table("almox_colaboradores").insert({"nome": nome_limpo, "matricula": mat, "funcao": funcao.strip() or None, "data_admissao": data_adm.isoformat() if data_adm else None, "equipe_id": equipes_opts.get(equipe_label), "equipe_atual": equipe_label if equipe_label != "Sem equipe" else None, "foto_url": foto_url.strip() or None, "ativo": True}).execute().data'''
+          new = '''            elif foto_arquivo is None:\n                st.error("Inclua a foto do colaborador.")\n            elif foto_arquivo.size > 2 * 1024 * 1024:\n                st.error("A foto deve ter no máximo 2 MB.")\n            else:\n                try:\n                    foto_bytes = foto_arquivo.getvalue()\n                    foto_b64 = base64.b64encode(foto_bytes).decode("ascii")\n                    novo = client.table("almox_colaboradores").insert({"nome": nome_limpo, "matricula": mat, "funcao": funcao.strip() or None, "data_admissao": data_adm.isoformat() if data_adm else None, "equipe_id": equipes_opts.get(equipe_label), "equipe_atual": equipe_label if equipe_label != "Sem equipe" else None, "foto_base64": foto_b64, "foto_mime": foto_arquivo.type or "image/jpeg", "foto_nome": foto_arquivo.name, "ativo": True}).execute().data'''
+          if old not in s:
+              raise SystemExit('Bloco de inserção do colaborador não encontrado')
+          s = s.replace(old, new, 1)
+
+          old = '''                        foto_e = st.text_input("URL da foto", value=escolhido.get("foto_url") or "", key=f"foto_edit_{cid}")'''
+          new = '''                        if escolhido.get("foto_base64"):\n                            st.image(f"data:{escolhido.get('foto_mime') or 'image/jpeg'};base64,{escolhido['foto_base64']}", width=140)\n                            st.caption(f"Foto atual: {escolhido.get('foto_nome') or 'arquivo salvo'}")\n                        foto_e = st.file_uploader("Substituir foto", type=["png", "jpg", "jpeg", "webp"], help="Opcional. Se selecionar um arquivo, a foto atual será substituída.", key=f"foto_edit_{cid}")'''
+          if old not in s:
+              raise SystemExit('Campo URL da foto na edição não encontrado')
+          s = s.replace(old, new, 1)
+
+          old = '''                            eqid = equipes_opts.get(eq_e_label)\n                            client.table("almox_colaboradores").update({"nome": nome_e.strip(), "matricula": mat_e, "funcao": func_e.strip() or None, "data_admissao": data_e.isoformat() if data_e else None, "equipe_id": eqid, "equipe_atual": eq_e_label if eqid else None, "foto_url": foto_e.strip() or None}).eq("id", cid).execute()'''
+          new = '''                            eqid = equipes_opts.get(eq_e_label)\n                            dados_update = {"nome": nome_e.strip(), "matricula": mat_e, "funcao": func_e.strip() or None, "data_admissao": data_e.isoformat() if data_e else None, "equipe_id": eqid, "equipe_atual": eq_e_label if eqid else None}\n                            if foto_e is not None:\n                                if foto_e.size > 2 * 1024 * 1024:\n                                    st.error("A foto deve ter no máximo 2 MB.")\n                                    st.stop()\n                                dados_update.update({"foto_base64": base64.b64encode(foto_e.getvalue()).decode("ascii"), "foto_mime": foto_e.type or "image/jpeg", "foto_nome": foto_e.name})\n                            client.table("almox_colaboradores").update(dados_update).eq("id", cid).execute()'''
+          if old not in s:
+              raise SystemExit('Bloco de atualização do colaborador não encontrado')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding='utf-8')
+      - name: Validar Python
+        run: python -m py_compile streamlit_app.py
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py
+          git commit -m 'feat: cadastrar foto do colaborador por arquivo'
+          git push
