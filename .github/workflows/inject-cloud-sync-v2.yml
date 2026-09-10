@@ -27,26 +27,24 @@ jobs:
           tag = '<script src="./cloud-sync-v2.js"></script>'
           if tag not in text:
               marker = '<script src="./supabase-sync.js"></script>'
-              if marker in text:
-                  p.write_text(text.replace(marker, marker + '\n' + tag, 1), encoding='utf-8')
+              if marker not in text:
+                  raise SystemExit('Marcador supabase-sync.js não encontrado')
+              text = text.replace(marker, marker + '\n' + tag, 1)
+              p.write_text(text, encoding='utf-8')
+              print('Script inserido.')
+          else:
+              print('Script já estava inserido.')
           PY
-
-      - name: Corrigir painel de admissões recentes
-        run: python scripts/fix_admissions.py
-
-      - name: Validar Python
-        run: python -m py_compile streamlit_app.py
 
       - name: Commit e push
         shell: bash
         run: |
-          rm -f .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html streamlit_app.py scripts/fix_admissions.py .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
+          git add index.html
           if git diff --cached --quiet; then
             echo 'Nenhuma alteração necessária.'
             exit 0
           fi
-          git commit -m 'Corrige painel de admissões recentes [skip ci]'
+          git commit -m 'Ativa sincronização cloud v2 [skip ci]'
           git push
