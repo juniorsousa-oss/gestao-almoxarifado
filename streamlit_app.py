@@ -57,8 +57,34 @@ st.markdown(f"""
 <style>
 #MainMenu,footer{{visibility:hidden}}
 .stApp{{background:{APP_BG};color:{TEXT}}}
-[data-testid="stSidebar"]{{background:{SIDEBAR_BG} !important;border-right:1px solid {BORDER};min-width:230px;max-width:230px}}
-[data-testid="stSidebar"] > div:first-child{{padding:7px 9px 20px}}
+
+/* SIDEBAR: permite o recolhimento real pelo botão >> */
+section[data-testid="stSidebar"]{{
+    background:{SIDEBAR_BG} !important;
+    border-right:1px solid {BORDER};
+    width:230px !important;
+    min-width:230px !important;
+    max-width:230px !important;
+    flex-shrink:1 !important;
+    transition:width .2s ease, min-width .2s ease, max-width .2s ease;
+}}
+section[data-testid="stSidebar"] > div:first-child{{padding:7px 9px 20px}}
+
+/* Quando o Streamlit recolhe a sidebar, não deixamos o CSS travar o espaço. */
+section[data-testid="stSidebar"][aria-expanded="false"]{{
+    width:0 !important;
+    min-width:0 !important;
+    max-width:0 !important;
+    border-right:0 !important;
+    overflow:hidden !important;
+}}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
+    width:0 !important;
+    min-width:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+}}
+
 .block-container{{max-width:1500px;padding:28px 34px 50px}}
 .hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}
 .hero h1{{margin:0;font-size:30px;color:{TEXT}}}
@@ -95,7 +121,6 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 </style>
 """, unsafe_allow_html=True)
 
-
 @st.cache_data(ttl=30)
 def rows(table, limit=500, order=None):
     q = get_client().table(table).select("*")
@@ -103,10 +128,8 @@ def rows(table, limit=500, order=None):
         q = q.order(order, desc=True)
     return q.limit(limit).execute().data or []
 
-
 def df(data):
     return pd.DataFrame(data) if data else pd.DataFrame()
-
 
 if "pagina" not in st.session_state:
     st.session_state.pagina = "Dashboard"
@@ -117,20 +140,20 @@ with st.sidebar:
     if st.session_state.logo_bytes:
         mime = "image/svg+xml" if (st.session_state.logo_name or "").lower().endswith(".svg") else "image/png"
         encoded = base64.b64encode(st.session_state.logo_bytes).decode()
-        st.markdown(f'<div class="sidebar-logo-wrap"><img class="sidebar-logo-img" src="data:{mime};base64,{encoded}"></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sidebar-logo-wrap"><img class="sidebar-logo-img" src="data:{mime};base64,{encoded}"></div>',unsafe_allow_html=True)
     else:
-        st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div></div>',unsafe_allow_html=True)
 
     for p in paginas:
         ativo = st.session_state.pagina == p
-        if st.button(p.upper(), use_container_width=True, type="primary" if ativo else "secondary", key=f"menu_{p}"):
+        if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{p}"):
             st.session_state.pagina = p
             st.rerun()
 
-    st.markdown("<div class='sidebar-footer'>Gestão Operacional<br>SETTA • Streamlit + Supabase</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sidebar-footer'>Gestão Operacional<br>SETTA • Streamlit + Supabase</div>",unsafe_allow_html=True)
 
 pagina = st.session_state.pagina
-st.markdown(f'<div class="hero"><div><h1>{pagina}</h1><p>Gestão operacional do almoxarifado</p></div><div class="period">{date.today().strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero"><div><h1>{pagina}</h1><p>Gestão operacional do almoxarifado</p></div><div class="period">{date.today().strftime("%d/%m/%Y")}</div></div>',unsafe_allow_html=True)
 
 try:
     get_client()
@@ -140,143 +163,83 @@ except Exception:
 
 if not conectado:
     st.error("Supabase ainda não está configurado no ambiente do Streamlit.")
-    st.markdown('<div class="notice">Configure <b>SUPABASE_URL</b> e <b>SUPABASE_KEY</b> em Settings → Secrets do Streamlit Cloud. A chave não é armazenada no GitHub.</div>', unsafe_allow_html=True)
     st.stop()
 
 if pagina == "Dashboard":
-    indicadores = rows("almox_indicadores", order="competencia")
-    colaboradores = rows("almox_colaboradores")
-    equipes = rows("almox_equipes")
-    historico = rows("almox_historico", order="criado_em")
-    snapshots = rows("mrp_snapshots", order="created_at")
-    st.markdown('<div class="section">Dados reais do Supabase</div>', unsafe_allow_html=True)
-    a, b, c, d = st.columns(4)
-    a.metric("Indicadores", len(indicadores))
-    b.metric("Colaboradores", len(colaboradores))
-    c.metric("Equipes", len(equipes))
-    d.metric("MRP salvos", len(snapshots))
+    indicadores=rows("almox_indicadores",order="competencia"); colaboradores=rows("almox_colaboradores"); equipes=rows("almox_equipes"); historico=rows("almox_historico",order="criado_em"); snapshots=rows("mrp_snapshots",order="created_at")
+    st.markdown('<div class="section">Dados reais do Supabase</div>',unsafe_allow_html=True)
+    a,b,c,d=st.columns(4);a.metric("Indicadores",len(indicadores));b.metric("Colaboradores",len(colaboradores));c.metric("Equipes",len(equipes));d.metric("MRP salvos",len(snapshots))
     if indicadores:
-        data = df(indicadores)
-        st.markdown('<div class="section">Indicadores</div>', unsafe_allow_html=True)
+        data=df(indicadores)
+        st.markdown('<div class="section">Indicadores</div>',unsafe_allow_html=True)
         if "competencia" in data.columns and "valor" in data.columns:
-            data["competencia"] = pd.to_datetime(data["competencia"], errors="coerce")
-            chart = data.dropna(subset=["competencia"]).pivot_table(index="competencia", columns="indicador", values="valor", aggfunc="last")
-            if not chart.empty:
-                st.line_chart(chart)
-        st.dataframe(data, use_container_width=True, hide_index=True)
-    else:
-        st.info("A tabela almox_indicadores está conectada, mas ainda não possui lançamentos.")
+            data["competencia"]=pd.to_datetime(data["competencia"],errors="coerce")
+            chart=data.dropna(subset=["competencia"]).pivot_table(index="competencia",columns="indicador",values="valor",aggfunc="last")
+            if not chart.empty: st.line_chart(chart)
+        st.dataframe(data,use_container_width=True,hide_index=True)
+    else: st.info("A tabela almox_indicadores está conectada, mas ainda não possui lançamentos.")
     with st.expander("Diagnóstico"):
-        st.write({"Supabase": "conectado", "indicadores": len(indicadores), "colaboradores": len(colaboradores), "equipes": len(equipes), "histórico": len(historico), "MRP": len(snapshots)})
+        st.write({"Supabase":"conectado","indicadores":len(indicadores),"colaboradores":len(colaboradores),"equipes":len(equipes),"histórico":len(historico),"MRP":len(snapshots)})
 
 elif pagina == "Alimentar Indicadores":
-    st.markdown('<div class="notice">Consulta do banco real habilitada. A gravação será liberada junto com autenticação adequada.</div>', unsafe_allow_html=True)
-    st.dataframe(df(rows("almox_indicadores", order="competencia")), use_container_width=True, hide_index=True)
+    st.markdown('<div class="notice">Consulta do banco real habilitada. A gravação será liberada junto com autenticação adequada.</div>',unsafe_allow_html=True)
+    st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)
 
 elif pagina == "Histórico":
-    st.markdown('<div class="section">Histórico real</div>', unsafe_allow_html=True)
-    st.dataframe(df(rows("almox_historico", order="criado_em")), use_container_width=True, hide_index=True)
+    st.markdown('<div class="section">Histórico real</div>',unsafe_allow_html=True)
+    st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
 
 elif pagina == "Gestão de Equipes":
-    colaboradores = df(rows("almox_colaboradores"))
-    equipes = df(rows("almox_equipes"))
-    org = df(rows("almox_organograma"))
-    a, b, c = st.columns(3)
-    a.metric("Colaboradores", len(colaboradores))
-    b.metric("Equipes", len(equipes))
-    c.metric("Nós do organograma", len(org))
-    st.markdown('<div class="section">Colaboradores</div>', unsafe_allow_html=True)
-    st.dataframe(colaboradores, use_container_width=True, hide_index=True)
-    st.markdown('<div class="section">Equipes</div>', unsafe_allow_html=True)
-    st.dataframe(equipes, use_container_width=True, hide_index=True)
-    st.markdown('<div class="section">Organograma</div>', unsafe_allow_html=True)
-    st.dataframe(org, use_container_width=True, hide_index=True)
+    colaboradores=df(rows("almox_colaboradores"));equipes=df(rows("almox_equipes"));org=df(rows("almox_organograma"))
+    a,b,c=st.columns(3);a.metric("Colaboradores",len(colaboradores));b.metric("Equipes",len(equipes));c.metric("Nós do organograma",len(org))
+    st.markdown('<div class="section">Colaboradores</div>',unsafe_allow_html=True);st.dataframe(colaboradores,use_container_width=True,hide_index=True)
+    st.markdown('<div class="section">Equipes</div>',unsafe_allow_html=True);st.dataframe(equipes,use_container_width=True,hide_index=True)
+    st.markdown('<div class="section">Organograma</div>',unsafe_allow_html=True);st.dataframe(org,use_container_width=True,hide_index=True)
 
 elif pagina == "Plano de Carreira":
-    st.markdown('<div class="section">Base real de colaboradores</div>', unsafe_allow_html=True)
-    st.dataframe(df(rows("almox_colaboradores")), use_container_width=True, hide_index=True)
+    st.markdown('<div class="section">Base real de colaboradores</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_colaboradores")),use_container_width=True,hide_index=True)
     st.info("A lógica específica do Plano de Carreira será migrada na próxima camada.")
 
 else:
-    st.markdown('<div class="settings-title">Configurações</div>', unsafe_allow_html=True)
-    st.markdown('<div class="settings-subtitle">Personalize o sistema de acordo com a sua necessidade.</div>', unsafe_allow_html=True)
-
-    tab_geral, tab_aparencia, tab_usuarios, tab_sobre = st.tabs(["GERAL", "APARÊNCIA", "USUÁRIOS", "SOBRE"])
-
-    with tab_geral:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Logo da Empresa")
-        st.write("Defina a imagem que será exibida no menu lateral do sistema.")
-        esquerda, direita = st.columns(2)
-
-        with esquerda:
-            st.markdown("**Imagem atual**")
-            if st.session_state.logo_bytes:
-                st.markdown('<div class="logo-preview">', unsafe_allow_html=True)
-                st.image(st.session_state.logo_bytes, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.caption(st.session_state.logo_name or "Logo configurada")
+    st.markdown('<div class="section">Configurações gerais</div>',unsafe_allow_html=True)
+    st.markdown('<div class="panel">',unsafe_allow_html=True)
+    st.subheader("Logo da Empresa")
+    st.write("Defina a imagem que será exibida no menu lateral do sistema.")
+    esquerda,direita=st.columns(2)
+    with esquerda:
+        st.markdown("**Imagem atual**")
+        if st.session_state.logo_bytes:
+            st.image(st.session_state.logo_bytes,use_container_width=True)
+            st.caption(st.session_state.logo_name or "Logo configurada")
+        else:
+            st.markdown('<div class="logo-preview"><div style="text-align:center;color:#69736e;font-size:14px">Nenhuma imagem configurada<br><br>A logo será exibida no menu lateral</div></div>',unsafe_allow_html=True)
+    with direita:
+        st.markdown("**Selecionar nova imagem**")
+        arquivo=st.file_uploader("Arraste e solte um arquivo aqui ou clique para selecionar",type=["png","jpg","jpeg","svg"],key="logo_uploader",label_visibility="visible")
+        if arquivo is not None:
+            if arquivo.size>2*1024*1024:
+                st.error("A imagem deve ter no máximo 2 MB.")
             else:
-                st.markdown('<div class="logo-preview"><div style="text-align:center;color:#69736e;font-size:14px">Nenhuma imagem configurada<br><br>A logo será exibida no menu lateral</div></div>', unsafe_allow_html=True)
+                st.image(arquivo,use_container_width=True)
+                if st.button("SALVAR LOGO",use_container_width=True,type="primary",key="salvar_logo"):
+                    st.session_state.logo_bytes=arquivo.getvalue()
+                    st.session_state.logo_name=arquivo.name
+                    st.success("Logo atualizada no menu lateral.")
+                    st.rerun()
+    st.markdown('</div>',unsafe_allow_html=True)
 
-        with direita:
-            st.markdown("**Selecionar nova imagem**")
-            arquivo = st.file_uploader("Arraste e solte um arquivo aqui ou clique para selecionar", type=["png", "jpg", "jpeg", "svg"], key="logo_uploader")
-            if arquivo is not None:
-                if arquivo.size > 2 * 1024 * 1024:
-                    st.error("A imagem deve ter no máximo 2 MB.")
-                else:
-                    st.image(arquivo, use_container_width=True)
-                    if st.button("SALVAR LOGO", use_container_width=True, type="primary", key="salvar_logo"):
-                        st.session_state.logo_bytes = arquivo.getvalue()
-                        st.session_state.logo_name = arquivo.name
-                        st.success("Logo atualizada no menu lateral.")
-                        st.rerun()
+    st.markdown('<div class="tip"><b>Dicas</b><br>• Utilize preferencialmente PNG com fundo transparente.<br>• Tamanho recomendado: aproximadamente 200 × 80 pixels.<br>• A imagem será ajustada automaticamente para caber no menu lateral.<br>• Para melhor resultado, utilize uma logo em formato horizontal.</div>',unsafe_allow_html=True)
 
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="tip"><b>Dicas</b><br>• Utilize preferencialmente PNG com fundo transparente.<br>• Tamanho recomendado: aproximadamente 200 × 80 pixels.<br>• A imagem será ajustada automaticamente para caber no menu lateral.<br>• Para melhor resultado, utilize uma logo em formato horizontal.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel">',unsafe_allow_html=True)
+    st.subheader("Cores do Aplicativo")
+    st.write("Escolha o tema e a cor principal utilizados no sistema.")
+    tema=st.selectbox("Tema do sistema",["Escuro (Padrão)","Claro","Automático"],index=["Escuro (Padrão)","Claro","Automático"].index(st.session_state.tema if st.session_state.tema in ["Escuro (Padrão)","Claro","Automático"] else "Escuro (Padrão)"),key="tema_select")
+    cor=st.selectbox("Cor principal",list(CORES.keys()),index=list(CORES.keys()).index(st.session_state.cor_principal),key="cor_select")
+    estilo=st.radio("Cor dos botões",["Amarelo","Colorido"],index=0 if st.session_state.estilo_botoes=="Amarelo" else 1,horizontal=True,key="estilo_select")
+    if st.button("SALVAR ALTERAÇÕES",use_container_width=True,type="primary",key="salvar_aparencia"):
+        st.session_state.tema=tema;st.session_state.cor_principal=cor;st.session_state.estilo_botoes=estilo
+        st.success("Configurações atualizadas.")
+        st.rerun()
+    st.markdown('</div>',unsafe_allow_html=True)
 
-    with tab_aparencia:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Cores do Aplicativo")
-        st.write("Escolha o tema e a cor de destaque utilizados no sistema.")
-
-        tema = st.radio(
-            "Tema do sistema",
-            ["Escuro (Padrão)", "Claro", "Automático"],
-            index=["Escuro (Padrão)", "Claro", "Automático"].index(st.session_state.tema) if st.session_state.tema in ["Escuro (Padrão)", "Claro", "Automático"] else 0,
-            horizontal=True,
-            key="tema_selecao",
-        )
-        if tema != st.session_state.tema:
-            st.session_state.tema = tema
-            st.rerun()
-
-        cor = st.selectbox("Cor principal", list(CORES.keys()), index=list(CORES.keys()).index(st.session_state.cor_principal), key="cor_selecao")
-        if cor != st.session_state.cor_principal:
-            st.session_state.cor_principal = cor
-            st.rerun()
-
-        st.markdown("**Cor dos botões**")
-        estilo = st.radio("", ["Amarelo", "Cor principal"], index=0 if st.session_state.estilo_botoes == "Amarelo" else 1, horizontal=True, key="estilo_botoes_selecao", label_visibility="collapsed")
-        if estilo != st.session_state.estilo_botoes:
-            st.session_state.estilo_botoes = estilo
-            st.rerun()
-
-        st.markdown(f'<div class="notice"><b>Prévia:</b> a cor <span style="color:{PRIMARY};font-weight:900">{st.session_state.cor_principal}</span> será usada nos destaques do aplicativo.</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with tab_usuarios:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Usuários")
-        st.write("A gestão de usuários e permissões será adicionada nesta área.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with tab_sobre:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.subheader("Sobre")
-        st.write("Gestão Operacional • SETTA")
-        st.write("Streamlit + Supabase")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("<br><div class='muted'>Gestão Almoxarifado • Streamlit + Supabase • migração em andamento</div>", unsafe_allow_html=True)
+st.markdown("<br><div class='muted'>Gestão Almoxarifado • Streamlit + Supabase • migração em andamento</div>",unsafe_allow_html=True)
