@@ -69,17 +69,11 @@ st.markdown(f"""
 <style>
 #MainMenu, footer{{visibility:hidden}}
 
-/* ============================================================
-   MENU SUPERIOR - SEM BOTÃO EXTRA
-   ============================================================ */
 [data-testid="stToolbar"]{{
     display:flex !important;
     align-items:center !important;
 }}
 
-/* ============================================================
-   BOTÃO NATIVO DA SIDEBAR - ESTADO ABERTO
-   ============================================================ */
 button[data-testid="stSidebarCollapseButton"]{{
     display:flex !important;
     visibility:visible !important;
@@ -111,11 +105,6 @@ button[data-testid="stSidebarCollapseButton"] svg{{
     height:20px !important;
 }}
 
-/* ============================================================
-   BOTÃO NATIVO QUANDO A SIDEBAR ESTÁ RECOLHIDA
-   O STREAMLIT MOVE O CONTROLE PARA collapsedControl.
-   Fixamos esse MESMO botão no canto superior esquerdo.
-   ============================================================ */
 div[data-testid="collapsedControl"]{{
     position:fixed !important;
     top:25px !important;
@@ -158,7 +147,6 @@ div[data-testid="collapsedControl"] svg{{
     height:20px !important;
 }}
 
-/* Garante que não exista outro botão personalizado de menu. */
 div.st-key-controle_unico_menus{{
     display:none !important;
 }}
@@ -167,9 +155,6 @@ header[data-testid="stHeader"]{{
     background:transparent !important;
 }}
 
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
     border-right:1px solid {BORDER};
@@ -184,9 +169,6 @@ section[data-testid="stSidebar"] > div:first-child{{
     padding:1px 9px 20px;
     overflow:hidden !important;
 }}
-
-/* Quando recolhida, não deixe a largura fixa empurrar o conteúdo.
-   O botão continua existindo em collapsedControl. */
 section[data-testid="stSidebar"][aria-expanded="false"]{{
     width:0 !important;
     min-width:0 !important;
@@ -216,7 +198,7 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
 [data-testid="stSidebar"] .stButton > button p{{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
-.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:0 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
 .sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;max-width:176px;max-height:70px;width:auto;height:auto;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
