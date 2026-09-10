@@ -287,33 +287,125 @@ elif pagina == "equipes":
         except Exception:
             pass
 
+    def nome_curto(nome):
+        partes = [x for x in (nome or "").split() if x]
+        return " ".join(partes[:2]) if partes else "Sem nome"
+
+    def foto_html(c, tamanho=72):
+        b64 = c.get("foto_base64")
+        mime = c.get("foto_mime") or "image/jpeg"
+        if b64:
+            return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">' 
+        return f'<div class="ge-avatar-fallback" style="width:{tamanho}px;height:{tamanho}px">{nome_curto(c.get("nome"))[:1].upper()}</div>'
+
     equipes_raw = carregar_equipes()
     colaboradores_raw = carregar_colaboradores()
     ativos_equipes = [x for x in equipes_raw if x.get("ativo", True)]
     ativos_colaboradores = [x for x in colaboradores_raw if x.get("ativo", True)]
+    inativos_colaboradores = [x for x in colaboradores_raw if not x.get("ativo", True)]
+    nomes_colab = {str(x.get("id")): x for x in colaboradores_raw}
+    nomes_eq = {str(x.get("id")): x.get("nome", "") for x in equipes_raw}
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Equipes ativas", len(ativos_equipes))
-    m2.metric("Colaboradores ativos", len(ativos_colaboradores))
-    m3.metric("Colaboradores sem equipe", sum(1 for x in ativos_colaboradores if not x.get("equipe_id")))
+    st.markdown("""
+    <style>
+    .ge-shell{margin-top:4px}
+    .ge-tabs-note{color:#8e9893;font-size:12px;margin:0 0 14px 2px}
+    .ge-kpi{background:linear-gradient(145deg,#151b18,#0d1110);border:1px solid #34413b;border-radius:15px;padding:18px 20px;min-height:106px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+    .ge-kpi .label{font-size:11px;color:#8f9994;text-transform:uppercase;letter-spacing:1px;font-weight:800}
+    .ge-kpi .value{font-size:32px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:8px}
+    .ge-kpi .sub{font-size:11px;color:#ffd43d;margin-top:7px}
+    .ge-overview-panel,.ge-team-card,.ge-person-card{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}
+    .ge-overview-panel{padding:20px;margin-top:16px}
+    .ge-panel-title{font-size:15px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:15px}
+    .ge-mini{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #26302c}
+    .ge-mini:last-child{border-bottom:0}
+    .ge-mini .rank{width:28px;height:28px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
+    .ge-mini .main{flex:1}.ge-mini .name{font-size:12px;font-weight:800;color:#f4f5f4}.ge-mini .desc{font-size:10px;color:#8e9893;margin-top:2px}
+    .ge-bar{height:7px;background:#202925;border-radius:99px;overflow:hidden;margin-top:7px}.ge-bar span{display:block;height:100%;background:#ffd43d;border-radius:99px}
+    .ge-alert{padding:14px 16px;border-radius:12px;border:1px solid #5b4a13;background:#211c0b;color:#ddd4a7;font-size:12px;line-height:1.5}
+    .ge-team-card{padding:20px;margin-top:14px;position:relative;overflow:hidden}
+    .ge-team-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    .ge-team-title{font-size:20px;font-weight:900;color:#f4f5f4;margin:0}.ge-team-title span{color:#ffd43d}
+    .ge-team-status{font-size:10px;font-weight:900;border:1px solid #4a5a52;border-radius:999px;padding:6px 10px;color:#ffd43d;white-space:nowrap}
+    .ge-team-objective{color:#9ca6a1;font-size:12px;line-height:1.55;margin-top:8px;max-width:900px}
+    .ge-team-grid{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:14px;margin-top:18px}
+    .ge-info-box{background:#0a0e0d;border:1px solid #26312c;border-radius:12px;padding:14px}.ge-info-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#7f8a84;font-weight:900}.ge-info-value{font-size:12px;color:#f0f2f1;font-weight:800;margin-top:6px}
+    .ge-task{font-size:10px;color:#c0c7c3;padding:6px 0;border-bottom:1px solid #202824}.ge-task:last-child{border-bottom:0}
+    .ge-member{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #202824}.ge-member:last-child{border-bottom:0}.ge-member img,.ge-member .ge-avatar-fallback{flex:0 0 36px}.ge-member-name{font-size:11px;font-weight:800;color:#f0f2f1}.ge-member-role{font-size:9px;color:#89938e;margin-top:2px}
+    .ge-empty{color:#7f8984;font-size:11px;padding:9px 0}
+    .ge-person-card{padding:13px;text-align:center;min-height:220px;margin-bottom:10px;position:relative}
+    .ge-person-photo{width:78px;height:78px;margin:2px auto 10px;border-radius:50%;padding:4px;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 3px rgba(255,212,61,.08)}
+    .ge-person-photo img,.ge-person-photo .ge-avatar-fallback{width:66px!important;height:66px!important;border-radius:50%;display:block;object-fit:cover}
+    .ge-avatar-img{border-radius:50%;object-fit:cover;display:block}.ge-avatar-fallback{border-radius:50%;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}
+    .ge-person-name{font-size:12px;font-weight:900;color:#f4f5f4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ge-person-role{font-size:9px;color:#ffd43d;font-weight:800;margin-top:5px;min-height:25px}.ge-person-team{font-size:9px;color:#89938e;margin-top:4px;min-height:25px}.ge-person-status{font-size:9px;color:#89938e;margin-top:9px}
+    .ge-form-panel{background:#111714;border:1px solid #34413b;border-radius:16px;padding:18px 20px;margin:12px 0 18px}
+    @media(max-width:900px){.ge-team-grid{grid-template-columns:1fr}.ge-person-card{min-height:205px}}
+    </style>
+    """, unsafe_allow_html=True)
 
-    tab_equipes, tab_colaboradores = st.tabs(["EQUIPES", "COLABORADORES"])
+    k1,k2,k3,k4 = st.columns(4)
+    k1.markdown(f'<div class="ge-kpi"><div class="label">Equipes ativas</div><div class="value">{len(ativos_equipes)}</div><div class="sub">Estrutura operacional</div></div>', unsafe_allow_html=True)
+    k2.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores ativos</div><div class="value">{len(ativos_colaboradores)}</div><div class="sub">Base atual</div></div>', unsafe_allow_html=True)
+    k3.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores alocados</div><div class="value">{sum(1 for x in ativos_colaboradores if x.get("equipe_id"))}</div><div class="sub">Com equipe definida</div></div>', unsafe_allow_html=True)
+    k4.markdown(f'<div class="ge-kpi"><div class="label">Sem equipe</div><div class="value">{sum(1 for x in ativos_colaboradores if not x.get("equipe_id"))}</div><div class="sub">Aguardando alocação</div></div>', unsafe_allow_html=True)
+
+    tab_geral, tab_equipes, tab_colaboradores = st.tabs(["VISÃO GERAL", "EQUIPES", "COLABORADORES"])
+
+    with tab_geral:
+        st.markdown('<div class="ge-tabs-note">Visão consolidada da estrutura do almoxarifado, equipes, pessoas e distribuição atual.</div>', unsafe_allow_html=True)
+        a,b = st.columns([1.15, .85])
+        with a:
+            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Estrutura das equipes</div>', unsafe_allow_html=True)
+            total_eq = max(len(ativos_equipes),1)
+            for idx, equipe in enumerate(ativos_equipes,1):
+                membros = [c for c in ativos_colaboradores if str(c.get("equipe_id")) == str(equipe.get("id"))]
+                st.markdown(f'<div class="ge-mini"><div class="rank">{idx:02d}</div><div class="main"><div class="name">{equipe.get("nome","")}</div><div class="desc">{len(membros)} colaborador(es) · {len(equipe.get("tarefas") or [])} tarefa(s)</div><div class="ge-bar"><span style="width:{max(4, int((len(membros)/max(len(ativos_colaboradores),1))*100))}%"></span></div></div></div>', unsafe_allow_html=True)
+            if not ativos_equipes:
+                st.markdown('<div class="ge-empty">Nenhuma equipe ativa cadastrada.</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with b:
+            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Resumo de pessoas</div>', unsafe_allow_html=True)
+            funcoes = {}
+            for c in ativos_colaboradores:
+                f = (c.get("funcao") or "Sem função").strip().upper()
+                funcoes[f] = funcoes.get(f,0)+1
+            for f,n in sorted(funcoes.items(), key=lambda x:(-x[1],x[0]))[:7]:
+                st.markdown(f'<div class="ge-mini"><div class="main"><div class="name">{f}</div><div class="desc">{n} colaborador(es)</div><div class="ge-bar"><span style="width:{max(4,int(n/max(len(ativos_colaboradores),1)*100))}%"></span></div></div></div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        sem_equipe = [c for c in ativos_colaboradores if not c.get("equipe_id")]
+        if sem_equipe:
+            st.markdown(f'<div class="ge-alert"><b>Alocação pendente:</b> {len(sem_equipe)} colaborador(es) ativo(s) ainda estão sem equipe definida. O cadastro já está pronto para receber a associação na edição de cada colaborador.</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Admissões mais recentes</div>', unsafe_allow_html=True)
+        recentes = sorted([c for c in ativos_colaboradores if c.get("data_admissao")], key=lambda x:x.get("data_admissao") or "", reverse=True)[:5]
+        if recentes:
+            cols = st.columns(len(recentes))
+            for col,c in zip(cols,recentes):
+                data = pd.to_datetime(c.get("data_admissao"), errors="coerce")
+                data_txt = data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"
+                with col:
+                    st.markdown(f'<div style="text-align:center">{foto_html(c,54)}<div style="font-size:11px;font-weight:900;color:#f4f5f4;margin-top:7px">{nome_curto(c.get("nome"))}</div><div style="font-size:9px;color:#89938e">{data_txt}</div></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_equipes:
-        st.markdown("### Cadastro de equipe")
+        st.markdown('<div class="ge-tabs-note">Cada equipe agora aparece como um painel operacional, com objetivo, responsável, tarefas e integrantes.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ge-form-panel">', unsafe_allow_html=True)
         with st.form("form_nova_equipe", clear_on_submit=True):
             ec1, ec2 = st.columns(2)
             with ec1:
                 nome_equipe = st.text_input("Nome da equipe *", placeholder="Ex.: Almoxarifado")
-                objetivo_equipe = st.text_area("Objetivo", placeholder="Descreva a finalidade da equipe.", height=100)
+                objetivo_equipe = st.text_area("Objetivo", placeholder="Descreva a finalidade da equipe.", height=90)
             with ec2:
                 responsaveis = {"Nenhum": None}
                 for c in ativos_colaboradores:
                     responsaveis[f"{c.get('nome', '')} — {c.get('funcao') or 'Sem função'}"] = c.get("id")
                 resp_label = st.selectbox("Responsável", list(responsaveis.keys()))
-                tarefas_texto = st.text_area("Tarefas principais", placeholder="Uma tarefa por linha", height=100)
+                tarefas_texto = st.text_area("Tarefas principais", placeholder="Uma tarefa por linha", height=90)
             criar_equipe = st.form_submit_button("CRIAR EQUIPE", type="primary", use_container_width=True)
-
+        st.markdown('</div>', unsafe_allow_html=True)
         if criar_equipe:
             nome_limpo = nome_equipe.strip()
             if not nome_limpo:
@@ -330,55 +422,54 @@ elif pagina == "equipes":
                 except Exception as e:
                     st.error(f"Erro ao criar equipe: {e}")
 
-        st.markdown("### Equipes cadastradas")
         filtro_eq = st.text_input("Buscar equipe", placeholder="Digite parte do nome...", key="busca_equipe")
         equipes_exibicao = [x for x in equipes_raw if filtro_eq.strip().casefold() in (x.get("nome") or "").casefold()]
-        nomes_colab = {str(x.get("id")): x.get("nome", "") for x in colaboradores_raw}
-        if not equipes_exibicao:
-            st.info("Nenhuma equipe cadastrada para o filtro informado.")
         for equipe in equipes_exibicao:
             eid = str(equipe.get("id"))
-            with st.expander(f"{'ATIVA' if equipe.get('ativo', True) else 'INATIVA'} • {equipe.get('nome', '')}"):
-                st.write(f"**Objetivo:** {equipe.get('objetivo') or 'Não informado'}")
-                st.write(f"**Responsável:** {nomes_colab.get(str(equipe.get('responsavel_id')), 'Não definido')}")
-                st.write(f"**Tarefas:** {', '.join(equipe.get('tarefas') or []) or 'Não informadas'}")
-                ca, cb = st.columns(2)
-                with ca:
-                    if st.button("EDITAR EQUIPE", key=f"editar_eq_{eid}", use_container_width=True):
-                        st.session_state["editar_equipe_id"] = eid
+            membros = [c for c in ativos_colaboradores if str(c.get("equipe_id")) == eid]
+            resp = nomes_colab.get(str(equipe.get("responsavel_id")))
+            resp_html = f'{foto_html(resp,42)}<div><div class="ge-member-name">{resp.get("nome","")}</div><div class="ge-member-role">{resp.get("funcao") or "Sem função"}</div></div>' if resp else '<div class="ge-empty">Nenhum responsável definido.</div>'
+            tarefas = ''.join([f'<div class="ge-task">{t}</div>' for t in (equipe.get("tarefas") or [])]) or '<div class="ge-empty">Nenhuma tarefa cadastrada.</div>'
+            membros_html = ''.join([f'<div class="ge-member">{foto_html(c,36)}<div><div class="ge-member-name">{c.get("nome","")}</div><div class="ge-member-role">{c.get("funcao") or "Sem função"}</div></div></div>' for c in membros]) or '<div class="ge-empty">Nenhum colaborador associado a esta equipe.</div>'
+            st.markdown(f'<div class="ge-team-card"><div class="ge-team-head"><div><div class="ge-team-title"><span>●</span> {equipe.get("nome","")}</div><div class="ge-team-objective">{equipe.get("objetivo") or "Objetivo não informado."}</div></div><div class="ge-team-status">{"ATIVA" if equipe.get("ativo",True) else "INATIVA"}</div></div><div class="ge-team-grid"><div class="ge-info-box"><div class="ge-info-label">Responsável</div><div style="margin-top:9px;display:flex;align-items:center;gap:10px">{resp_html}</div></div><div class="ge-info-box"><div class="ge-info-label">Integrantes</div><div class="ge-info-value">{len(membros)} colaborador(es)</div><div class="ge-info-label" style="margin-top:12px">Tarefas</div><div class="ge-info-value">{len(equipe.get("tarefas") or [])} atividade(s)</div></div><div class="ge-info-box"><div class="ge-info-label">Tarefas principais</div>{tarefas}</div></div><div class="ge-info-box" style="margin-top:14px"><div class="ge-info-label">Equipe</div>{membros_html}</div></div>', unsafe_allow_html=True)
+            ca,cb = st.columns(2)
+            with ca:
+                if st.button("EDITAR EQUIPE", key=f"editar_eq_{eid}", use_container_width=True):
+                    st.session_state["editar_equipe_id"] = eid
+                    st.rerun()
+            with cb:
+                if st.button("INATIVAR EQUIPE" if equipe.get("ativo", True) else "REATIVAR EQUIPE", key=f"status_eq_{eid}", use_container_width=True):
+                    try:
+                        client.table("almox_equipes").update({"ativo": not equipe.get("ativo", True)}).eq("id", eid).execute()
+                        registrar_historico("equipe_status", f"Status alterado: {equipe.get('nome', '')}", {"equipe_id": eid, "ativo": not equipe.get("ativo", True)})
                         st.rerun()
-                with cb:
-                    if st.button("INATIVAR EQUIPE" if equipe.get("ativo", True) else "REATIVAR EQUIPE", key=f"status_eq_{eid}", use_container_width=True):
-                        try:
-                            client.table("almox_equipes").update({"ativo": not equipe.get("ativo", True)}).eq("id", eid).execute()
-                            registrar_historico("equipe_status", f"Status alterado: {equipe.get('nome', '')}", {"equipe_id": eid, "ativo": not equipe.get("ativo", True)})
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao alterar status: {e}")
-                if st.session_state.get("editar_equipe_id") == eid:
-                    with st.form(f"form_editar_eq_{eid}"):
-                        nome_edit = st.text_input("Nome", value=equipe.get("nome") or "")
-                        obj_edit = st.text_area("Objetivo", value=equipe.get("objetivo") or "", height=90)
-                        tarefas_edit = st.text_area("Tarefas — uma por linha", value="\n".join(equipe.get("tarefas") or []), height=90)
-                        resp_opts = {"Nenhum": None}
-                        for c in ativos_colaboradores:
-                            resp_opts[f"{c.get('nome', '')} — {c.get('funcao') or 'Sem função'}"] = c.get("id")
-                        ids_resp = list(resp_opts.values())
-                        atual_resp = equipe.get("responsavel_id")
-                        idx_resp = ids_resp.index(atual_resp) if atual_resp in ids_resp else 0
-                        resp_edit = st.selectbox("Responsável", list(resp_opts.keys()), index=idx_resp)
-                        salvar_eq = st.form_submit_button("SALVAR ALTERAÇÕES", type="primary")
-                    if salvar_eq:
-                        try:
-                            client.table("almox_equipes").update({"nome": nome_edit.strip(), "objetivo": obj_edit.strip() or None, "tarefas": [x.strip() for x in tarefas_edit.splitlines() if x.strip()], "responsavel_id": resp_opts[resp_edit]}).eq("id", eid).execute()
-                            registrar_historico("equipe_editada", f"Equipe editada: {nome_edit.strip()}", {"equipe_id": eid, "nome": nome_edit.strip()})
-                            st.session_state.pop("editar_equipe_id", None)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao editar equipe: {e}")
+                    except Exception as e:
+                        st.error(f"Erro ao alterar status: {e}")
+            if st.session_state.get("editar_equipe_id") == eid:
+                with st.form(f"form_editar_eq_{eid}"):
+                    nome_edit = st.text_input("Nome", value=equipe.get("nome") or "")
+                    obj_edit = st.text_area("Objetivo", value=equipe.get("objetivo") or "", height=90)
+                    tarefas_edit = st.text_area("Tarefas — uma por linha", value="\\n".join(equipe.get("tarefas") or []), height=90)
+                    resp_opts = {"Nenhum": None}
+                    for c in ativos_colaboradores:
+                        resp_opts[f"{c.get('nome', '')} — {c.get('funcao') or 'Sem função'}"] = c.get("id")
+                    ids_resp = list(resp_opts.values())
+                    atual_resp = equipe.get("responsavel_id")
+                    idx_resp = ids_resp.index(atual_resp) if atual_resp in ids_resp else 0
+                    resp_edit = st.selectbox("Responsável", list(resp_opts.keys()), index=idx_resp)
+                    salvar_eq = st.form_submit_button("SALVAR ALTERAÇÕES", type="primary")
+                if salvar_eq:
+                    try:
+                        client.table("almox_equipes").update({"nome": nome_edit.strip(), "objetivo": obj_edit.strip() or None, "tarefas": [x.strip() for x in tarefas_edit.splitlines() if x.strip()], "responsavel_id": resp_opts[resp_edit]}).eq("id", eid).execute()
+                        registrar_historico("equipe_editada", f"Equipe editada: {nome_edit.strip()}", {"equipe_id": eid, "nome": nome_edit.strip()})
+                        st.session_state.pop("editar_equipe_id", None)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao editar equipe: {e}")
 
     with tab_colaboradores:
-        st.markdown("### Cadastro de colaborador")
+        st.markdown('<div class="ge-tabs-note">Visual em cartões com foto, função, equipe e status, mantendo cadastro e edição completos abaixo.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ge-form-panel">', unsafe_allow_html=True)
         equipes_opts = {x.get("nome", ""): x.get("id") for x in ativos_equipes}
         with st.form("form_novo_colaborador", clear_on_submit=True):
             cc1, cc2 = st.columns(2)
@@ -391,6 +482,7 @@ elif pagina == "equipes":
                 equipe_label = st.selectbox("Equipe", ["Sem equipe"] + list(equipes_opts.keys()))
                 foto_arquivo = st.file_uploader("Foto do colaborador *", type=["png", "jpg", "jpeg", "webp"], help="Inclua a foto do colaborador. Tamanho máximo: 2 MB.")
             criar_colab = st.form_submit_button("CADASTRAR COLABORADOR", type="primary", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         if criar_colab:
             nome_limpo = nome_colab.strip()
             mat = matricula.strip() or None
@@ -414,7 +506,6 @@ elif pagina == "equipes":
                 except Exception as e:
                     st.error(f"Erro ao cadastrar colaborador: {e}")
 
-        st.markdown("### Colaboradores cadastrados")
         cf1, cf2 = st.columns([2, 1])
         with cf1:
             busca = st.text_input("Buscar colaborador", placeholder="Nome, matrícula ou função...", key="busca_colab")
@@ -426,10 +517,14 @@ elif pagina == "equipes":
             ok = status == "Todos" or (status == "Ativos" and c.get("ativo", True)) or (status == "Inativos" and not c.get("ativo", True))
             if busca.strip().casefold() in texto and ok:
                 filtrados.append(c)
-        nomes_eq = {str(x.get("id")): x.get("nome", "") for x in equipes_raw}
-        linhas = [{"Nome": c.get("nome"), "Matrícula": c.get("matricula") or "", "Função": c.get("funcao") or "", "Equipe": nomes_eq.get(str(c.get("equipe_id")), c.get("equipe_atual") or "Sem equipe"), "Admissão": c.get("data_admissao") or "", "Status": "Ativo" if c.get("ativo", True) else "Inativo"} for c in filtrados]
-        if linhas:
-            st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
+
+        if filtrados:
+            for base in range(0, len(filtrados), 5):
+                cols = st.columns(5)
+                for col,c in zip(cols,filtrados[base:base+5]):
+                    eq_nome = nomes_eq.get(str(c.get("equipe_id")), c.get("equipe_atual") or "Sem equipe")
+                    with col:
+                        st.markdown(f'<div class="ge-person-card"><div class="ge-person-photo">{foto_html(c,66)}</div><div class="ge-person-name" title="{c.get("nome","")}">{nome_curto(c.get("nome"))}</div><div class="ge-person-role">{c.get("funcao") or "Sem função"}</div><div class="ge-person-team">{eq_nome}</div><div class="ge-person-status">{"ATIVO" if c.get("ativo",True) else "INATIVO"} · {c.get("matricula") or "sem matrícula"}</div></div>', unsafe_allow_html=True)
         else:
             st.info("Nenhum colaborador encontrado.")
 
