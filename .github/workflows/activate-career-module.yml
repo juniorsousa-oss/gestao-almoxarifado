@@ -21,32 +21,41 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           path = Path("index.html")
           text = path.read_text(encoding="utf-8")
           tag = '<script src="./plano-carreira-v2.js"></script>'
-
           if tag not in text:
               marker = "</body>"
               if marker not in text:
                   raise SystemExit("index.html não contém </body>")
-              text = text.replace(marker, f"{tag}\n{marker}", 1)
-              path.write_text(text, encoding="utf-8")
-              print("Script do Plano de Carreira ativado no index.html")
-          else:
-              print("Script do Plano de Carreira já está ativo")
+              path.write_text(text.replace(marker, f"{tag}\n{marker}", 1), encoding="utf-8")
 
-      - name: Publicar alteração no main
+      - name: Corrigir botão de abrir menu após recolher
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("streamlit_app.py")
+          text = path.read_text(encoding="utf-8")
+          old = 'div[data-testid="collapsedControl"]{{position:fixed !important;top:10px !important;'
+          new = 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("Seletor collapsedControl não encontrado")
+          path.write_text(text, encoding="utf-8")
+
+      - name: Validar Python
+        run: python -m py_compile streamlit_app.py
+
+      - name: Publicar alterações no main
         shell: bash
         run: |
-          if git diff --quiet -- index.html; then
+          if git diff --quiet -- index.html streamlit_app.py; then
             echo "Nenhuma alteração necessária."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git commit -m "chore: ativar plano de carreira"
+          git add index.html streamlit_app.py
+          git commit -m "fix: manter botão de abrir menu visível [skip ci]"
           git push
-
-# força uma nova execução para garantir a ativação no index.html
