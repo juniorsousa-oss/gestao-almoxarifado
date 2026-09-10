@@ -137,19 +137,19 @@ st.markdown(f"""
 <style>
 #MainMenu, footer{{visibility:hidden}}
 [data-testid="stToolbar"]{{display:none !important;}}
-button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:10px !important;left:8px !important;right:auto !important;z-index:2147483647 !important;width:40px !important;height:34px !important;min-width:40px !important;min-height:34px !important;padding:0 !important;margin:0 !important;border-radius:8px !important;border:1px solid {BORDER} !important;background:#ffffff !important;color:#1f2937 !important;box-shadow:0 1px 4px rgba(0,0,0,.18) !important;}}
+button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}
 button[data-testid="stSidebarCollapseButton"]:hover{{background:{PRIMARY} !important;color:#111111 !important;border-color:{PRIMARY} !important;}}
 button[data-testid="stSidebarCollapseButton"] svg{{width:20px !important;height:20px !important;}}
-div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;left:8px !important;right:auto !important;bottom:auto !important;inset-inline-start:8px !important;inset-inline-end:auto !important;z-index:2147483647 !important;width:40px !important;height:34px !important;margin:0 !important;padding:0 !important;transform:none !important;}}
-div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:static !important;width:40px !important;height:34px !important;min-width:40px !important;min-height:34px !important;padding:0 !important;margin:0 !important;border-radius:8px !important;border:1px solid {BORDER} !important;background:#ffffff !important;color:#1f2937 !important;box-shadow:0 1px 4px rgba(0,0,0,.18) !important;}}
+div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}
+div[data-testid="collapsedControl"] button{{display:none !important;}}
 div[data-testid="collapsedControl"] button:hover{{background:{PRIMARY} !important;color:#111111 !important;border-color:{PRIMARY} !important;}}
 div[data-testid="collapsedControl"] svg{{width:20px !important;height:20px !important;}}
 div.st-key-controle_unico_menus{{display:none !important;}}
 header[data-testid="stHeader"]{{display:block !important;background:transparent !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}
 section[data-testid="stSidebar"]{{background:{SIDEBAR_BG} !important;border-right:1px solid {BORDER};width:230px !important;min-width:230px !important;max-width:230px !important;overflow:hidden !important;}}
 section[data-testid="stSidebar"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px;overflow:hidden !important;}}
-section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}
-section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;}}
+section[data-testid="stSidebar"][aria-expanded="false"]{{width:230px !important;min-width:230px !important;max-width:230px !important;}}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}
 .stApp{{background:{APP_BG};color:{TEXT}}}
 .block-container{{max-width:1500px;padding:18px 34px 50px}}
 .hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}
