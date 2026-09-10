@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+import os
+from typing import Any
+
+import streamlit as st
+from supabase import Client, create_client
+
+PROJECT_URL = "https://cuixazpxkvniqldmmnth.supabase.co"
+
+
+def _secret(name: str, default: str = "") -> str:
+    try:
+        value = st.secrets.get(name, default)
+        if value:
+            return str(value)
+    except Exception:
+        pass
+    return os.getenv(name, default)
+
+
+def get_client() -> Client:
+    url = _secret("SUPABASE_URL", PROJECT_URL)
+    key = _secret("SUPABASE_KEY") or _secret("SUPABASE_ANON_KEY")
+    if not key:
+        raise RuntimeError(
+            "SUPABASE_KEY não configurada. No Streamlit Cloud, adicione "
+            "SUPABASE_URL e SUPABASE_KEY em Settings > Secrets."
+        )
+    return create_client(url, key)
+
+
+def select_rows(table: str, *, limit: int = 500, order_by: str | None = None) -> list[dict[str, Any]]:
+    client = get_client()
+    query = client.table(table).select("*")
+    if order_by:
+        query = query.order(order_by, desc=True)
+    response = query.limit(limit).execute()
+    return response.data or []
+
+
+def select_one(table: str, row_id: Any, *, id_column: str = "id") -> dict[str, Any] | None:
+    client = get_client()
+    response = client.table(table).select("*").eq(id_column, row_id).limit(1).execute()
+    rows = response.data or []
+    return rows[0] if rows else None
