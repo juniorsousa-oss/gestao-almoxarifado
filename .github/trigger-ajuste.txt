@@ -1,1 +1,1 @@
-trigger ensure loader final
+trigger cloud sync final
