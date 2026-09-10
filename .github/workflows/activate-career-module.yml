@@ -36,49 +36,17 @@ jobs:
           else:
               print("Script do Plano de Carreira já está ativo")
 
-      - name: Aplicar atualização visual da Gestão de Equipes
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          wf = Path('.github/workflows/update-equipes-visual.yml')
-          if not wf.exists():
-              raise SystemExit('Patch visual temporário não encontrado')
-          text = wf.read_text(encoding='utf-8')
-          marker = "          block = '''"
-          if marker not in text:
-              raise SystemExit('Bloco visual não encontrado')
-          block = text.split(marker,1)[1].split("'''",1)[0]
-          p = Path('streamlit_app.py')
-          s = p.read_text(encoding='utf-8')
-          start = 'elif pagina == "equipes":\n'
-          end = '\nelif pagina == "carreira":'
-          i = s.find(start)
-          j = s.find(end, i)
-          if i < 0 or j < 0:
-              raise SystemExit('Bloco Gestão de Equipes não encontrado')
-          if 'tab_geral, tab_equipes, tab_colaboradores = st.tabs(["VISÃO GERAL", "EQUIPES", "COLABORADORES"])' not in s:
-              s = s[:i] + block + s[j:]
-              p.write_text(s, encoding='utf-8')
-          else:
-              print('Gestão de Equipes já atualizada')
-          PY
-
-      - name: Validar aplicação
-        run: python -m py_compile streamlit_app.py
-
       - name: Publicar alteração no main
         shell: bash
         run: |
-          rm -f .github/workflows/update-equipes-visual.yml .github/workflows/run-equipes-visual.yml
-          if git diff --quiet -- index.html streamlit_app.py .github/workflows/update-equipes-visual.yml .github/workflows/run-equipes-visual.yml; then
+          if git diff --quiet -- index.html; then
             echo "Nenhuma alteração necessária."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html streamlit_app.py .github/workflows/update-equipes-visual.yml .github/workflows/run-equipes-visual.yml
-          git commit -m "feat: adiciona visão geral e visualiza equipes e colaboradores"
+          git add index.html
+          git commit -m "chore: ativar plano de carreira"
           git push
 
 # força uma nova execução para garantir a ativação no index.html
