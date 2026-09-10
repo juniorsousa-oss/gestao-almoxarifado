@@ -1,1 +1,1 @@
-trigger cloud sync final
+trigger secure admissions patch
