@@ -1,0 +1,21 @@
+name: Executar patch Gestão de Equipes
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar patch
+        run: python gestao_equipes_patch.py
+      - name: Commitar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py
+          git diff --cached --quiet && exit 0
+          git commit -m 'Atualiza módulo Gestão de Equipes'
+          git push
