@@ -167,7 +167,7 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
 [data-testid="stSidebar"] .stButton > button p{{font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
-.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:0 0 3px;padding:0 0 5px;border-bottom:1px solid {BORDER}}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-20px 0 3px;padding:0 0 5px;border-bottom:1px solid {BORDER}}}
 .sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
