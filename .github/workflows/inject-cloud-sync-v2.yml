@@ -27,37 +27,41 @@ jobs:
           tag = '<script src="./cloud-sync-v2.js"></script>'
           if tag not in text:
               marker = '<script src="./supabase-sync.js"></script>'
-              if marker not in text:
-                  raise SystemExit('Marcador supabase-sync.js não encontrado')
-              text = text.replace(marker, marker + '\n' + tag, 1)
-              p.write_text(text, encoding='utf-8')
+              if marker in text:
+                  p.write_text(text.replace(marker, marker + '\n' + tag, 1), encoding='utf-8')
           PY
 
-      - name: Corrigir controle do menu lateral
+      - name: Fixar menu lateral
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('streamlit_app.py')
           s = p.read_text(encoding='utf-8')
-          old = 'div[data-testid="collapsedControl"]{{position:fixed !important;top:10px !important;'
-          new = 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;'
-          if old not in s:
-              raise SystemExit('Controle recolhido não encontrado no CSS atual.')
-          s = s.replace(old, new, 1)
+          replacements = {
+              'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:10px !important;left:8px !important;right:auto !important;z-index:2147483647 !important;width:40px !important;height:34px !important;min-width:40px !important;min-height:34px !important;padding:0 !important;margin:0 !important;border-radius:8px !important;border:1px solid {BORDER} !important;background:#ffffff !important;color:#1f2937 !important;box-shadow:0 1px 4px rgba(0,0,0,.18) !important;}}':
+                  'button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}',
+              'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;left:8px !important;right:auto !important;bottom:auto !important;inset-inline-start:8px !important;inset-inline-end:auto !important;z-index:2147483647 !important;width:40px !important;height:34px !important;margin:0 !important;padding:0 !important;transform:none !important;}}':
+                  'div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}',
+              'div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:static !important;width:40px !important;height:34px !important;min-width:40px !important;min-height:34px !important;padding:0 !important;margin:0 !important;border-radius:8px !important;border:1px solid {BORDER} !important;background:#ffffff !important;color:#1f2937 !important;box-shadow:0 1px 4px rgba(0,0,0,.18) !important;}}':
+                  'div[data-testid="collapsedControl"] button{{display:none !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}':
+                  'section[data-testid="stSidebar"][aria-expanded="false"]{{width:230px !important;min-width:230px !important;max-width:230px !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;}}':
+                  'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}',
+          }
+          for old, new in replacements.items():
+              if old in s:
+                  s = s.replace(old, new)
           p.write_text(s, encoding='utf-8')
           PY
           python -m py_compile streamlit_app.py
 
-      - name: Commit e push
+      - name: Commit alteração
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add streamlit_app.py index.html
-          if git diff --cached --quiet; then
-            echo 'Nenhuma alteração necessária.'
-            exit 0
-          fi
-          git commit -m 'fix: manter controle do menu lateral visível [skip ci]'
-          git push
+          git commit -m 'fix: menu lateral fixo sem recolhimento [skip ci]' || true
+          git push || true
