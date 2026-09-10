@@ -8,7 +8,7 @@ from PIL import Image
 import streamlit as st
 from supabase_client import get_client
 
-st.set_page_config(page_title="GESTÃO OPERACIONAL | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
 
 DEFAULT_CONFIG = {
     "tema": "Escuro (Padrão)",
