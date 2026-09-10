@@ -26,28 +26,13 @@ jobs:
           if not found:
               raise SystemExit('Linha careerAssess não encontrada')
           p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
-
-          app=Path('streamlit_app.py')
-          s=app.read_text(encoding='utf-8')
-          old1='st.date_input("Data de admissão", value=None, key="data_adm_novo")'
-          new1='st.date_input("Data de admissão", value=None, format="DD/MM/YYYY", key="data_adm_novo")'
-          old2='st.date_input("Data de admissão", value=data_val, key=f"data_edit_{cid}")'
-          new2='st.date_input("Data de admissão", value=data_val, format="DD/MM/YYYY", key=f"data_edit_{cid}")'
-          if old1 in s:
-              s=s.replace(old1,new1)
-          if old2 in s:
-              s=s.replace(old2,new2)
-          app.write_text(s,encoding='utf-8')
       - name: Validate
-        run: |
-          node --check plano-carreira-v2.js
-          python -m py_compile streamlit_app.py
+        run: node --check plano-carreira-v2.js
       - name: Commit
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add plano-carreira-v2.js streamlit_app.py
-          git diff --cached --quiet && exit 0
-          git commit -m 'fix: aplica formato brasileiro nas datas de colaboradores'
+          git add plano-carreira-v2.js
+          git commit -m 'fix: corrige sintaxe do plano de carreira'
           git push
