@@ -1,1 +1,1 @@
-trigger final 2
+trigger debug
