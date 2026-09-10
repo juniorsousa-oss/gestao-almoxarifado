@@ -1,7 +1,10 @@
 from __future__ import annotations
 from datetime import date
 import base64
+from collections import Counter
+from io import BytesIO
 import pandas as pd
+from PIL import Image
 import streamlit as st
 from supabase_client import get_client
 
@@ -14,6 +17,7 @@ DEFAULT_CONFIG = {
     "logo_base64": None,
     "logo_name": None,
     "logo_mime": None,
+    "logo_bg": "#ffffff",
 }
 
 CORES = {
@@ -42,6 +46,33 @@ def salvar_configuracoes(config):
     payload = {"id": "global", "estado": config}
     resultado = get_client().table("almox_app_state").upsert(payload, on_conflict="id").execute()
     return bool(resultado.data)
+
+
+def detectar_cor_fundo_logo(logo_b64, logo_mime=None):
+    """Detecta a cor predominante da logo para preencher o espaço ao redor dela."""
+    if not logo_b64:
+        return "#ffffff"
+    try:
+        if (logo_mime or "").lower() == "image/svg+xml":
+            return "#ffffff"
+        imagem = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
+        imagem.thumbnail((160, 160))
+
+        pixels = []
+        for r, g, b, a in imagem.getdata():
+            if a >= 220:
+                pixels.append((r, g, b))
+
+        if not pixels:
+            return "#ffffff"
+
+        # Agrupa cores próximas para evitar que pequenas variações da imagem
+        # prejudiquem a identificação do fundo predominante.
+        agrupadas = [((r // 16) * 16, (g // 16) * 16, (b // 16) * 16) for r, g, b in pixels]
+        cor = Counter(agrupadas).most_common(1)[0][0]
+        return "#{:02x}{:02x}{:02x}".format(*cor)
+    except Exception:
+        return "#ffffff"
 
 
 if "config_carregada" not in st.session_state:
@@ -199,7 +230,7 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 [data-testid="stSidebar"] .stButton > button p{{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
 .sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
-.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
+.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg,#ffffff);border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;max-width:176px;max-height:70px;width:auto;height:auto;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
 .sidebar-footer{{margin:20px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-size:10px;line-height:1.6}}
@@ -229,13 +260,14 @@ paginas = ["Dashboard", "Alimentar Indicadores", "Histórico", "Gestão de Equip
 
 with st.sidebar:
     logo_b64 = config.get("logo_base64")
+    logo_bg = config.get("logo_bg") or detectar_cor_fundo_logo(logo_b64, config.get("logo_mime"))
     if logo_b64:
         mime = config.get("logo_mime") or "image/png"
         logo_html = f'<img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}" alt="Logo SETTA">'
     else:
         logo_html = '<div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div>'
 
-    st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap">{logo_html}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap" style="--logo-bg:{logo_bg};">{logo_html}</div></div>', unsafe_allow_html=True)
 
     for p in paginas:
         ativo = st.session_state.pagina == p
@@ -328,8 +360,10 @@ elif pagina == "Configurações":
             if arquivo.size > 2 * 1024 * 1024:
                 st.error("A logo deve ter no máximo 2 MB.")
             else:
-                dados = base64.b64encode(arquivo.getvalue()).decode("ascii")
-                novo = config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png"})
+                dados_bytes = arquivo.getvalue()
+                dados = base64.b64encode(dados_bytes).decode("ascii")
+                logo_bg_novo = detectar_cor_fundo_logo(dados, arquivo.type or "image/png")
+                novo = config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png","logo_bg":logo_bg_novo})
                 try:
                     if salvar_configuracoes(novo):
                         st.session_state.config = novo
