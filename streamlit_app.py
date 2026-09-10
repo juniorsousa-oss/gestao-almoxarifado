@@ -250,7 +250,9 @@ with st.sidebar:
     st.markdown("<div class='sidebar-footer'>Gestão Operacional<br>SETTA • Streamlit + Supabase</div>", unsafe_allow_html=True)
 
 pagina = st.session_state.pagina
-st.markdown(f'<div class="hero"><div><h1>{pagina}</h1><p>Gestão operacional do almoxarifado</p></div><div class="period">{date.today().strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
+MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+competencia_atual = f"{MESES_PT[date.today().month - 1]}/{date.today().strftime('%y')}"
+st.markdown(f'<div class="hero"><div><h1>{pagina}</h1><p>Gestão operacional do almoxarifado</p></div><div class="period">{competencia_atual}</div></div>', unsafe_allow_html=True)
 
 try:
     get_client()
