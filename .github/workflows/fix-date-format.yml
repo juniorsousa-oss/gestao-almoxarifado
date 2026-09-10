@@ -1,0 +1,39 @@
+name: Fix Brazilian date format
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar date_input para DD/MM/YYYY
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          old1 = 'st.date_input("Data de admissão", value=None, key="data_adm_novo")'
+          new1 = 'st.date_input("Data de admissão", value=None, format="DD/MM/YYYY", key="data_adm_novo")'
+          old2 = 'st.date_input("Data de admissão", value=data_val, key=f"data_edit_{cid}")'
+          new2 = 'st.date_input("Data de admissão", value=data_val, format="DD/MM/YYYY", key=f"data_edit_{cid}")'
+          if old1 not in s:
+              raise SystemExit('date_input de novo cadastro não encontrado')
+          if old2 not in s:
+              raise SystemExit('date_input de edição não encontrado')
+          s = s.replace(old1, new1).replace(old2, new2)
+          p.write_text(s, encoding='utf-8')
+          print('Formato DD/MM/YYYY aplicado no cadastro e na edição.')
+      - name: Validar Python
+        run: python -m py_compile streamlit_app.py
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py
+          git commit -m 'fix: usa formato brasileiro nas datas de colaboradores'
+          git push
