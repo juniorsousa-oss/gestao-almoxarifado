@@ -36,12 +36,17 @@ jobs:
           from pathlib import Path
           path = Path("streamlit_app.py")
           text = path.read_text(encoding="utf-8")
-          old = 'div[data-testid="collapsedControl"]{{position:fixed !important;top:10px !important;'
-          new = 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;'
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit("Seletor collapsedControl não encontrado")
+
+          replacements = {
+              'button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;}}',
+              'div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}': 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:4px !important;left:8px !important;z-index:2147483647 !important;width:40px !important;height:28px !important;align-items:center !important;justify-content:center !important;background:#090c0b !important;}}',
+              'div[data-testid="collapsedControl"] button{{display:none !important;}}': 'div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;width:34px !important;height:28px !important;margin:0 !important;padding:0 !important;background:transparent !important;color:#f4f5f4 !important;border:0 !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"]{{width:230px !important;min-width:230px !important;max-width:230px !important;}}': 'section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}': 'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;}}',
+          }
+          for old, new in replacements.items():
+              if old in text:
+                  text = text.replace(old, new, 1)
           path.write_text(text, encoding="utf-8")
 
       - name: Validar Python
@@ -50,6 +55,7 @@ jobs:
       - name: Publicar alterações no main
         shell: bash
         run: |
+          rm -f .github/trigger-sidebar-button.txt
           if git diff --quiet -- index.html streamlit_app.py; then
             echo "Nenhuma alteração necessária."
             exit 0
