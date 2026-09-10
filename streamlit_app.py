@@ -136,20 +136,20 @@ else:
 st.markdown(f"""
 <style>
 #MainMenu, footer{{visibility:hidden}}
-[data-testid="stToolbar"]{{display:none !important;height:0 !important;min-height:0 !important;}}
-button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}
+[data-testid="stToolbar"]{{display:flex !important;align-items:center !important;justify-content:flex-end !important;height:32px !important;min-height:32px !important;padding:0 8px !important;gap:2px !important;background:#090c0b !important;}}
+button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;}}
 button[data-testid="stSidebarCollapseButton"]:hover{{background:{PRIMARY} !important;color:#111111 !important;border-color:{PRIMARY} !important;}}
 button[data-testid="stSidebarCollapseButton"] svg{{width:20px !important;height:20px !important;}}
-div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}
-div[data-testid="collapsedControl"] button{{display:none !important;}}
+div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:4px !important;left:8px !important;z-index:2147483647 !important;width:40px !important;height:28px !important;align-items:center !important;justify-content:center !important;background:#090c0b !important;}}
+div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;width:34px !important;height:28px !important;margin:0 !important;padding:0 !important;background:transparent !important;color:#f4f5f4 !important;border:0 !important;}}
 div[data-testid="collapsedControl"] button:hover{{background:{PRIMARY} !important;color:#111111 !important;border-color:{PRIMARY} !important;}}
 div[data-testid="collapsedControl"] svg{{width:20px !important;height:20px !important;}}
 div.st-key-controle_unico_menus{{display:none !important;}}
 header[data-testid="stHeader"]{{display:block !important;height:32px !important;min-height:32px !important;background:#090c0b !important;border:0 !important;border-bottom:1px solid #1f2925 !important;box-shadow:none !important;}}
 section[data-testid="stSidebar"]{{background:{SIDEBAR_BG} !important;border-right:1px solid {BORDER};width:230px !important;min-width:230px !important;max-width:230px !important;overflow:hidden !important;}}
 section[data-testid="stSidebar"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px;overflow:hidden !important;}}
-section[data-testid="stSidebar"][aria-expanded="false"]{{width:230px !important;min-width:230px !important;max-width:230px !important;}}
-section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}
+section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;}}
 .stApp{{background:{APP_BG};color:{TEXT}}}
 .block-container{{max-width:1500px;padding:8px 34px 50px}}
 .hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}
