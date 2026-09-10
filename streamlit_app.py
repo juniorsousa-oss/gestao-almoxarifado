@@ -9,13 +9,11 @@ import streamlit as st
 from supabase_client import get_client
 
 st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
-
-DEFAULT_CONFIG = {"tema":"Escuro (Padrão)","cor_principal":"Amarelo (Padrão)","estilo_botoes":"Amarelo","logo_base64":None,"logo_name":None,"logo_mime":None,"logo_bg":"#ffffff","textos":{},"fontes":{}}
-CORES = {"Amarelo (Padrão)":"#ffd43d","Azul":"#1683ff","Verde":"#22c55e","Vermelho":"#ff4d4f","Roxo":"#8b5cf6","Laranja":"#ff922b","Ciano":"#22c7d6","Rosa":"#ec4899","Lima":"#a3e635"}
+DEFAULT_CONFIG={"tema":"Escuro (Padrão)","cor_principal":"Amarelo (Padrão)","estilo_botoes":"Amarelo","logo_base64":None,"logo_name":None,"logo_mime":None,"logo_bg":"#ffffff","textos":{},"fontes":{}}
+CORES={"Amarelo (Padrão)":"#ffd43d","Azul":"#1683ff","Verde":"#22c55e","Vermelho":"#ff4d4f","Roxo":"#8b5cf6","Laranja":"#ff922b","Ciano":"#22c7d6","Rosa":"#ec4899","Lima":"#a3e635"}
 TEMAS=["Escuro (Padrão)","Claro","Automático"]; ESTILOS_BOTOES=["Amarelo","Colorido"]
 TEXTOS_PADRAO={"menu_dashboard":"Dashboard","menu_indicadores":"Alimentar Indicadores","menu_historico":"Histórico","menu_equipes":"Gestão de Equipes","menu_carreira":"Plano de Carreira","menu_configuracoes":"Configurações","titulo_dashboard":"Dashboard","titulo_indicadores":"Alimentar Indicadores","titulo_historico":"Histórico","titulo_equipes":"Gestão de Equipes","titulo_carreira":"Plano de Carreira","titulo_configuracoes":"Configurações","subtitulo_global":"Gestão operacional do almoxarifado","secao_dados_reais":"Dados reais do Supabase","secao_indicadores":"Indicadores","secao_historico":"Histórico real","secao_colaboradores":"Colaboradores","secao_equipes":"Equipes","secao_organograma":"Organograma","secao_configuracoes":"Configurações","secao_plano":"Plano de carreira","mensagem_sem_indicadores":"A tabela almox_indicadores está conectada, mas ainda não possui lançamentos.","diagnostico":"Diagnóstico","mensagem_indicadores":"Consulta do banco real habilitada. A gravação será liberada junto com autenticação adequada.","mensagem_carreira":"Módulo preparado para receber níveis, competências, metas e trilhas de desenvolvimento.","rodape_linha1":"Gestão Operacional","rodape_linha2":"SETTA • Streamlit + Supabase","rodape_linha3":"Gestão Almoxarifado • Streamlit + Supabase • migração em andamento"}
 FONTES_PADRAO={"menu":"Arial","titulo":"Arial","subtitulo":"Arial"}; FONTES=["Arial","Verdana","Trebuchet MS","Georgia","Courier New","Times New Roman"]
-
 def carregar_configuracoes():
     try:
         resultado=get_client().table("almox_app_state").select("estado").eq("id","global").limit(1).execute()
@@ -26,7 +24,6 @@ def carregar_configuracoes():
             config["textos"]={**TEXTOS_PADRAO,**(estado.get("textos") or {})}; config["fontes"]={**FONTES_PADRAO,**(estado.get("fontes") or {})}; return config
     except Exception as e: st.session_state.config_erro=str(e)
     config=DEFAULT_CONFIG.copy(); config["textos"]=TEXTOS_PADRAO.copy(); config["fontes"]=FONTES_PADRAO.copy(); return config
-
 def salvar_configuracoes(config): return bool(get_client().table("almox_app_state").upsert({"id":"global","estado":config},on_conflict="id").execute().data)
 def detectar_cor_fundo_logo(logo_b64,logo_mime=None):
     if not logo_b64: return "#ffffff"
@@ -36,16 +33,13 @@ def detectar_cor_fundo_logo(logo_b64,logo_mime=None):
         if not pixels: return "#ffffff"
         agrupadas=[((r//16)*16,(g//16)*16,(b//16)*16) for r,g,b in pixels]; return "#{:02x}{:02x}{:02x}".format(*Counter(agrupadas).most_common(1)[0][0])
     except Exception: return "#ffffff"
-
-if "config_carregada" not in st.session_state:
-    st.session_state.config=carregar_configuracoes(); st.session_state.config_carregada=True
+if "config_carregada" not in st.session_state: st.session_state.config=carregar_configuracoes(); st.session_state.config_carregada=True
 elif "config" not in st.session_state: st.session_state.config=carregar_configuracoes()
 config=st.session_state.config; config["textos"]={**TEXTOS_PADRAO,**(config.get("textos") or {})}; config["fontes"]={**FONTES_PADRAO,**(config.get("fontes") or {})}; textos=config["textos"]; fontes=config["fontes"]
 def txt(chave): return textos.get(chave,TEXTOS_PADRAO.get(chave,chave))
 PRIMARY=CORES.get(config.get("cor_principal"),CORES["Amarelo (Padrão)"]); IS_LIGHT=config.get("tema")=="Claro"
 if IS_LIGHT: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG,COLLAPSE="#f4f6f5","#ffffff","#18201d","#68736e","#ffffff","#d7ded9","#f8faf9","#68736e"
 else: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG,COLLAPSE="#0b0f0e","#090c0b","#f4f5f4","#9aa39f","#101513","#35403b","#101513","#ffffff"
-
 st.markdown(f"""
 <style>
 #MainMenu,footer{{visibility:hidden}}
@@ -79,7 +73,6 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 .logo-preview{{min-height:250px;border:1px solid {BORDER};border-radius:12px;background:{INPUT_BG};display:flex;align-items:center;justify-content:center;padding:20px}}.logo-preview img{{max-width:100%;max-height:210px;object-fit:contain}}
 </style>
 """,unsafe_allow_html=True)
-
 @st.cache_data(ttl=30)
 def rows(table,limit=500,order=None):
     q=get_client().table(table).select("*")
@@ -102,7 +95,6 @@ with st.sidebar:
     for _id,p in zip(paginas_ids,paginas):
         ativo=st.session_state.pagina==_id
         if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{_id}"): st.session_state.pagina=_id; st.rerun()
-    st.markdown(f"<div class='sidebar-footer'>{txt('rodape_linha1')}<br>{txt('rodape_linha2')}</div>",unsafe_allow_html=True)
 pagina=st.session_state.pagina
 if pagina not in paginas_ids: pagina="dashboard"; st.session_state.pagina=pagina
 MESES_PT=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]; competencia_atual=f"{MESES_PT[date.today().month-1]}/{date.today().strftime('%y')}"; titulo_id="titulo_"+pagina
@@ -110,7 +102,6 @@ st.markdown(f'<div class="hero"><div><h1>{txt(titulo_id)}</h1><p>{txt("subtitulo
 try: get_client(); conectado=True
 except Exception: conectado=False
 if not conectado: st.error("Supabase ainda não está configurado no ambiente do Streamlit."); st.stop()
-
 if pagina=="dashboard":
     indicadores=rows("almox_indicadores",order="competencia"); colaboradores=rows("almox_colaboradores"); equipes=rows("almox_equipes"); historico=rows("almox_historico",order="criado_em"); snapshots=rows("mrp_snapshots",order="created_at")
     st.markdown(f'<div class="section">{txt("secao_dados_reais")}</div>',unsafe_allow_html=True); a,b,c,d=st.columns(4); a.metric(txt("secao_indicadores"),len(indicadores)); b.metric(txt("secao_colaboradores"),len(colaboradores)); c.metric(txt("secao_equipes"),len(equipes)); d.metric("MRP salvos",len(snapshots))
@@ -124,7 +115,6 @@ if pagina=="dashboard":
     with st.expander(txt("diagnostico")): st.write({"Supabase":"conectado","indicadores":len(indicadores),"colaboradores":len(colaboradores),"equipes":len(equipes),"histórico":len(historico),"MRP":len(snapshots)})
 elif pagina=="indicadores": st.markdown(f'<div class="notice">{txt("mensagem_indicadores")}</div>',unsafe_allow_html=True); st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)
 elif pagina=="historico": st.markdown(f'<div class="section">{txt("secao_historico")}</div>',unsafe_allow_html=True); st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
-
 elif pagina=="equipes":
     client=get_client()
     def carregar_equipes(): return client.table("almox_equipes").select("*").order("nome").execute().data or []
@@ -132,22 +122,17 @@ elif pagina=="equipes":
     def registrar_historico(tipo,descricao,dados):
         try: client.table("almox_historico").insert({"tipo":tipo,"descricao":descricao,"dados":dados}).execute()
         except Exception: pass
-    def nome_curto(nome):
-        partes=[x for x in (nome or "").split() if x]; return " ".join(partes[:2]) if partes else "Sem nome"
+    def nome_curto(nome): partes=[x for x in (nome or "").split() if x]; return " ".join(partes[:2]) if partes else "Sem nome"
     def foto_html(c,tamanho=72):
         b64=c.get("foto_base64"); mime=c.get("foto_mime") or "image/jpeg"
         if b64: return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">'
         return f'<div class="ge-avatar-fallback" style="width:{tamanho}px;height:{tamanho}px">{nome_curto(c.get("nome"))[:1].upper()}</div>'
-    equipes_raw=carregar_equipes(); colaboradores_raw=carregar_colaboradores(); ativos_equipes=[x for x in equipes_raw if x.get("ativo",True)]; ativos_colaboradores=[x for x in colaboradores_raw if x.get("ativo",True)]; inativos_colaboradores=[x for x in colaboradores_raw if not x.get("ativo",True)]; nomes_colab={str(x.get("id")):x for x in colaboradores_raw}; nomes_eq={str(x.get("id")):x.get("nome","") for x in equipes_raw}
+    equipes_raw=carregar_equipes(); colaboradores_raw=carregar_colaboradores(); ativos_equipes=[x for x in equipes_raw if x.get("ativo",True)]; ativos_colaboradores=[x for x in colaboradores_raw if x.get("ativo",True)]; nomes_colab={str(x.get("id")):x for x in colaboradores_raw}; nomes_eq={str(x.get("id")):x.get("nome","") for x in equipes_raw}
     st.markdown("""
     <style>
-    .ge-shell{margin-top:4px}.ge-tabs-note{color:#a4ada8;font-size:14px;margin:0 0 16px 2px;line-height:1.45}
-    .ge-kpi{background:linear-gradient(145deg,#151b18,#0d1110);border:1px solid #34413b;border-radius:15px;padding:19px 21px;min-height:112px}.ge-kpi .label{font-size:12px;color:#9ba49f;text-transform:uppercase;letter-spacing:1px;font-weight:800}.ge-kpi .value{font-size:36px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:9px}.ge-kpi .sub{font-size:12px;color:#ffd43d;margin-top:8px}
-    .ge-overview-panel,.ge-team-card,.ge-person-card{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}.ge-overview-panel{padding:14px 18px 12px;margin-top:16px}.ge-panel-title{font-size:17px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}.ge-mini{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid #26302c}.ge-mini .rank{width:31px;height:31px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}.ge-mini .main{flex:1}.ge-mini .name{font-size:14px;font-weight:800;color:#f4f5f4}.ge-mini .desc{font-size:12px;color:#929c97;margin-top:3px}.ge-bar{height:8px;background:#202925;border-radius:99px;overflow:hidden;margin-top:8px}.ge-bar span{display:block;height:100%;background:#ffd43d;border-radius:99px}.ge-alert{padding:15px 17px;border-radius:12px;border:1px solid #5b4a13;background:#211c0b;color:#ddd4a7;font-size:13px;line-height:1.5}
-    .ge-team-card{padding:23px;margin-top:14px;position:relative;overflow:hidden}.ge-team-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.ge-team-title{font-size:24px;font-weight:900;color:#f4f5f4;margin:0;line-height:1.2}.ge-team-title span{color:#ffd43d}.ge-team-status{font-size:11px;font-weight:900;border:1px solid #4a5a52;border-radius:999px;padding:7px 11px;color:#ffd43d;white-space:nowrap}.ge-team-objective{color:#aab2ae;font-size:14px;line-height:1.6;margin-top:10px;max-width:1050px}.ge-team-grid{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:14px;margin-top:20px}.ge-info-box{background:#0a0e0d;border:1px solid #26312c;border-radius:12px;padding:16px}.ge-info-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b9690;font-weight:900}.ge-info-value{font-size:14px;color:#f0f2f1;font-weight:800;margin-top:7px}.ge-task{font-size:12px;color:#c8cecb;padding:8px 0;border-bottom:1px solid #202824;line-height:1.4}.ge-task:last-child{border-bottom:0}.ge-member{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #202824}.ge-member:last-child{border-bottom:0}.ge-member img,.ge-member .ge-avatar-fallback{flex:0 0 40px}.ge-member-name{font-size:13px;font-weight:800;color:#f0f2f1}.ge-member-role{font-size:11px;color:#929c97;margin-top:3px}.ge-empty{color:#929c97;font-size:12px;padding:10px 0}.ge-person-card{padding:17px;text-align:center;min-height:250px;margin-bottom:12px;position:relative}.ge-person-photo{width:94px;height:94px;margin:1px auto 12px;border-radius:50%;padding:5px;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 4px rgba(255,212,61,.08)}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{width:80px!important;height:80px!important;border-radius:50%;display:block;object-fit:cover}.ge-avatar-img{border-radius:50%;object-fit:cover;display:block}.ge-avatar-fallback{border-radius:50%;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}.ge-person-name{font-size:14px;font-weight:900;color:#f4f5f4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}.ge-person-role{font-size:11px;color:#ffd43d;font-weight:800;margin-top:7px;min-height:28px;line-height:1.35}.ge-person-team{font-size:11px;color:#9aa39f;margin-top:5px;min-height:28px;line-height:1.35}.ge-person-status{font-size:11px;color:#9aa39f;margin-top:11px;line-height:1.3}.ge-form-panel{background:#111714;border:1px solid #34413b;border-radius:16px;padding:20px 22px;margin:12px 0 18px}.ge-action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 18px}.stDialog{border-radius:16px}.stDialog [data-testid="stDialog"]{{font-size:15px}}
-    [data-testid="stTabs"] button{{font-size:14px!important;font-weight:800!important;padding:10px 16px!important}}
-    @media(max-width:900px){{.ge-team-grid{{grid-template-columns:1fr}}.ge-person-card{{min-height:235px}}.ge-action-row{{grid-template-columns:1fr}}}}
-    @media(max-width:560px){{.ge-person-card{{min-height:220px}}.ge-person-photo{{width:86px;height:86px}}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{{width:72px!important;height:72px!important}}}}
+    .ge-tabs-note{color:#a4ada8;font-size:14px;margin:0 0 16px 2px;line-height:1.45}.ge-kpi{background:linear-gradient(145deg,#151b18,#0d1110);border:1px solid #34413b;border-radius:15px;padding:19px 21px;min-height:112px}.ge-kpi .label{font-size:12px;color:#9ba49f;text-transform:uppercase;letter-spacing:1px;font-weight:800}.ge-kpi .value{font-size:36px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:9px}.ge-kpi .sub{font-size:12px;color:#ffd43d;margin-top:8px}.ge-overview-panel,.ge-team-card,.ge-person-card{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}.ge-overview-panel{padding:14px 18px 12px;margin-top:16px}.ge-panel-title{font-size:17px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}.ge-mini{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid #26302c}.ge-mini .rank{width:31px;height:31px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}.ge-mini .main{flex:1}.ge-mini .name{font-size:14px;font-weight:800;color:#f4f5f4}.ge-mini .desc{font-size:12px;color:#929c97;margin-top:3px}.ge-bar{height:8px;background:#202925;border-radius:99px;overflow:hidden;margin-top:8px}.ge-bar span{display:block;height:100%;background:#ffd43d;border-radius:99px}.ge-alert{padding:15px 17px;border-radius:12px;border:1px solid #5b4a13;background:#211c0b;color:#ddd4a7;font-size:13px;line-height:1.5}.ge-team-card{padding:23px;margin-top:14px;position:relative;overflow:hidden}.ge-team-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.ge-team-title{font-size:24px;font-weight:900;color:#f4f5f4;margin:0;line-height:1.2}.ge-team-title span{color:#ffd43d}.ge-team-status{font-size:11px;font-weight:900;border:1px solid #4a5a52;border-radius:999px;padding:7px 11px;color:#ffd43d;white-space:nowrap}.ge-team-objective{color:#aab2ae;font-size:14px;line-height:1.6;margin-top:10px;max-width:1050px}.ge-team-grid{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:14px;margin-top:20px}.ge-info-box{background:#0a0e0d;border:1px solid #26312c;border-radius:12px;padding:16px}.ge-info-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b9690;font-weight:900}.ge-info-value{font-size:14px;color:#f0f2f1;font-weight:800;margin-top:7px}.ge-task{font-size:12px;color:#c8cecb;padding:8px 0;border-bottom:1px solid #202824;line-height:1.4}.ge-member{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #202824}.ge-member img,.ge-member .ge-avatar-fallback{flex:0 0 40px}.ge-member-name{font-size:13px;font-weight:800;color:#f0f2f1}.ge-member-role{font-size:11px;color:#929c97;margin-top:3px}.ge-empty{color:#929c97;font-size:12px;padding:10px 0}.ge-person-card{padding:17px;text-align:center;min-height:250px;margin-bottom:12px;position:relative}.ge-person-photo{width:94px;height:94px;margin:1px auto 12px;border-radius:50%;padding:5px;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 4px rgba(255,212,61,.08)}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{width:80px!important;height:80px!important;border-radius:50%;display:block;object-fit:cover}.ge-avatar-img{border-radius:50%;object-fit:cover;display:block}.ge-avatar-fallback{border-radius:50%;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}.ge-person-name{font-size:14px;font-weight:900;color:#f4f5f4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}.ge-person-role{font-size:11px;color:#ffd43d;font-weight:800;margin-top:7px;min-height:28px;line-height:1.35}.ge-person-team{font-size:11px;color:#9aa39f;margin-top:5px;min-height:28px;line-height:1.35}.ge-person-status{font-size:11px;color:#9aa39f;margin-top:11px;line-height:1.3}
+    .ge-person-select{width:100%;min-height:250px;height:250px;border-radius:16px!important;border:1px solid #34413b!important;background:#111714!important;color:#f4f5f4!important;padding:112px 14px 12px!important;box-shadow:none!important;font-weight:900!important;position:relative!important}.ge-person-select:hover{border-color:#6b776f!important;background:#151b18!important}.ge-person-select[kind="primary"]{background:rgba(255,212,61,.13)!important;border:2px solid #ffd43d!important;color:#111!important}.ge-person-select p{font-size:14px!important;font-weight:900!important;line-height:1.25!important;color:inherit!important}.ge-card-photo{display:none}.ge-card-action-note{font-size:12px;color:#9aa39f;margin:2px 0 12px}.ge-selected-note{padding:11px 14px;border:1px solid #5b4a13;background:#211c0b;color:#ffd43d;border-radius:10px;font-size:13px;font-weight:800;margin:4px 0 12px}
+    @media(max-width:900px){.ge-team-grid{grid-template-columns:1fr}.ge-person-select{min-height:235px;height:235px}}@media(max-width:560px){.ge-person-select{min-height:220px;height:220px}}
     </style>
     """,unsafe_allow_html=True)
     k1,k2,k3,k4=st.columns(4); k1.markdown(f'<div class="ge-kpi"><div class="label">Equipes ativas</div><div class="value">{len(ativos_equipes)}</div><div class="sub">Estrutura operacional</div></div>',unsafe_allow_html=True); k2.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores ativos</div><div class="value">{len(ativos_colaboradores)}</div><div class="sub">Base atual</div></div>',unsafe_allow_html=True); k3.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores alocados</div><div class="value">{sum(1 for x in ativos_colaboradores if x.get("equipe_id"))}</div><div class="sub">Com equipe definida</div></div>',unsafe_allow_html=True); k4.markdown(f'<div class="ge-kpi"><div class="label">Sem equipe</div><div class="value">{sum(1 for x in ativos_colaboradores if not x.get("equipe_id"))}</div><div class="sub">Aguardando alocação</div></div>',unsafe_allow_html=True)
@@ -171,9 +156,8 @@ elif pagina=="equipes":
         recentes=sorted([c for c in ativos_colaboradores if c.get("data_admissao")],key=lambda x:x.get("data_admissao") or "",reverse=True)[:5]; cards=[]
         for c in recentes:
             data=pd.to_datetime(c.get("data_admissao"),errors="coerce"); data_txt=data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"; cards.append('<div class="ge-admission-item"><div class="ge-admission-photo">'+foto_html(c,60)+'</div><div class="ge-admission-name">'+nome_curto(c.get("nome"))+'</div><div class="ge-admission-date">'+data_txt+'</div></div>')
-        st.markdown("""<style>.ge-admissions-panel{background:linear-gradient(145deg,#101513,#0d1210);border:1px solid #35403b;border-radius:15px;padding:20px;margin-top:14px}.ge-admissions-title{color:#f4f5f4;font-size:17px;font-weight:900;text-transform:uppercase;margin:0 0 18px}.ge-admissions-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}.ge-admission-item{text-align:center;padding:0 18px;border-left:1px solid #35403b}.ge-admission-item:first-child{border-left:0}.ge-admission-photo{display:flex;justify-content:center;min-height:64px}.ge-admission-name{margin-top:10px;color:#f4f5f4;font-size:12px;font-weight:900}.ge-admission-date{margin-top:5px;color:#929c97;font-size:11px}@media(max-width:900px){.ge-admissions-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:22px}.ge-admission-item:nth-child(3){border-left:0}}@media(max-width:560px){.ge-admissions-grid{grid-template-columns:1fr}.ge-admission-item{border-left:0;border-top:1px solid #35403b;padding:18px 0 0}.ge-admission-item:first-child{border-top:0;padding-top:0}}</style>""",unsafe_allow_html=True)
+        st.markdown("""<style>.ge-admissions-panel{background:linear-gradient(145deg,#101513,#0d1210);border:1px solid #35403b;border-radius:15px;padding:20px;margin-top:14px}.ge-admissions-title{color:#f4f5f4;font-size:17px;font-weight:900;text-transform:uppercase;margin:0 0 18px}.ge-admissions-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}.ge-admission-item{text-align:center;padding:0 18px;border-left:1px solid #35403b}.ge-admission-item:first-child{border-left:0}.ge-admission-photo{display:flex;justify-content:center;min-height:64px}.ge-admission-name{margin-top:10px;color:#f4f5f4;font-size:12px;font-weight:900}.ge-admission-date{margin-top:5px;color:#929c97;font-size:11px}</style>""",unsafe_allow_html=True)
         st.markdown('<div class="ge-admissions-panel"><div class="ge-admissions-title">Admissões mais recentes</div><div class="ge-admissions-grid">'+(''.join(cards) if cards else '<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>')+'</div></div>',unsafe_allow_html=True)
-
     @st.dialog("Criar equipe")
     def dialog_nova_equipe():
         with st.form("dialog_form_nova_equipe",clear_on_submit=True):
@@ -189,16 +173,13 @@ elif pagina=="equipes":
                     novo=client.table("almox_equipes").insert({"nome":nome_limpo,"objetivo":objetivo_equipe.strip() or None,"tarefas":[x.strip() for x in tarefas_texto.splitlines() if x.strip()],"responsavel_id":responsaveis[resp_label],"ativo":True}).execute().data
                     if novo: registrar_historico("equipe_criada",f"Equipe criada: {nome_limpo}",{"equipe_id":novo[0].get("id"),"nome":nome_limpo}); st.success(f"Equipe '{nome_limpo}' criada com sucesso."); st.rerun()
                 except Exception as e: st.error(f"Erro ao criar equipe: {e}")
-
     @st.dialog("Cadastrar colaborador")
     def dialog_novo_colaborador():
         equipes_opts={x.get("nome",""):x.get("id") for x in ativos_equipes}
         with st.form("dialog_form_novo_colaborador",clear_on_submit=True):
             cc1,cc2=st.columns(2)
-            with cc1:
-                nome_colab=st.text_input("Nome completo *",placeholder="Nome do colaborador"); matricula=st.text_input("Matrícula",placeholder="Matrícula / registro interno"); funcao=st.text_input("Função / cargo",placeholder="Ex.: Almoxarife")
-            with cc2:
-                data_adm=st.date_input("Data de admissão",value=None,format="DD/MM/YYYY",key="data_adm_novo_dialog"); equipe_label=st.selectbox("Equipe",["Sem equipe"]+list(equipes_opts.keys())); foto_arquivo=st.file_uploader("Foto do colaborador *",type=["png","jpg","jpeg","webp"],help="Até 2 MB")
+            with cc1: nome_colab=st.text_input("Nome completo *",placeholder="Nome do colaborador"); matricula=st.text_input("Matrícula",placeholder="Matrícula / registro interno"); funcao=st.text_input("Função / cargo",placeholder="Ex.: Almoxarife")
+            with cc2: data_adm=st.date_input("Data de admissão",value=None,format="DD/MM/YYYY",key="data_adm_novo_dialog"); equipe_label=st.selectbox("Equipe",["Sem equipe"]+list(equipes_opts.keys())); foto_arquivo=st.file_uploader("Foto do colaborador *",type=["png","jpg","jpeg","webp"],help="Até 2 MB")
             salvar=st.form_submit_button("CADASTRAR COLABORADOR",type="primary",use_container_width=True)
         if salvar:
             nome_limpo=nome_colab.strip(); mat=matricula.strip() or None
@@ -211,7 +192,6 @@ elif pagina=="equipes":
                     foto_b64=base64.b64encode(foto_arquivo.getvalue()).decode("ascii"); novo=client.table("almox_colaboradores").insert({"nome":nome_limpo,"matricula":mat,"funcao":funcao.strip() or None,"data_admissao":data_adm.isoformat() if data_adm else None,"equipe_id":equipes_opts.get(equipe_label),"equipe_atual":equipe_label if equipe_label!="Sem equipe" else None,"foto_base64":foto_b64,"foto_mime":foto_arquivo.type or "image/jpeg","foto_nome":foto_arquivo.name,"ativo":True}).execute().data
                     if novo: registrar_historico("colaborador_criado",f"Colaborador criado: {nome_limpo}",{"colaborador_id":novo[0].get("id"),"nome":nome_limpo}); st.success(f"Colaborador '{nome_limpo}' cadastrado com sucesso."); st.rerun()
                 except Exception as e: st.error(f"Erro ao cadastrar colaborador: {e}")
-
     with tab_equipes:
         st.markdown('<div class="ge-tabs-note">Cada equipe aparece como um painel operacional, com objetivo, responsável, tarefas e integrantes.</div>',unsafe_allow_html=True)
         if st.button("CRIAR EQUIPE",type="primary",use_container_width=True,key="abrir_nova_equipe"): dialog_nova_equipe()
@@ -234,9 +214,8 @@ elif pagina=="equipes":
                 if salvar_eq:
                     try: client.table("almox_equipes").update({"nome":nome_edit.strip(),"objetivo":obj_edit.strip() or None,"tarefas":[x.strip() for x in tarefas_edit.splitlines() if x.strip()],"responsavel_id":resp_opts[resp_edit]}).eq("id",eid).execute(); registrar_historico("equipe_editada",f"Equipe editada: {nome_edit.strip()}",{"equipe_id":eid,"nome":nome_edit.strip()}); st.session_state.pop("editar_equipe_id",None); st.rerun()
                     except Exception as e: st.error(f"Erro ao editar equipe: {e}")
-
     with tab_colaboradores:
-        st.markdown('<div class="ge-tabs-note">Visual em cartões com foto, função, equipe e status.</div>',unsafe_allow_html=True)
+        st.markdown('<div class="ge-tabs-note">Clique diretamente no cartão do colaborador para selecioná-lo. Depois escolha a ação.</div>',unsafe_allow_html=True)
         if st.button("CADASTRAR COLABORADOR",type="primary",use_container_width=True,key="abrir_novo_colaborador"): dialog_novo_colaborador()
         equipes_opts={x.get("nome",""):x.get("id") for x in ativos_equipes}; cf1,cf2=st.columns([2,1])
         with cf1: busca=st.text_input("Buscar colaborador",placeholder="Nome, matrícula ou função...",key="busca_colab")
@@ -245,20 +224,30 @@ elif pagina=="equipes":
         for c in colaboradores_raw:
             texto=" ".join([str(c.get("nome") or ""),str(c.get("matricula") or ""),str(c.get("funcao") or "")]).casefold(); ok=status=="Todos" or (status=="Ativos" and c.get("ativo",True)) or (status=="Inativos" and not c.get("ativo",True))
             if busca.strip().casefold() in texto and ok: filtrados.append(c)
+        if "colaborador_selecionado_id" not in st.session_state: st.session_state.colaborador_selecionado_id=None
         if filtrados:
             for base in range(0,len(filtrados),5):
                 cols=st.columns(5)
                 for col,c in zip(cols,filtrados[base:base+5]):
-                    eq_nome=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "Sem equipe")
-                    with col: st.markdown(f'<div class="ge-person-card"><div class="ge-person-photo">{foto_html(c,80)}</div><div class="ge-person-name" title="{c.get("nome","")}">{nome_curto(c.get("nome"))}</div><div class="ge-person-role">{c.get("funcao") or "Sem função"}</div><div class="ge-person-team">{eq_nome}</div><div class="ge-person-status">{"ATIVO" if c.get("ativo",True) else "INATIVO"} · {c.get("matricula") or "sem matrícula"}</div></div>',unsafe_allow_html=True)
+                    cid=str(c.get("id")); selecionado=st.session_state.colaborador_selecionado_id==cid; nome=nome_curto(c.get("nome")); role=c.get("funcao") or "Sem função"; eq_nome=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "Sem equipe"); status_txt="ATIVO" if c.get("ativo",True) else "INATIVO"; matricula_txt=c.get("matricula") or "sem matrícula"
+                    with col:
+                        if st.button(nome.upper(),type="primary" if selecionado else "secondary",use_container_width=True,key=f"colab_card_{cid}"):
+                            st.session_state.colaborador_selecionado_id=cid; st.session_state.pop("editar_colaborador_id",None); st.rerun()
+                        b64=c.get("foto_base64"); mime=c.get("foto_mime") or "image/jpeg"
+                        bg=f'background-image:url("data:{mime};base64,{b64}");' if b64 else ""
+                        border="#ffd43d" if selecionado else "#34413b"; shadow="0 0 0 2px rgba(255,212,61,.22)" if selecionado else "none"
+                        st.markdown(f'<style>div.st-key-colab_card_{cid} button{{min-height:250px;height:250px;border-radius:16px!important;border:2px solid {border}!important;background-color:#111714!important;background-repeat:no-repeat!important;background-position:center 16px!important;background-size:94px 94px!important;{bg}box-shadow:{shadow}!important;padding:118px 12px 12px!important}}div.st-key-colab_card_{cid} button p{{font-size:14px!important;font-weight:900!important;color:{"#111111" if selecionado else "#f4f5f4"}!important;line-height:1.25!important}}div.st-key-colab_card_{cid} button::after{{content:"{role.replace(chr(34),chr(39))}\\A {eq_nome.replace(chr(34),chr(39))}\\A\\A {status_txt} · {matricula_txt}";white-space:pre-line;display:block;margin-top:7px;font-size:11px;font-weight:700;line-height:1.55;color:{"#111111" if selecionado else "#9aa39f"}!important}}</style>',unsafe_allow_html=True)
         else: st.info("Nenhum colaborador encontrado.")
-        if filtrados:
-            opcoes={f"{c.get('nome','')} — {c.get('matricula') or 'sem matrícula'}":c for c in filtrados}; escolhido=opcoes[st.selectbox("Selecione um colaborador para ações",list(opcoes.keys()),key="colab_acao")]; cid=str(escolhido.get("id")); ca,cb=st.columns(2)
+        escolhido=None
+        if st.session_state.get("colaborador_selecionado_id"):
+            escolhido=next((c for c in filtrados if str(c.get("id"))==str(st.session_state.colaborador_selecionado_id)),None)
+        if escolhido:
+            cid=str(escolhido.get("id")); st.markdown(f'<div class="ge-selected-note">COLABORADOR SELECIONADO: {escolhido.get("nome","")}</div>',unsafe_allow_html=True); ca,cb=st.columns(2)
             with ca:
                 if st.button("EDITAR COLABORADOR",key=f"editar_colab_{cid}",use_container_width=True): st.session_state["editar_colaborador_id"]=cid; st.rerun()
             with cb:
                 if st.button("INATIVAR COLABORADOR" if escolhido.get("ativo",True) else "REATIVAR COLABORADOR",key=f"status_colab_{cid}",use_container_width=True):
-                    try: client.table("almox_colaboradores").update({"ativo":not escolhido.get("ativo",True)}).eq("id",cid).execute(); registrar_historico("colaborador_status",f"Status alterado: {escolhido.get('nome','')}",{"colaborador_id":cid,"ativo":not escolhido.get("ativo",True)}); st.rerun()
+                    try: client.table("almox_colaboradores").update({"ativo":not escolhido.get("ativo",True)}).eq("id",cid).execute(); registrar_historico("colaborador_status",f"Status alterado: {escolhido.get('nome','')}",{"colaborador_id":cid,"ativo":not escolhido.get("ativo",True)}); st.session_state.colaborador_selecionado_id=None; st.rerun()
                     except Exception as e: st.error(f"Erro ao alterar status: {e}")
             if st.session_state.get("editar_colaborador_id")==cid:
                 with st.form(f"form_editar_colab_{cid}"):
@@ -283,7 +272,6 @@ elif pagina=="equipes":
                                 dados_update.update({"foto_base64":base64.b64encode(foto_e.getvalue()).decode("ascii"),"foto_mime":foto_e.type or "image/jpeg","foto_nome":foto_e.name})
                             client.table("almox_colaboradores").update(dados_update).eq("id",cid).execute(); registrar_historico("colaborador_editado",f"Colaborador editado: {nome_e.strip()}",{"colaborador_id":cid,"nome":nome_e.strip()}); st.session_state.pop("editar_colaborador_id",None); st.rerun()
                         except Exception as e: st.error(f"Erro ao salvar colaborador: {e}")
-
 elif pagina=="carreira": st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True); st.info(txt("mensagem_carreira"))
 elif pagina=="configuracoes":
     st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True); st.write("As configurações abaixo ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
@@ -325,5 +313,4 @@ elif pagina=="configuracoes":
         if config.get("logo_base64"):
             mime=config.get("logo_mime") or "image/png"; st.markdown(f'<div class="logo-preview"><img src="data:{mime};base64,{config["logo_base64"]}"></div>',unsafe_allow_html=True)
         else: st.info("Nenhuma logo configurada.")
-
 st.markdown(f"<br><div class='muted'>{txt('rodape_linha3')}</div>",unsafe_allow_html=True)
