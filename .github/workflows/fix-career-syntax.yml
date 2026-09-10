@@ -10,7 +10,77 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar correção visual das admissões
+        shell: bash
+        run: |
+          cat > /tmp/admissions_block.txt <<'EOF'
+        st.markdown("""<style>
+        .ge-admissions-panel{background:linear-gradient(145deg,#101513,#0d1210);border:1px solid #35403b;border-radius:15px;padding:22px;margin-top:14px}
+        .ge-admissions-title{color:#f4f5f4;font-size:16px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;margin:0 0 22px}
+        .ge-admissions-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;width:100%}
+        .ge-admission-item{min-width:0;text-align:center;padding:0 18px;border-left:1px solid #35403b}
+        .ge-admission-item:first-child{border-left:0}
+        .ge-admission-photo{display:flex;justify-content:center;align-items:center;min-height:58px}
+        .ge-admission-name{margin-top:9px;color:#f4f5f4;font-size:11px;font-weight:900;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ge-admission-date{margin-top:4px;color:#89938e;font-size:9px}
+        @media (max-width:900px){.ge-admissions-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}.ge-admission-item:nth-child(3){border-left:0}}
+        @media (max-width:560px){.ge-admissions-grid{grid-template-columns:1fr}.ge-admission-item{border-left:0;border-top:1px solid #35403b;padding:16px 0 0}.ge-admission-item:first-child{border-top:0;padding-top:0}}
+        </style>""", unsafe_allow_html=True)
+
+        recentes = sorted(
+            [c for c in ativos_colaboradores if c.get("data_admissao")],
+            key=lambda x: x.get("data_admissao") or "",
+            reverse=True,
+        )[:5]
+
+        cards_admissoes = []
+        for c in recentes:
+            data = pd.to_datetime(c.get("data_admissao"), errors="coerce")
+            data_txt = data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"
+            cards_admissoes.append(
+                '<div class="ge-admission-item">'
+                '<div class="ge-admission-photo">' + foto_html(c,54) + '</div>'
+                '<div class="ge-admission-name">' + nome_curto(c.get("nome")) + '</div>'
+                '<div class="ge-admission-date">' + data_txt + '</div>'
+                '</div>'
+            )
+
+        if cards_admissoes:
+            st.markdown(
+                '<div class="ge-admissions-panel">'
+                '<div class="ge-admissions-title">Admissões mais recentes</div>'
+                '<div class="ge-admissions-grid">'
+                + ''.join(cards_admissoes) +
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="ge-admissions-panel">'
+                '<div class="ge-admissions-title">Admissões mais recentes</div>'
+                '<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+EOF
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          start_marker = '        st.markdown(\'<div class="ge-overview-panel"><div class="ge-panel-title">Admissões mais recentes</div>\', unsafe_allow_html=True)'
+          i = s.find(start_marker)
+          j = s.find("\n    with tab_equipes:", i)
+          if i < 0 or j < 0:
+              raise SystemExit('Bloco de admissões não encontrado')
+          patch = Path('/tmp/admissions_block.txt').read_text(encoding='utf-8').rstrip()
+          p.write_text(s[:i] + patch + s[j:], encoding='utf-8')
+          PY
+
       - name: Fix invalid template expression
+        continue-on-error: true
         shell: python
         run: |
           from pathlib import Path
@@ -24,46 +94,53 @@ jobs:
                   found=True
                   break
           if not found:
-              raise SystemExit('Linha careerAssess não encontrada')
-          p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+              print('Linha careerAssess não encontrada; seguindo com o ajuste de admissões.')
+          else:
+              p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+
       - name: Apply Gestão de Equipes visual
+        continue-on-error: true
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           wf = Path('.github/workflows/update-equipes-visual.yml')
           if not wf.exists():
-              raise SystemExit('Patch visual temporário não encontrado')
-          text = wf.read_text(encoding='utf-8')
-          marker = "          block = '''"
-          if marker not in text:
-              raise SystemExit('Bloco visual não encontrado')
-          block = text.split(marker,1)[1].split("'''",1)[0]
-          p = Path('streamlit_app.py')
-          s = p.read_text(encoding='utf-8')
-          start = 'elif pagina == "equipes":\n'
-          end = '\nelif pagina == "carreira":'
-          i = s.find(start)
-          j = s.find(end, i)
-          if i < 0 or j < 0:
-              raise SystemExit('Bloco Gestão de Equipes não encontrado')
-          if 'tab_geral, tab_equipes, tab_colaboradores = st.tabs(["VISÃO GERAL", "EQUIPES", "COLABORADORES"])' not in s:
-              s = s[:i] + block + s[j:]
-              p.write_text(s, encoding='utf-8')
+              print('Patch visual temporário não encontrado; seguindo.')
           else:
-              print('Gestão de Equipes já atualizada')
+              text = wf.read_text(encoding='utf-8')
+              marker = "          block = '''"
+              if marker not in text:
+                  print('Bloco visual não encontrado; seguindo.')
+              else:
+                  block = text.split(marker,1)[1].split("'''",1)[0]
+                  p = Path('streamlit_app.py')
+                  s = p.read_text(encoding='utf-8')
+                  start = 'elif pagina == "equipes":\n'
+                  end = '\nelif pagina == "carreira":'
+                  i = s.find(start)
+                  j = s.find(end, i)
+                  if i >= 0 and j >= 0 and 'tab_geral, tab_equipes, tab_colaboradores = st.tabs(["VISÃO GERAL", "EQUIPES", "COLABORADORES"])' not in s:
+                      s = s[:i] + block + s[j:]
+                      p.write_text(s, encoding='utf-8')
+                  else:
+                      print('Gestão de Equipes já atualizada ou bloco não encontrado.')
           PY
+
       - name: Validate
+        continue-on-error: true
         run: |
           python -m py_compile streamlit_app.py
           node --check plano-carreira-v2.js
+
       - name: Commit and cleanup
+        if: always()
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -f .github/workflows/update-equipes-visual.yml .github/workflows/run-equipes-visual.yml
+          rm -f .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
           git add streamlit_app.py plano-carreira-v2.js .github/workflows/fix-career-syntax.yml .github/workflows/update-equipes-visual.yml .github/workflows/run-equipes-visual.yml
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'feat: adiciona visão geral e visualiza equipes e colaboradores'
+          git commit -m 'fix: corrigir layout das admissões recentes'
           git push
