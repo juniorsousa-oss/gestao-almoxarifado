@@ -1,0 +1,33 @@
+name: Ajusta posição das setas
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  ajustar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Posicionar setas no final da faixa branca
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'top:25px !important'
+          new = 'top:64px !important'
+          count = s.count(old)
+          if count == 0:
+              raise SystemExit('Posições atuais das setas não encontradas')
+          p.write_text(s.replace(old, new), encoding='utf-8')
+          print(f'Ajustadas {count} ocorrências')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py
+          git commit -m "Posiciona setas no final da faixa branca"
+          git push
