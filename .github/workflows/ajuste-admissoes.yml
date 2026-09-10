@@ -1,7 +1,7 @@
 name: Ajuste visual de admissões
 
 on:
-  pull_request_target:
+  push:
     branches: [main]
 
 permissions:
@@ -11,12 +11,10 @@ jobs:
   aplicar-ajuste:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout da branch do PR
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Aplicar patch do painel de admissões
         shell: bash
@@ -99,4 +97,4 @@ EOF
           git add streamlit_app.py .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
           git diff --cached --quiet && exit 0
           git commit -m "fix: corrigir layout das admissões recentes"
-          git push origin HEAD:fix/admissoes-final
+          git push origin HEAD:main
