@@ -160,14 +160,44 @@ section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width
 .panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:22px;margin-top:14px}}
 .notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
 div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};padding:15px;border-radius:12px}}
-[data-testid="stSidebar"] .stButton{{margin:0 0 6px 0}}
-[data-testid="stSidebar"] .stButton > button{{width:100%;min-height:48px;height:48px;border-radius:12px;border:1px solid {BORDER};background:{INPUT_BG};color:{TEXT} !important;font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;text-align:center;padding:0 10px;box-shadow:none;transition:all .15s ease}}
-[data-testid="stSidebar"] .stButton > button:hover{{background:{PRIMARY}22;border-color:{PRIMARY};color:{TEXT} !important}}
-[data-testid="stSidebar"] .stButton > button[kind="primary"]{{background:{PRIMARY} !important;color:#0b0f0e !important;border:2px solid #f4f5f4;box-shadow:0 0 0 1px {PRIMARY} inset}}
-[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
-[data-testid="stSidebar"] .stButton > button p{{font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
-[data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
-.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-20px 0 3px;padding:0 0 5px;border-bottom:1px solid {BORDER}}}
+[data-testid="stSidebar"] .stButton{{margin:0 0 3px 0}}
+[data-testid="stSidebar"] .stButton > button{{width:100%;min-height:62px;height:62px;border-radius:14px;border:1px solid transparent;background:transparent;color:{TEXT} !important;font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;text-align:left;padding:0 14px 0 18px;box-shadow:none;transition:background .16s ease,color .16s ease,border-color .16s ease;position:relative}}
+[data-testid="stSidebar"] .stButton > button:hover{{background:rgba(255,212,61,.055);border-color:transparent;color:{TEXT} !important}}
+[data-testid="stSidebar"] .stButton > button[kind="primary"]{{background:rgba(255,212,61,.085) !important;color:{PRIMARY} !important;border:1px solid transparent;border-left:4px solid {PRIMARY};box-shadow:none}}
+[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:rgba(255,212,61,.11) !important;color:{PRIMARY} !important}}
+[data-testid="stSidebar"] .stButton > button p{{font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:800;letter-spacing:.2px;color:inherit !important;text-align:left !important;width:100%;line-height:1.2}}
+[data-testid="stSidebar"] .stButton > button div{{justify-content:flex-start !important}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button p::before,
+[data-testid="stSidebar"] div.st-key-menu_indicadores button p::before,
+[data-testid="stSidebar"] div.st-key-menu_historico button p::before,
+[data-testid="stSidebar"] div.st-key-menu_equipes button p::before,
+[data-testid="stSidebar"] div.st-key-menu_carreira button p::before,
+[data-testid="stSidebar"] div.st-key-menu_configuracoes button p::before{{display:inline-block;width:30px;margin-right:12px;text-align:center;font-size:21px;font-weight:400;line-height:1;vertical-align:-3px;color:#e7ecea}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button p::before{{content:"▦"}}
+[data-testid="stSidebar"] div.st-key-menu_indicadores button p::before{{content:"▥"}}
+[data-testid="stSidebar"] div.st-key-menu_historico button p::before{{content:"◷"}}
+[data-testid="stSidebar"] div.st-key-menu_equipes button p::before{{content:"♧"}}
+[data-testid="stSidebar"] div.st-key-menu_carreira button p::before{{content:"◎"}}
+[data-testid="stSidebar"] div.st-key-menu_configuracoes button p::before{{content:"⚙"}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button::after,
+[data-testid="stSidebar"] div.st-key-menu_indicadores button::after,
+[data-testid="stSidebar"] div.st-key-menu_historico button::after,
+[data-testid="stSidebar"] div.st-key-menu_equipes button::after,
+[data-testid="stSidebar"] div.st-key-menu_carreira button::after,
+[data-testid="stSidebar"] div.st-key-menu_configuracoes button::after{{content:"›";position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:27px;font-weight:300;line-height:1;color:#9aa39f}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button[kind="primary"] p::before,
+[data-testid="stSidebar"] div.st-key-menu_indicadores button[kind="primary"] p::before,
+[data-testid="stSidebar"] div.st-key-menu_historico button[kind="primary"] p::before,
+[data-testid="stSidebar"] div.st-key-menu_equipes button[kind="primary"] p::before,
+[data-testid="stSidebar"] div.st-key-menu_carreira button[kind="primary"] p::before,
+[data-testid="stSidebar"] div.st-key-menu_configuracoes button[kind="primary"] p::before{{color:{PRIMARY}}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button[kind="primary"]::after,
+[data-testid="stSidebar"] div.st-key-menu_indicadores button[kind="primary"]::after,
+[data-testid="stSidebar"] div.st-key-menu_historico button[kind="primary"]::after,
+[data-testid="stSidebar"] div.st-key-menu_equipes button[kind="primary"]::after,
+[data-testid="stSidebar"] div.st-key-menu_carreira button[kind="primary"]::after,
+[data-testid="stSidebar"] div.st-key-menu_configuracoes button[kind="primary"]::after{{color:{PRIMARY}}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-24px 0 10px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
 .sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
@@ -197,8 +227,6 @@ paginas = [txt("menu_" + x) for x in paginas_ids]
 with st.sidebar:
     logo_b64 = config.get("logo_base64")
     if logo_b64:
-        # Detecta automaticamente o fundo da própria imagem para que o
-        # "balão" acompanhe a identidade visual da logo (preto, branco etc.).
         logo_bg = detectar_cor_fundo_logo(logo_b64, config.get("logo_mime"))
         try:
             r, g, b = int(logo_bg[1:3], 16), int(logo_bg[3:5], 16), int(logo_bg[5:7], 16)
@@ -295,7 +323,7 @@ elif pagina == "equipes":
         b64 = c.get("foto_base64")
         mime = c.get("foto_mime") or "image/jpeg"
         if b64:
-            return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">' 
+            return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">'
         return f'<div class="ge-avatar-fallback" style="width:{tamanho}px;height:{tamanho}px">{nome_curto(c.get("nome"))[:1].upper()}</div>'
 
     equipes_raw = carregar_equipes()
@@ -356,7 +384,6 @@ elif pagina == "equipes":
         a,b = st.columns([1.15, .85])
         with a:
             st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Estrutura das equipes</div>', unsafe_allow_html=True)
-            total_eq = max(len(ativos_equipes),1)
             for idx, equipe in enumerate(ativos_equipes,1):
                 membros = [c for c in ativos_colaboradores if str(c.get("equipe_id")) == str(equipe.get("id"))]
                 st.markdown(f'<div class="ge-mini"><div class="rank">{idx:02d}</div><div class="main"><div class="name">{equipe.get("nome","")}</div><div class="desc">{len(membros)} colaborador(es) · {len(equipe.get("tarefas") or [])} tarefa(s)</div><div class="ge-bar"><span style="width:{max(4, int((len(membros)/max(len(ativos_colaboradores),1))*100))}%"></span></div></div></div>', unsafe_allow_html=True)
@@ -484,7 +511,7 @@ elif pagina == "equipes":
                 with st.form(f"form_editar_eq_{eid}"):
                     nome_edit = st.text_input("Nome", value=equipe.get("nome") or "")
                     obj_edit = st.text_area("Objetivo", value=equipe.get("objetivo") or "", height=90)
-                    tarefas_edit = st.text_area("Tarefas — uma por linha", value="\\n".join(equipe.get("tarefas") or []), height=90)
+                    tarefas_edit = st.text_area("Tarefas — uma por linha", value="\n".join(equipe.get("tarefas") or []), height=90)
                     resp_opts = {"Nenhum": None}
                     for c in ativos_colaboradores:
                         resp_opts[f"{c.get('nome', '')} — {c.get('funcao') or 'Sem função'}"] = c.get("id")
@@ -622,7 +649,7 @@ elif pagina == "equipes":
                             st.session_state.pop("editar_colaborador_id", None)
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro ao editar colaborador: {e}")
+                            st.error(f"Erro ao salvar colaborador: {e}")
 
 elif pagina == "carreira":
     st.markdown(f'<div class="section">{txt("secao_plano")}</div>', unsafe_allow_html=True)
