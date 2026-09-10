@@ -49,7 +49,7 @@ def salvar_configuracoes(config):
 
 
 def detectar_cor_fundo_logo(logo_b64, logo_mime=None):
-    """Detecta a cor predominante da logo para preencher o espaço ao redor dela."""
+    """Mantida para compatibilidade com logos já salvas."""
     if not logo_b64:
         return "#ffffff"
     try:
@@ -57,17 +57,9 @@ def detectar_cor_fundo_logo(logo_b64, logo_mime=None):
             return "#ffffff"
         imagem = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
         imagem.thumbnail((160, 160))
-
-        pixels = []
-        for r, g, b, a in imagem.getdata():
-            if a >= 220:
-                pixels.append((r, g, b))
-
+        pixels = [(r, g, b) for r, g, b, a in imagem.getdata() if a >= 220]
         if not pixels:
             return "#ffffff"
-
-        # Agrupa cores próximas para evitar que pequenas variações da imagem
-        # prejudiquem a identificação do fundo predominante.
         agrupadas = [((r // 16) * 16, (g // 16) * 16, (b // 16) * 16) for r, g, b in pixels]
         cor = Counter(agrupadas).most_common(1)[0][0]
         return "#{:02x}{:02x}{:02x}".format(*cor)
@@ -131,10 +123,7 @@ button[data-testid="stSidebarCollapseButton"]:hover{{
     color:#111111 !important;
     border-color:{PRIMARY} !important;
 }}
-button[data-testid="stSidebarCollapseButton"] svg{{
-    width:20px !important;
-    height:20px !important;
-}}
+button[data-testid="stSidebarCollapseButton"] svg{{width:20px !important;height:20px !important;}}
 
 div[data-testid="collapsedControl"]{{
     position:fixed !important;
@@ -168,23 +157,10 @@ div[data-testid="collapsedControl"] button{{
     color:#1f2937 !important;
     box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
 }}
-div[data-testid="collapsedControl"] button:hover{{
-    background:{PRIMARY} !important;
-    color:#111111 !important;
-    border-color:{PRIMARY} !important;
-}}
-div[data-testid="collapsedControl"] svg{{
-    width:20px !important;
-    height:20px !important;
-}}
-
-div.st-key-controle_unico_menus{{
-    display:none !important;
-}}
-
-header[data-testid="stHeader"]{{
-    background:transparent !important;
-}}
+div[data-testid="collapsedControl"] button:hover{{background:{PRIMARY} !important;color:#111111 !important;border-color:{PRIMARY} !important;}}
+div[data-testid="collapsedControl"] svg{{width:20px !important;height:20px !important;}}
+div.st-key-controle_unico_menus{{display:none !important;}}
+header[data-testid="stHeader"]{{background:transparent !important;}}
 
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
@@ -200,16 +176,8 @@ section[data-testid="stSidebar"] > div:first-child{{
     padding:1px 9px 20px;
     overflow:hidden !important;
 }}
-section[data-testid="stSidebar"][aria-expanded="false"]{{
-    width:0 !important;
-    min-width:0 !important;
-    max-width:0 !important;
-}}
-section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
-    width:0 !important;
-    min-width:0 !important;
-    padding:0 !important;
-}}
+section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;}}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
 .block-container{{max-width:1500px;padding:38px 34px 50px}}
@@ -221,7 +189,6 @@ section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
 .panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:22px;margin-top:14px}}
 .notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
 div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};padding:15px;border-radius:12px}}
-
 [data-testid="stSidebar"] .stButton{{margin:0 0 8px 0}}
 [data-testid="stSidebar"] .stButton > button{{width:100%;min-height:48px;height:48px;border-radius:12px;border:1px solid {BORDER};background:{INPUT_BG};color:{TEXT} !important;font-size:14px;font-weight:900;text-align:center;padding:0 10px;box-shadow:none;transition:all .15s ease}}
 [data-testid="stSidebar"] .stButton > button:hover{{background:{PRIMARY}22;border-color:{PRIMARY};color:{TEXT} !important}}
@@ -229,8 +196,10 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
 [data-testid="stSidebar"] .stButton > button p{{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
+
+/* QUADRO DA LOGO: contraste propositalmente invertido em relação ao tema */
 .sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
-.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg,#ffffff);border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
+.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;max-width:176px;max-height:70px;width:auto;height:auto;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
 .sidebar-footer{{margin:20px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-size:10px;line-height:1.6}}
@@ -260,7 +229,10 @@ paginas = ["Dashboard", "Alimentar Indicadores", "Histórico", "Gestão de Equip
 
 with st.sidebar:
     logo_b64 = config.get("logo_base64")
-    logo_bg = config.get("logo_bg") or detectar_cor_fundo_logo(logo_b64, config.get("logo_mime"))
+    # Regra fixa de contraste:
+    # tema escuro -> quadro branco
+    # tema claro -> quadro escuro
+    logo_bg = "#101513" if IS_LIGHT else "#ffffff"
     if logo_b64:
         mime = config.get("logo_mime") or "image/png"
         logo_html = f'<img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}" alt="Logo SETTA">'
@@ -360,10 +332,8 @@ elif pagina == "Configurações":
             if arquivo.size > 2 * 1024 * 1024:
                 st.error("A logo deve ter no máximo 2 MB.")
             else:
-                dados_bytes = arquivo.getvalue()
-                dados = base64.b64encode(dados_bytes).decode("ascii")
-                logo_bg_novo = detectar_cor_fundo_logo(dados, arquivo.type or "image/png")
-                novo = config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png","logo_bg":logo_bg_novo})
+                dados = base64.b64encode(arquivo.getvalue()).decode("ascii")
+                novo = config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png"})
                 try:
                     if salvar_configuracoes(novo):
                         st.session_state.config = novo
