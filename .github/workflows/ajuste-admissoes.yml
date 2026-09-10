@@ -30,11 +30,10 @@ jobs:
           if inicio < 0:
               raise SystemExit("Início do bloco de admissões não encontrado; nenhuma alteração feita.")
 
-          fim_marcador = '        st.markdown(\'</div>\', unsafe_allow_html=True)'
+          fim_marcador = "\n    with tab_equipes:"
           fim = text.find(fim_marcador, inicio)
           if fim < 0:
-              raise SystemExit("Fim do bloco de admissões não encontrado; nenhuma alteração feita.")
-          fim += len(fim_marcador)
+              raise SystemExit("Limite final do bloco de admissões não encontrado; nenhuma alteração feita.")
 
           novo_bloco = '''        recentes = sorted(
               [c for c in ativos_colaboradores if c.get("data_admissao")],
@@ -171,4 +170,4 @@ jobs:
           git add streamlit_app.py .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
           git diff --cached --quiet && exit 0
           git commit -m "fix: corrigir layout das admissões recentes"
-          git push origin HEAD:main
+          git push origin HEAD:fix/admissoes-layout
