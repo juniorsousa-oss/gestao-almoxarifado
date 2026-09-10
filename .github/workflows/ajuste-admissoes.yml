@@ -35,7 +35,20 @@ jobs:
           if fim < 0:
               raise SystemExit("Limite final do bloco de admissões não encontrado; nenhuma alteração feita.")
 
-          novo_bloco = '''        recentes = sorted(
+          novo_bloco = """        st.markdown('''<style>
+          .ge-admissions-panel{background:linear-gradient(145deg,#101513,#0d1210);border:1px solid #35403b;border-radius:15px;padding:22px;margin-top:14px}
+          .ge-admissions-title{color:#f4f5f4;font-size:16px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;margin:0 0 22px}
+          .ge-admissions-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;width:100%}
+          .ge-admission-item{min-width:0;text-align:center;padding:0 18px;border-left:1px solid #35403b}
+          .ge-admission-item:first-child{border-left:0}
+          .ge-admission-photo{display:flex;justify-content:center;align-items:center;min-height:58px}
+          .ge-admission-name{margin-top:9px;color:#f4f5f4;font-size:11px;font-weight:900;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ge-admission-date{margin-top:4px;color:#89938e;font-size:9px}
+          @media (max-width:900px){.ge-admissions-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}.ge-admission-item:nth-child(3){border-left:0}}
+          @media (max-width:560px){.ge-admissions-grid{grid-template-columns:1fr}.ge-admission-item{border-left:0;border-top:1px solid #35403b;padding:16px 0 0}.ge-admission-item:first-child{border-top:0;padding-top:0}}
+          </style>''', unsafe_allow_html=True)
+
+          recentes = sorted(
               [c for c in ativos_colaboradores if c.get("data_admissao")],
               key=lambda x: x.get("data_admissao") or "",
               reverse=True,
@@ -69,94 +82,9 @@ jobs:
                   '<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>'
                   '</div>',
                   unsafe_allow_html=True,
-              )'''
+              )"""
 
           text = text[:inicio] + novo_bloco + text[fim:]
-
-          if ".ge-admissions-panel{" not in text:
-              css = '''
-          .ge-admissions-panel{
-              background:linear-gradient(145deg,{PANEL},#0d1210);
-              border:1px solid {BORDER};
-              border-radius:15px;
-              padding:22px;
-              margin-top:14px;
-          }
-          .ge-admissions-title{
-              color:{TEXT};
-              font-size:16px;
-              font-weight:900;
-              letter-spacing:.4px;
-              text-transform:uppercase;
-              margin:0 0 22px;
-          }
-          .ge-admissions-grid{
-              display:grid;
-              grid-template-columns:repeat(5,minmax(0,1fr));
-              gap:0;
-              width:100%;
-          }
-          .ge-admission-item{
-              min-width:0;
-              text-align:center;
-              padding:0 18px;
-              border-left:1px solid {BORDER};
-          }
-          .ge-admission-item:first-child{
-              border-left:0;
-          }
-          .ge-admission-photo{
-              display:flex;
-              justify-content:center;
-              align-items:center;
-              min-height:58px;
-          }
-          .ge-admission-name{
-              margin-top:9px;
-              color:{TEXT};
-              font-size:11px;
-              font-weight:900;
-              line-height:1.25;
-              white-space:nowrap;
-              overflow:hidden;
-              text-overflow:ellipsis;
-          }
-          .ge-admission-date{
-              margin-top:4px;
-              color:#89938e;
-              font-size:9px;
-          }
-          @media (max-width:900px){
-              .ge-admissions-grid{
-                  grid-template-columns:repeat(2,minmax(0,1fr));
-                  row-gap:20px;
-              }
-              .ge-admission-item:nth-child(3){
-                  border-left:0;
-              }
-          }
-          @media (max-width:560px){
-              .ge-admissions-grid{
-                  grid-template-columns:1fr;
-              }
-              .ge-admission-item{
-                  border-left:0;
-                  border-top:1px solid {BORDER};
-                  padding:16px 0 0;
-              }
-              .ge-admission-item:first-child{
-                  border-top:0;
-                  padding-top:0;
-              }
-          }
-          '''
-              css = css.replace("{", "{{").replace("}", "}}")
-              css = css.replace("{{PANEL}}", "{PANEL}").replace("{{BORDER}}", "{BORDER}").replace("{{TEXT}}", "{TEXT}")
-              pos = text.find("</style>")
-              if pos < 0:
-                  raise SystemExit("Bloco CSS principal não encontrado; nenhuma alteração feita.")
-              text = text[:pos] + css + text[pos:]
-
           path.write_text(text, encoding="utf-8")
 
       - name: Validar sintaxe Python
