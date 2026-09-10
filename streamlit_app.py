@@ -60,45 +60,38 @@ else:
     APP_BG, SIDEBAR_BG, TEXT, MUTED, PANEL, BORDER, INPUT_BG, COLLAPSE = "#0b0f0e", "#090c0b", "#f4f5f4", "#9aa39f", "#101513", "#35403b", "#101513", "#ffffff"
 
 # ============================================================
-# CONTROLE UNICO: UM BOTAO PARA OS DOIS MENUS
+# APENAS O CONTROLE NATIVO DA SIDEBAR
 # ============================================================
-# O botao abaixo e o unico controle criado pelo aplicativo.
-# O controle nativo do Streamlit fica totalmente oculto.
-# O mesmo clique mostra/recolhe a sidebar e o menu superior.
-if "menus_abertos" not in st.session_state:
-    st.session_state.menus_abertos = True
-
-if st.button("«" if st.session_state.menus_abertos else "»", key="controle_unico_menus", help="Abrir/recolher menus"):
-    st.session_state.menus_abertos = not st.session_state.menus_abertos
-    st.rerun()
-
-MENUS_DISPLAY = "flex" if st.session_state.menus_abertos else "none"
-SIDEBAR_WIDTH = "230px" if st.session_state.menus_abertos else "0px"
+# Não criamos nenhum botão adicional para o menu superior.
+# O botão nativo do Streamlit da sidebar permanece como único controle.
 
 st.markdown(f"""
 <style>
 #MainMenu, footer{{visibility:hidden}}
 
 /* ============================================================
-   BOTAO UNICO - EXATAMENTE NO CANTO SUPERIOR ESQUERDO
+   REMOVE SOMENTE O CONTROLE EXTRA DO MENU SUPERIOR
    ============================================================ */
-div.st-key-controle_unico_menus{{
+[data-testid="stToolbar"]{{
+    display:flex !important;
+    align-items:center !important;
+}}
+
+/* ============================================================
+   BOTÃO NATIVO DA SIDEBAR - ÚNICO CONTROLE
+   ============================================================ */
+button[data-testid="stSidebarCollapseButton"]{{
+    display:flex !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
     position:fixed !important;
-    top:8px !important;
-    left:4px !important;
+    top:25px !important;
+    left:8px !important;
     z-index:2147483647 !important;
     width:40px !important;
     height:34px !important;
-    margin:0 !important;
-    padding:0 !important;
-}}
-div.st-key-controle_unico_menus button{{
-    width:40px !important;
     min-width:40px !important;
-    max-width:40px !important;
-    height:34px !important;
     min-height:34px !important;
-    max-height:34px !important;
     padding:0 !important;
     margin:0 !important;
     border-radius:8px !important;
@@ -107,64 +100,41 @@ div.st-key-controle_unico_menus button{{
     color:#1f2937 !important;
     box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
 }}
-div.st-key-controle_unico_menus button:hover{{
+button[data-testid="stSidebarCollapseButton"]:hover{{
     background:{PRIMARY} !important;
     color:#111111 !important;
     border-color:{PRIMARY} !important;
 }}
-div.st-key-controle_unico_menus button p{{
-    color:inherit !important;
-    font-size:21px !important;
-    font-weight:900 !important;
-    line-height:1 !important;
-    margin:0 !important;
-    padding:0 !important;
+button[data-testid="stSidebarCollapseButton"] svg{{
+    width:20px !important;
+    height:20px !important;
 }}
 
-/* ============================================================
-   ELIMINA QUALQUER CONTROLE NATIVO DO STREAMLIT
-   ============================================================ */
-button[data-testid="stSidebarCollapseButton"],
-button[aria-label="Close sidebar"],
-button[aria-label="Open sidebar"]{{
+/* Garante que não exista outro botão personalizado de menu. */
+div.st-key-controle_unico_menus{{
     display:none !important;
-    visibility:hidden !important;
-    pointer-events:none !important;
 }}
 
-/* ============================================================
-   MENU SUPERIOR - CONTROLADO PELO BOTAO UNICO
-   ============================================================ */
 header[data-testid="stHeader"]{{
     background:transparent !important;
 }}
-[data-testid="stToolbar"]{{
-    display:{MENUS_DISPLAY} !important;
-    align-items:center !important;
-}}
 
 /* ============================================================
-   SIDEBAR - CONTROLADA PELO MESMO BOTAO
+   SIDEBAR
    ============================================================ */
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
     border-right:1px solid {BORDER};
-    width:{SIDEBAR_WIDTH} !important;
-    min-width:{SIDEBAR_WIDTH} !important;
-    max-width:{SIDEBAR_WIDTH} !important;
+    width:230px !important;
+    min-width:230px !important;
+    max-width:230px !important;
     overflow:hidden !important;
-    transition:width .2s ease,min-width .2s ease,max-width .2s ease;
 }}
 section[data-testid="stSidebar"] > div:first-child{{
     width:230px !important;
     min-width:230px !important;
     padding:1px 9px 20px;
     overflow:hidden !important;
-}}
-section[data-testid="stSidebar"][aria-expanded="false"]{{
-    width:{SIDEBAR_WIDTH} !important;
-    min-width:{SIDEBAR_WIDTH} !important;
-    max-width:{SIDEBAR_WIDTH} !important;
 }}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
