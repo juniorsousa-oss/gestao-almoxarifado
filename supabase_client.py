@@ -20,11 +20,26 @@ def _secret(name: str, default: str = "") -> str:
     return str(value).strip().lstrip("\ufeff") if value is not None else default
 
 
+def _validate_ascii(name: str, value: str) -> None:
+    """Supabase envia URL/chave em headers HTTP, que precisam ser ASCII."""
+    try:
+        value.encode("ascii")
+    except UnicodeEncodeError as exc:
+        char = value[exc.start] if exc.start < len(value) else "?"
+        code = ord(char) if char != "?" else 0
+        raise RuntimeError(
+            f"{name} contém um caractere inválido para uma credencial HTTP "
+            f"(posição {exc.start}, código U+{code:04X}). "
+            f"Abra Settings > Secrets no Streamlit e cole novamente o valor "
+            f"original do Supabase, sem texto extra, aspas ou caracteres acentuados."
+        ) from exc
+
+
 def get_client() -> Client:
     url = _secret("SUPABASE_URL", PROJECT_URL)
     key = _secret("SUPABASE_KEY") or _secret("SUPABASE_ANON_KEY")
 
-    # Evita problemas de cópia/cola de aspas ou caracteres invisíveis nos Secrets.
+    # Remove apenas aspas externas e BOM; não altera o conteúdo da chave.
     url = url.strip().strip('"').strip("'")
     key = key.strip().strip('"').strip("'")
 
@@ -39,14 +54,17 @@ def get_client() -> Client:
     if not url.startswith("https://"):
         raise RuntimeError("SUPABASE_URL inválida: use a URL https://...supabase.co")
 
+    # O erro dos logs ocorre na criação dos headers HTTPX. Uma chave Supabase
+    # legítima é ASCII; se houver Á, ç, aspas estranhas etc., a causa está no Secret.
+    _validate_ascii("SUPABASE_URL", url)
+    _validate_ascii("SUPABASE_KEY", key)
+
     try:
         return create_client(url, key)
     except UnicodeEncodeError as exc:
         raise RuntimeError(
             "Não foi possível inicializar o cliente Supabase. "
-            "Verifique se SUPABASE_URL e SUPABASE_KEY foram coladas sem "
-            "caracteres especiais/ocultos. Também recomendamos Python 3.13 "
-            "no Streamlit Community Cloud."
+            "Verifique SUPABASE_URL e SUPABASE_KEY nos Secrets do Streamlit."
         ) from exc
 
 
