@@ -118,7 +118,7 @@ section[data-testid="stSidebar"]{{
     flex-shrink:1 !important;
     transition:width .2s ease, min-width .2s ease, max-width .2s ease;
 }}
-section[data-testid="stSidebar"] > div:first-child{{padding:7px 9px 20px}}
+section[data-testid="stSidebar"] > div:first-child{{padding:1px 9px 20px}}
 section[data-testid="stSidebar"][aria-expanded="false"]{{
     width:0 !important;min-width:0 !important;max-width:0 !important;
     border-right:0 !important;overflow:hidden !important;
@@ -135,17 +135,18 @@ section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
 .panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:22px;margin-top:14px}}
 .notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
 div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};padding:15px;border-radius:12px}}
-[data-testid="stSidebar"] .stButton{{margin:0 0 10px 0}}
+[data-testid="stSidebar"] .stButton{{margin:0 0 8px 0}}
 [data-testid="stSidebar"] .stButton > button{{width:100%;min-height:48px;height:48px;border-radius:12px;border:1px solid {BORDER};background:{INPUT_BG};color:{TEXT} !important;font-size:14px;font-weight:900;text-align:center;padding:0 10px;box-shadow:none;transition:all .15s ease}}
 [data-testid="stSidebar"] .stButton > button:hover{{background:{PRIMARY}22;border-color:{PRIMARY};color:{TEXT} !important}}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]{{background:{PRIMARY} !important;color:#0b0f0e !important;border:2px solid #f4f5f4;box-shadow:0 0 0 1px {PRIMARY} inset}}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
 [data-testid="stSidebar"] .stButton > button p{{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
-.sidebar-logo-wrap{{width:100%;display:flex;justify-content:center;align-items:center;min-height:96px;margin:0 0 16px;padding:0 0 10px;border-bottom:1px solid {BORDER}}}
-.sidebar-logo-img{{max-width:190px;max-height:78px;width:auto;height:auto;object-fit:contain}}
-.sidebar-logo-placeholder{{width:190px;height:72px;border:1px dashed {MUTED};border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;color:{MUTED};font-size:11px;line-height:1.4}}
-.sidebar-footer{{margin:22px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-size:10px;line-height:1.6}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:0 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
+.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
+.sidebar-logo-img{{display:block;max-width:176px;max-height:70px;width:auto;height:auto;object-fit:contain;margin:auto}}
+.sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
+.sidebar-footer{{margin:20px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-size:10px;line-height:1.6}}
 .logo-preview{{min-height:250px;border:1px solid {BORDER};border-radius:12px;background:{INPUT_BG};display:flex;align-items:center;justify-content:center;padding:20px}}
 .logo-preview img{{max-width:100%;max-height:210px;object-fit:contain}}
 .tip{{background:#101b27;border:1px solid #284a68;border-radius:10px;padding:15px;color:#b8c8d8;margin-top:18px;font-size:13px;line-height:1.6}}
@@ -173,12 +174,11 @@ with st.sidebar:
     logo_b64 = config.get("logo_base64")
     if logo_b64:
         mime = config.get("logo_mime") or "image/png"
-        st.markdown(
-            f'<div class="sidebar-logo-wrap"><img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}"></div>',
-            unsafe_allow_html=True,
-        )
+        logo_html = f'<img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}" alt="Logo SETTA">'
     else:
-        st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div></div>', unsafe_allow_html=True)
+        logo_html = '<div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div>'
+
+    st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap">{logo_html}</div></div>', unsafe_allow_html=True)
 
     for p in paginas:
         ativo = st.session_state.pagina == p
