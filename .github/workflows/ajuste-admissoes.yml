@@ -87,6 +87,9 @@ jobs:
           text = text[:inicio] + novo_bloco + text[fim:]
           path.write_text(text, encoding="utf-8")
 
+      - name: Mostrar trecho gerado
+        run: python -c "p=open('streamlit_app.py',encoding='utf-8').read().splitlines(); [print(f'{i+1}: {p[i]}') for i in range(615,min(len(p),635))]"
+
       - name: Validar sintaxe Python
         run: python -m py_compile streamlit_app.py
 
