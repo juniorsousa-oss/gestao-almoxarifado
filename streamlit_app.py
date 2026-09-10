@@ -168,8 +168,8 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 [data-testid="stSidebar"] .stButton > button p{{font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
 .sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
-.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid #e5e7eb;border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
-.sidebar-logo-img{{display:block;max-width:176px;max-height:70px;width:auto;height:auto;object-fit:contain;margin:auto}}
+.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
+.sidebar-logo-img{{display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
 .sidebar-footer{{margin:20px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-family:{fontes["subtitulo"]},sans-serif;font-size:10px;line-height:1.6}}
 .logo-preview{{min-height:250px;border:1px solid {BORDER};border-radius:12px;background:{INPUT_BG};display:flex;align-items:center;justify-content:center;padding:20px}}
@@ -196,13 +196,25 @@ paginas = [txt("menu_" + x) for x in paginas_ids]
 
 with st.sidebar:
     logo_b64 = config.get("logo_base64")
-    logo_bg = "#101513" if IS_LIGHT else "#ffffff"
+    if logo_b64:
+        # Detecta automaticamente o fundo da própria imagem para que o
+        # "balão" acompanhe a identidade visual da logo (preto, branco etc.).
+        logo_bg = detectar_cor_fundo_logo(logo_b64, config.get("logo_mime"))
+        try:
+            r, g, b = int(logo_bg[1:3], 16), int(logo_bg[3:5], 16), int(logo_bg[5:7], 16)
+            luminancia = (0.299 * r) + (0.587 * g) + (0.114 * b)
+            logo_border = "#555555" if luminancia < 150 else "#e5e7eb"
+        except Exception:
+            logo_border = "#e5e7eb"
+    else:
+        logo_bg = "#101513" if IS_LIGHT else "#ffffff"
+        logo_border = "#e5e7eb"
     if logo_b64:
         mime = config.get("logo_mime") or "image/png"
         logo_html = f'<img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}" alt="Logo SETTA">'
     else:
         logo_html = '<div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div>'
-    st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap" style="--logo-bg:{logo_bg};">{logo_html}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap" style="--logo-bg:{logo_bg};--logo-border:{logo_border};">{logo_html}</div></div>', unsafe_allow_html=True)
     for _id, p in zip(paginas_ids, paginas):
         ativo = st.session_state.pagina == _id
         if st.button(p.upper(), use_container_width=True, type="primary" if ativo else "secondary", key=f"menu_{_id}"):
