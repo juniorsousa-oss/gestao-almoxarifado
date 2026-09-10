@@ -12,7 +12,7 @@ st.markdown("""
 [data-testid="stSidebar"]{background:#090c0b !important;border-right:1px solid #252b28;min-width:230px;max-width:230px}
 [data-testid="stSidebar"] > div:first-child{padding:18px 9px 20px}
 .block-container{max-width:1500px;padding:28px 34px 50px}
-.brand{font-size:28px;font-weight:900;padding:8px 4px 20px;border-bottom:1px solid #1e2522;margin-bottom:18px}.brand span,.section{color:#ffd20a}.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p,.muted{color:#9aa39f}.period{background:#ffd20a;color:#111;padding:10px 15px;border-radius:9px;font-weight:800}.section{font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}.panel{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;border-radius:15px;padding:19px;margin-top:14px}.notice{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px}div[data-testid="stMetric"]{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;padding:15px;border-radius:12px}
+.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p,.muted{color:#9aa39f}.period{background:#ffd20a;color:#111;padding:10px 15px;border-radius:9px;font-weight:800}.section{color:#ffd20a;font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}.panel{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;border-radius:15px;padding:22px;margin-top:14px}.notice{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px}div[data-testid="stMetric"]{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;padding:15px;border-radius:12px}
 
 /* MENU LATERAL */
 [data-testid="stSidebar"] .stButton{margin:0 0 10px 0}
@@ -22,12 +22,18 @@ st.markdown("""
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{background:#ffd43d !important;color:#0b0f0e !important}
 [data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}
 [data-testid="stSidebar"] .stButton > button div{justify-content:center !important}
-.sidebar-footer{margin:22px 5px 0;padding-top:16px;border-top:1px solid #1e2522;color:#69736e;font-size:10px;line-height:1.6}
 
 /* LOGO */
 .sidebar-logo-wrap{width:100%;display:flex;justify-content:center;align-items:center;min-height:112px;margin:0 0 18px;padding:6px 0 18px;border-bottom:1px solid #1e2522}
+.sidebar-logo-img{max-width:190px;max-height:90px;width:auto;height:auto;object-fit:contain}
 .sidebar-logo-placeholder{width:190px;height:90px;border:1px dashed #46504b;border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;color:#69736e;font-size:11px;line-height:1.4}
-.sidebar-logo-img{max-width:190px;max-height:90px;object-fit:contain}
+.sidebar-footer{margin:22px 5px 0;padding-top:16px;border-top:1px solid #1e2522;color:#69736e;font-size:10px;line-height:1.6}
+
+/* CONFIGURAÇÕES */
+.settings-tabs{display:flex;width:100%;border:1px solid #2d3531;border-radius:10px;overflow:hidden;margin:22px 0}
+.logo-preview{min-height:250px;border:1px solid #35403b;border-radius:12px;background:#101513;display:flex;align-items:center;justify-content:center;padding:20px}
+.logo-preview img{max-width:100%;max-height:210px;object-fit:contain}
+.tip{background:#101b27;border:1px solid #284a68;border-radius:10px;padding:15px;color:#b8c8d8;margin-top:18px;font-size:13px;line-height:1.6}
 </style>
 """,unsafe_allow_html=True)
 
@@ -40,12 +46,16 @@ def rows(table, limit=500, order=None):
 def df(data): return pd.DataFrame(data) if data else pd.DataFrame()
 
 if "pagina" not in st.session_state: st.session_state.pagina="Dashboard"
+if "logo_bytes" not in st.session_state: st.session_state.logo_bytes=None
+if "logo_name" not in st.session_state: st.session_state.logo_name=None
+
 paginas=["Dashboard","Alimentar Indicadores","Histórico","Gestão de Equipes","Plano de Carreira","Configurações"]
 
 with st.sidebar:
-    # Área reservada para a logo da empresa.
-    # Para usar a logo, coloque o arquivo em assets/logo_setta.png.
-    st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">LOGO DA EMPRESA<br><span>assets/logo_setta.png</span></div></div>',unsafe_allow_html=True)
+    if st.session_state.logo_bytes:
+        st.markdown('<div class="sidebar-logo-wrap"><img class="sidebar-logo-img" src="data:image/png;base64,' + __import__('base64').b64encode(st.session_state.logo_bytes).decode() + '"></div>',unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">SUA LOGO AQUI<br><br>Configure em<br>Configurações</div></div>',unsafe_allow_html=True)
     for p in paginas:
         ativo=st.session_state.pagina==p
         if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{p}"):
@@ -98,7 +108,40 @@ elif pagina=="Gestão de Equipes":
 elif pagina=="Plano de Carreira":
     st.markdown('<div class="section">Base real de colaboradores</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_colaboradores")),use_container_width=True,hide_index=True)
     st.info("A lógica específica do Plano de Carreira será migrada na próxima camada.")
+
 else:
-    st.markdown('<div class="section">Configurações</div>',unsafe_allow_html=True);st.success("Supabase conectado.");st.write("Projeto: cuixazpxkvniqldmmnth");st.write("As credenciais devem permanecer nos Secrets do Streamlit.")
+    st.markdown('<div class="section">Configurações gerais</div>',unsafe_allow_html=True)
+    st.markdown('<div class="panel">',unsafe_allow_html=True)
+    st.subheader("Logo da Empresa")
+    st.write("Defina a imagem que será exibida no menu lateral do sistema.")
+    esquerda,direita=st.columns(2)
+    with esquerda:
+        st.markdown("**Imagem atual**")
+        if st.session_state.logo_bytes:
+            st.image(st.session_state.logo_bytes,use_container_width=True)
+            st.caption(st.session_state.logo_name or "Logo configurada")
+        else:
+            st.markdown('<div class="logo-preview"><div style="text-align:center;color:#69736e;font-size:14px">Nenhuma imagem configurada<br><br>A logo será exibida no menu lateral</div></div>',unsafe_allow_html=True)
+    with direita:
+        st.markdown("**Selecionar nova imagem**")
+        arquivo=st.file_uploader("Arraste e solte um arquivo aqui ou clique para selecionar",type=["png","jpg","jpeg","svg"],key="logo_uploader",label_visibility="visible")
+        if arquivo is not None:
+            if arquivo.size>2*1024*1024:
+                st.error("A imagem deve ter no máximo 2 MB.")
+            else:
+                st.image(arquivo,use_container_width=True)
+                if st.button("SALVAR LOGO",use_container_width=True,type="primary",key="salvar_logo"):
+                    st.session_state.logo_bytes=arquivo.getvalue()
+                    st.session_state.logo_name=arquivo.name
+                    st.success("Logo atualizada no menu lateral.")
+                    st.rerun()
+    st.markdown('</div>',unsafe_allow_html=True)
+    st.markdown('<div class="tip"><b>Dicas</b><br>• Utilize preferencialmente PNG com fundo transparente.<br>• Tamanho recomendado: aproximadamente 200 × 80 pixels.<br>• A imagem será ajustada automaticamente para caber no menu lateral.<br>• Para melhor resultado, utilize uma logo em formato horizontal.</div>',unsafe_allow_html=True)
+
+    st.markdown('<div class="panel">',unsafe_allow_html=True)
+    st.subheader("Outras configurações")
+    st.write("Ajustes gerais do sistema serão adicionados nesta área.")
+    st.selectbox("Tema do sistema",["Escuro (Padrão)"],disabled=True)
+    st.markdown('</div>',unsafe_allow_html=True)
 
 st.markdown("<br><div class='muted'>Gestão Almoxarifado • Streamlit + Supabase • migração em andamento</div>",unsafe_allow_html=True)
