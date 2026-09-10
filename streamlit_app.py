@@ -23,6 +23,11 @@ st.markdown("""
 [data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}
 [data-testid="stSidebar"] .stButton > button div{justify-content:center !important}
 .sidebar-footer{margin:22px 5px 0;padding-top:16px;border-top:1px solid #1e2522;color:#69736e;font-size:10px;line-height:1.6}
+
+/* LOGO */
+.sidebar-logo-wrap{width:100%;display:flex;justify-content:center;align-items:center;min-height:112px;margin:0 0 18px;padding:6px 0 18px;border-bottom:1px solid #1e2522}
+.sidebar-logo-placeholder{width:190px;height:90px;border:1px dashed #46504b;border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;color:#69736e;font-size:11px;line-height:1.4}
+.sidebar-logo-img{max-width:190px;max-height:90px;object-fit:contain}
 </style>
 """,unsafe_allow_html=True)
 
@@ -38,7 +43,9 @@ if "pagina" not in st.session_state: st.session_state.pagina="Dashboard"
 paginas=["Dashboard","Alimentar Indicadores","Histórico","Gestão de Equipes","Plano de Carreira","Configurações"]
 
 with st.sidebar:
-    st.markdown('<div class="brand">GESTÃO<span>.</span></div>',unsafe_allow_html=True)
+    # Área reservada para a logo da empresa.
+    # Para usar a logo, coloque o arquivo em assets/logo_setta.png.
+    st.markdown('<div class="sidebar-logo-wrap"><div class="sidebar-logo-placeholder">LOGO DA EMPRESA<br><span>assets/logo_setta.png</span></div></div>',unsafe_allow_html=True)
     for p in paginas:
         ativo=st.session_state.pagina==p
         if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{p}"):
