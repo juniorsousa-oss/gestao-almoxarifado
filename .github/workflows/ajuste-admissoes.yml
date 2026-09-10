@@ -3,6 +3,8 @@ name: Ajuste visual de admissões
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
