@@ -60,43 +60,27 @@ else:
     APP_BG, SIDEBAR_BG, TEXT, MUTED, PANEL, BORDER, INPUT_BG, COLLAPSE = "#0b0f0e", "#090c0b", "#f4f5f4", "#9aa39f", "#101513", "#35403b", "#101513", "#ffffff"
 
 # ============================================================
-# CONTROLE ÚNICO: SIDEBAR + MENU SUPERIOR
+# UM ÚNICO CONTROLE: BOTÃO NATIVO DO STREAMLIT
 # ============================================================
-# O botão abaixo é o único controle visual. Ele fica sempre no canto superior esquerdo.
-# Aberto: mostra sidebar e toolbar superior.
-# Fechado: recolhe sidebar e esconde toolbar superior.
-if "menus_abertos" not in st.session_state:
-    st.session_state.menus_abertos = True
-
-if st.button("«" if st.session_state.menus_abertos else "»", key="controle_unico_menus", help="Abrir/recolher menus"):
-    st.session_state.menus_abertos = not st.session_state.menus_abertos
-    st.rerun()
-
-MENUS_DISPLAY = "flex" if st.session_state.menus_abertos else "none"
-SIDEBAR_WIDTH = "230px" if st.session_state.menus_abertos else "0px"
-
+# Não criamos outro st.button. O próprio botão nativo da sidebar é o único
+# controle. O CSS usa o estado aria-expanded da sidebar para esconder/mostrar
+# o menu superior junto com ela.
 st.markdown(f"""
 <style>
-#MainMenu,footer{{visibility:hidden}}
+#MainMenu, footer{{visibility:hidden}}
 
 /* ============================================================
-   ÚNICO BOTÃO DE CONTROLE - CANTO SUPERIOR ESQUERDO
+   CONTROLE ÚNICO - CANTO SUPERIOR ESQUERDO
    ============================================================ */
-div.st-key-controle_unico_menus{{
+button[data-testid="stSidebarCollapseButton"]{{
+    display:flex !important;
     position:fixed !important;
     top:8px !important;
     left:10px !important;
     z-index:1000000 !important;
-    margin:0 !important;
-    padding:0 !important;
     width:40px !important;
     height:34px !important;
-}}
-div.st-key-controle_unico_menus button{{
-    width:40px !important;
     min-width:40px !important;
-    max-width:40px !important;
-    height:34px !important;
     min-height:34px !important;
     padding:0 !important;
     margin:0 !important;
@@ -106,51 +90,41 @@ div.st-key-controle_unico_menus button{{
     color:{TEXT} !important;
     box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
 }}
-div.st-key-controle_unico_menus button:hover{{
+button[data-testid="stSidebarCollapseButton"]:hover{{
     background:{PRIMARY} !important;
     color:#111 !important;
     border-color:{PRIMARY} !important;
 }}
-div.st-key-controle_unico_menus button p{{
-    color:inherit !important;
-    font-size:22px !important;
-    font-weight:900 !important;
-    line-height:1 !important;
-    margin:0 !important;
+button[data-testid="stSidebarCollapseButton"] svg{{
+    width:20px !important;
+    height:20px !important;
 }}
 
-/* ============================================================
-   MENU SUPERIOR - CONTROLADO PELO MESMO BOTÃO
-   ============================================================ */
+/* O MESMO botão controla visualmente o menu superior.
+   Quando a sidebar fica recolhida, o toolbar também desaparece. */
+[data-testid="stToolbar"]{{
+    display:flex !important;
+    align-items:center !important;
+}}
+body:has(section[data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stToolbar"]{{
+    display:none !important;
+}}
+
 header[data-testid="stHeader"]{{
     background:transparent !important;
 }}
-[data-testid="stToolbar"]{{
-    display:{MENUS_DISPLAY} !important;
-    align-items:center !important;
-}}
 
 /* ============================================================
-   SIDEBAR - CONTROLADA PELO MESMO BOTÃO
+   SIDEBAR
    ============================================================ */
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
     border-right:1px solid {BORDER};
-    width:{SIDEBAR_WIDTH} !important;
-    min-width:{SIDEBAR_WIDTH} !important;
-    max-width:{SIDEBAR_WIDTH} !important;
-    overflow:hidden !important;
-    transition:width .2s ease,min-width .2s ease,max-width .2s ease;
 }}
 section[data-testid="stSidebar"] > div:first-child{{
     width:230px !important;
     min-width:230px !important;
     padding:1px 9px 20px;
-}}
-
-/* Oculta o botão nativo do Streamlit para não existir um segundo controle. */
-button[data-testid="stSidebarCollapseButton"]{{
-    display:none !important;
 }}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
@@ -273,71 +247,49 @@ elif pagina == "Gestão de Equipes":
     st.markdown('<div class="section">Organograma</div>', unsafe_allow_html=True); st.dataframe(org,use_container_width=True,hide_index=True)
 
 elif pagina == "Plano de Carreira":
-    st.markdown('<div class="section">Base real de colaboradores</div>', unsafe_allow_html=True)
-    st.dataframe(df(rows("almox_colaboradores")),use_container_width=True,hide_index=True)
-    st.info("A lógica específica do Plano de Carreira será migrada na próxima camada.")
+    st.markdown('<div class="section">Plano de carreira</div>', unsafe_allow_html=True)
+    st.info("Módulo preparado para receber níveis, competências, metas e trilhas de desenvolvimento.")
 
-else:
-    st.markdown('<div class="section">Configurações gerais</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Logo da Empresa")
-    st.write("Defina a imagem que será exibida no menu lateral do sistema. Agora a logo também fica persistida no Supabase.")
-    esquerda, direita = st.columns(2)
-    with esquerda:
-        st.markdown("**Imagem atual**")
-        if config.get("logo_base64"):
-            st.image(base64.b64decode(config["logo_base64"]), use_container_width=True)
-            st.caption(config.get("logo_name") or "Logo configurada")
-        else:
-            st.markdown('<div class="logo-preview"><div style="text-align:center;color:#69736e;font-size:14px">Nenhuma imagem configurada<br><br>A logo será exibida no menu lateral</div></div>', unsafe_allow_html=True)
-    with direita:
-        st.markdown("**Selecionar nova imagem**")
-        arquivo = st.file_uploader("Arraste e solte um arquivo aqui ou clique para selecionar", type=["png","jpg","jpeg","svg"], key="logo_uploader", label_visibility="visible")
+elif pagina == "Configurações":
+    st.markdown('<div class="section">Configurações</div>', unsafe_allow_html=True)
+    st.write("As configurações abaixo ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
+    col1,col2 = st.columns(2)
+    with col1:
+        tema = st.selectbox("Tema", TEMAS, index=TEMAS.index(config.get("tema", TEMAS[0])))
+        cor = st.selectbox("Cor principal", list(CORES.keys()), index=list(CORES.keys()).index(config.get("cor_principal", "Amarelo (Padrão)")))
+        estilo = st.radio("Estilo dos botões", ESTILOS_BOTOES, index=ESTILOS_BOTOES.index(config.get("estilo_botoes", "Amarelo")))
+        if st.button("SALVAR CONFIGURAÇÕES", type="primary", use_container_width=True):
+            novo = config.copy(); novo.update({"tema":tema,"cor_principal":cor,"estilo_botoes":estilo})
+            try:
+                if salvar_configuracoes(novo):
+                    st.session_state.config = novo
+                    st.success("Configurações salvas.")
+                    st.rerun()
+                else:
+                    st.error("Não foi possível salvar as configurações.")
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
+    with col2:
+        arquivo = st.file_uploader("Logo da empresa", type=["png","jpg","jpeg","svg"], help="Até 2 MB")
         if arquivo is not None:
-            if arquivo.size > 2*1024*1024:
-                st.error("A imagem deve ter no máximo 2 MB.")
+            if arquivo.size > 2 * 1024 * 1024:
+                st.error("A logo deve ter no máximo 2 MB.")
             else:
-                st.image(arquivo, use_container_width=True)
-                if st.button("SALVAR LOGO", use_container_width=True, type="primary", key="salvar_logo"):
-                    dados = arquivo.getvalue()
-                    nova_config = config.copy()
-                    nova_config["logo_base64"] = base64.b64encode(dados).decode("ascii")
-                    nova_config["logo_name"] = arquivo.name
-                    nova_config["logo_mime"] = arquivo.type or ("image/svg+xml" if arquivo.name.lower().endswith(".svg") else "image/png")
-                    try:
-                        if salvar_configuracoes(nova_config):
-                            st.session_state.config = nova_config
-                            st.success("Logo salva permanentemente no Supabase.")
-                            st.rerun()
-                        else:
-                            st.error("O Supabase não confirmou a gravação da logo.")
-                    except Exception as e:
-                        st.error(f"Erro ao salvar a logo no Supabase: {e}")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="tip"><b>Dicas</b><br>• Utilize preferencialmente PNG com fundo transparente.<br>• Tamanho recomendado: aproximadamente 200 × 80 pixels.<br>• A imagem será ajustada automaticamente para caber no menu lateral.<br>• A configuração fica salva no Supabase e será recuperada após reiniciar o aplicativo.</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Cores do Aplicativo")
-    st.write("Escolha o tema e a cor principal utilizados no sistema.")
-    tema = st.selectbox("Tema do sistema", TEMAS, index=TEMAS.index(config.get("tema")) if config.get("tema") in TEMAS else 0, key="tema_select")
-    cor = st.selectbox("Cor principal", list(CORES.keys()), index=list(CORES.keys()).index(config.get("cor_principal")) if config.get("cor_principal") in CORES else 0, key="cor_select")
-    estilo = st.radio("Cor dos botões", ESTILOS_BOTOES, index=ESTILOS_BOTOES.index(config.get("estilo_botoes")) if config.get("estilo_botoes") in ESTILOS_BOTOES else 0, horizontal=True, key="estilo_select")
-    if st.button("SALVAR ALTERAÇÕES", use_container_width=True, type="primary", key="salvar_aparencia"):
-        nova_config = config.copy()
-        nova_config["tema"] = tema
-        nova_config["cor_principal"] = cor
-        nova_config["estilo_botoes"] = estilo
-        try:
-            if salvar_configuracoes(nova_config):
-                st.session_state.config = nova_config
-                st.success("Configurações salvas permanentemente no Supabase.")
-                st.rerun()
-            else:
-                st.error("O Supabase não confirmou a gravação das configurações.")
-        except Exception as e:
-            st.error(f"Erro ao salvar configurações no Supabase: {e}")
-    st.markdown('</div>', unsafe_allow_html=True)
+                dados = base64.b64encode(arquivo.getvalue()).decode("ascii")
+                novo = config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png"})
+                try:
+                    if salvar_configuracoes(novo):
+                        st.session_state.config = novo
+                        st.success("Logo salva no Supabase.")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível salvar a logo.")
+                except Exception as e:
+                    st.error(f"Erro ao salvar a logo: {e}")
+        if config.get("logo_base64"):
+            mime = config.get("logo_mime") or "image/png"
+            st.markdown(f'<div class="logo-preview"><img src="data:{mime};base64,{config["logo_base64"]}"></div>', unsafe_allow_html=True)
+        else:
+            st.info("Nenhuma logo configurada.")
 
 st.markdown("<br><div class='muted'>Gestão Almoxarifado • Streamlit + Supabase • migração em andamento</div>", unsafe_allow_html=True)
