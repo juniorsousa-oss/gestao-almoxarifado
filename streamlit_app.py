@@ -15,12 +15,13 @@ st.markdown("""
 .brand{font-size:28px;font-weight:900;padding:8px 4px 20px;border-bottom:1px solid #1e2522;margin-bottom:18px}.brand span,.section{color:#ffd20a}.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p,.muted{color:#9aa39f}.period{background:#ffd20a;color:#111;padding:10px 15px;border-radius:9px;font-weight:800}.section{font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}.panel{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;border-radius:15px;padding:19px;margin-top:14px}.notice{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px}div[data-testid="stMetric"]{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;padding:15px;border-radius:12px}
 
 /* MENU LATERAL */
-[data-testid="stSidebar"] .stButton{margin:0 0 7px 0}
-[data-testid="stSidebar"] .stButton > button{width:100%;min-height:47px;border-radius:12px;border:1px solid transparent;background:transparent;color:#f0f2f1 !important;font-size:14px;font-weight:900;text-align:left;padding:0 14px;box-shadow:none;transition:all .15s ease}
-[data-testid="stSidebar"] .stButton > button:hover{background:#171c1a;border-color:#303733;color:#ffffff !important}
+[data-testid="stSidebar"] .stButton{margin:0 0 10px 0}
+[data-testid="stSidebar"] .stButton > button{width:100%;min-height:48px;height:48px;border-radius:12px;border:1px solid #2d3531;background:#101513;color:#f4f5f4 !important;font-size:14px;font-weight:900;text-align:center;padding:0 10px;box-shadow:none;transition:all .15s ease}
+[data-testid="stSidebar"] .stButton > button:hover{background:#171c1a;border-color:#46504b;color:#ffffff !important}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]{background:#ffd43d !important;color:#0b0f0e !important;border:2px solid #f4f5f4;box-shadow:0 0 0 1px #ffd43d inset}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{background:#ffd43d !important;color:#0b0f0e !important}
-[data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important}
+[data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}
+[data-testid="stSidebar"] .stButton > button div{justify-content:center !important}
 .sidebar-footer{margin:22px 5px 0;padding-top:16px;border-top:1px solid #1e2522;color:#69736e;font-size:10px;line-height:1.6}
 </style>
 """,unsafe_allow_html=True)
@@ -34,14 +35,13 @@ def rows(table, limit=500, order=None):
 def df(data): return pd.DataFrame(data) if data else pd.DataFrame()
 
 if "pagina" not in st.session_state: st.session_state.pagina="Dashboard"
-paginas=[("▦","Dashboard"),("✎","Alimentar Indicadores"),("◷","Histórico"),("♟","Gestão de Equipes"),("⇧","Plano de Carreira"),("⚙","Configurações")]
+paginas=["Dashboard","Alimentar Indicadores","Histórico","Gestão de Equipes","Plano de Carreira","Configurações"]
 
 with st.sidebar:
     st.markdown('<div class="brand">GESTÃO<span>.</span></div>',unsafe_allow_html=True)
-    for icone,p in paginas:
+    for p in paginas:
         ativo=st.session_state.pagina==p
-        label=f"{icone}    {p.upper()}"
-        if st.button(label,use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{p}"):
+        if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{p}"):
             st.session_state.pagina=p
             st.rerun()
     st.markdown("<div class='sidebar-footer'>Gestão Operacional<br>SETTA • Streamlit + Supabase</div>",unsafe_allow_html=True)
