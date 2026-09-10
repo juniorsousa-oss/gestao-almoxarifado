@@ -31,20 +31,41 @@ jobs:
                   raise SystemExit('Marcador supabase-sync.js não encontrado')
               text = text.replace(marker, marker + '\n' + tag, 1)
               p.write_text(text, encoding='utf-8')
-              print('Script inserido.')
-          else:
-              print('Script já estava inserido.')
           PY
+
+      - name: Ajustar layout superior
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          replacements = {
+              'header[data-testid="stHeader"]{{background:#ffffff !important;height:64px !important;border-bottom:1px solid #e5e7eb !important;box-shadow:0 1px 3px rgba(0,0,0,.06) !important;}}': 'header[data-testid="stHeader"]{{display:block !important;background:transparent !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}',
+              '[data-testid="stToolbar"]{{display:flex !important;align-items:center !important;}}': '[data-testid="stToolbar"]{{display:none !important;}}',
+              'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:64px !important;': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:10px !important;',
+              'div[data-testid="collapsedControl"]{{position:fixed !important;top:64px !important;': 'div[data-testid="collapsedControl"]{{position:fixed !important;top:10px !important;',
+              '.block-container{{max-width:1500px;padding:38px 34px 50px}}': '.block-container{{max-width:1500px;padding:18px 34px 50px}}',
+              '.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;': '.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:8px 0 8px;',
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'Trecho não encontrado: {old[:70]}')
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          python -m py_compile streamlit_app.py
 
       - name: Commit e push
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
+          rm -f scripts/fix_layout_header.py .github/workflows/fix-layout-header-temp.yml .github/trigger-layout-header.txt
+          git add index.html streamlit_app.py scripts/fix_layout_header.py .github/workflows/fix-layout-header-temp.yml .github/trigger-layout-header.txt
           if git diff --cached --quiet; then
             echo 'Nenhuma alteração necessária.'
             exit 0
           fi
-          git commit -m 'Ativa sincronização cloud v2 [skip ci]'
+          git commit -m 'fix: remover menu superior e elevar cabecalho [skip ci]'
           git push
