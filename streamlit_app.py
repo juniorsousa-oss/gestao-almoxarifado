@@ -387,7 +387,7 @@ elif pagina == "equipes":
                 matricula = st.text_input("Matrícula", placeholder="Matrícula / registro interno")
                 funcao = st.text_input("Função / cargo", placeholder="Ex.: Almoxarife")
             with cc2:
-                data_adm = st.date_input("Data de admissão", value=None, key="data_adm_novo")
+                data_adm = st.date_input("Data de admissão", value=None, format="DD/MM/YYYY", key="data_adm_novo")
                 equipe_label = st.selectbox("Equipe", ["Sem equipe"] + list(equipes_opts.keys()))
                 foto_arquivo = st.file_uploader("Foto do colaborador *", type=["png", "jpg", "jpeg", "webp"], help="Inclua a foto do colaborador. Tamanho máximo: 2 MB.")
             criar_colab = st.form_submit_button("CADASTRAR COLABORADOR", type="primary", use_container_width=True)
@@ -462,7 +462,7 @@ elif pagina == "equipes":
                             data_val = pd.to_datetime(escolhido.get("data_admissao")).date() if escolhido.get("data_admissao") else None
                         except Exception:
                             data_val = None
-                        data_e = st.date_input("Data de admissão", value=data_val, key=f"data_edit_{cid}")
+                        data_e = st.date_input("Data de admissão", value=data_val, format="DD/MM/YYYY", key=f"data_edit_{cid}")
                         eqids = [None] + list(equipes_opts.values())
                         atual = escolhido.get("equipe_id")
                         idx = eqids.index(atual) if atual in eqids else 0
