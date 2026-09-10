@@ -33,7 +33,7 @@ jobs:
               p.write_text(text, encoding='utf-8')
           PY
 
-      - name: Ajustar layout superior
+      - name: Ajustar botão do menu lateral
         shell: bash
         run: |
           python - <<'PY'
@@ -41,17 +41,17 @@ jobs:
           p = Path('streamlit_app.py')
           s = p.read_text(encoding='utf-8')
           replacements = {
-              'header[data-testid="stHeader"]{{background:#ffffff !important;height:64px !important;border-bottom:1px solid #e5e7eb !important;box-shadow:0 1px 3px rgba(0,0,0,.06) !important;}}': 'header[data-testid="stHeader"]{{display:block !important;background:transparent !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}',
-              '[data-testid="stToolbar"]{{display:flex !important;align-items:center !important;}}': '[data-testid="stToolbar"]{{display:none !important;}}',
-              'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:64px !important;': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;opacity:1 !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:10px !important;',
+              'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:fixed !important;top:64px !important;': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;',
               'div[data-testid="collapsedControl"]{{position:fixed !important;top:64px !important;': 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;',
               'div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;pointer-events:auto !important;position:static !important;': 'div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:static !important;',
-              '.block-container{{max-width:1500px;padding:38px 34px 50px}}': '.block-container{{max-width:1500px;padding:18px 34px 50px}}',
-              '.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-35px 0 8px;': '.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:8px 0 8px;',
           }
+          changed = False
           for old, new in replacements.items():
               if old in s:
                   s = s.replace(old, new, 1)
+                  changed = True
+          if not changed:
+              raise SystemExit('Nenhum seletor do botão lateral encontrado para ajuste.')
           p.write_text(s, encoding='utf-8')
           PY
           python -m py_compile streamlit_app.py
@@ -61,11 +61,10 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -f scripts/fix_layout_header.py .github/workflows/fix-layout-header-temp.yml .github/trigger-layout-header.txt
-          git add index.html streamlit_app.py scripts/fix_layout_header.py .github/workflows/fix-layout-header-temp.yml .github/trigger-layout-header.txt
+          git add streamlit_app.py index.html
           if git diff --cached --quiet; then
             echo 'Nenhuma alteração necessária.'
             exit 0
           fi
-          git commit -m 'fix: manter botão de abrir menu visível após recolher [skip ci]'
+          git commit -m 'fix: manter botão do menu lateral visível [skip ci]'
           git push
