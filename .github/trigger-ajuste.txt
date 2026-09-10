@@ -1,1 +1,1 @@
-trigger main final 2
+trigger active workflow
