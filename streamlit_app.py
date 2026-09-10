@@ -4,23 +4,23 @@ import pandas as pd
 import streamlit as st
 from supabase_client import get_client
 
-st.set_page_config(page_title="GESTÃO OPERACIONAL | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")
+st.set_page_config(page_title="GESTÃO OPERACIONAL | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""
 <style>
-#MainMenu,footer,header{visibility:hidden}
+#MainMenu,footer{visibility:hidden}
 .stApp{background:#0b0f0e;color:#f4f5f4}
-[data-testid="stSidebar"]{background:#090c0b;border-right:1px solid #252b28;min-width:230px;max-width:230px}
+[data-testid="stSidebar"]{background:#090c0b !important;border-right:1px solid #252b28;min-width:230px;max-width:230px}
 [data-testid="stSidebar"] > div:first-child{padding:18px 9px 20px}
 .block-container{max-width:1500px;padding:28px 34px 50px}
 .brand{font-size:28px;font-weight:900;padding:8px 4px 20px;border-bottom:1px solid #1e2522;margin-bottom:18px}.brand span,.section{color:#ffd20a}.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p,.muted{color:#9aa39f}.period{background:#ffd20a;color:#111;padding:10px 15px;border-radius:9px;font-weight:800}.section{font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}.panel{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;border-radius:15px;padding:19px;margin-top:14px}.notice{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px}div[data-testid="stMetric"]{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;padding:15px;border-radius:12px}
 
 /* MENU LATERAL */
 [data-testid="stSidebar"] .stButton{margin:0 0 7px 0}
-[data-testid="stSidebar"] .stButton > button{width:100%;min-height:47px;border-radius:12px;border:1px solid transparent;background:transparent;color:#f0f2f1;font-size:14px;font-weight:900;text-align:left;padding:0 14px;box-shadow:none;transition:all .15s ease}
-[data-testid="stSidebar"] .stButton > button:hover{background:#171c1a;border-color:#303733;color:#ffffff}
-[data-testid="stSidebar"] .stButton > button[kind="primary"]{background:#ffd43d;color:#0b0f0e;border:2px solid #f4f5f4;box-shadow:0 0 0 1px #ffd43d inset}
-[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{background:#ffd43d;color:#0b0f0e}
-[data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px}
+[data-testid="stSidebar"] .stButton > button{width:100%;min-height:47px;border-radius:12px;border:1px solid transparent;background:transparent;color:#f0f2f1 !important;font-size:14px;font-weight:900;text-align:left;padding:0 14px;box-shadow:none;transition:all .15s ease}
+[data-testid="stSidebar"] .stButton > button:hover{background:#171c1a;border-color:#303733;color:#ffffff !important}
+[data-testid="stSidebar"] .stButton > button[kind="primary"]{background:#ffd43d !important;color:#0b0f0e !important;border:2px solid #f4f5f4;box-shadow:0 0 0 1px #ffd43d inset}
+[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{background:#ffd43d !important;color:#0b0f0e !important}
+[data-testid="stSidebar"] .stButton > button p{font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important}
 .sidebar-footer{margin:22px 5px 0;padding-top:16px;border-top:1px solid #1e2522;color:#69736e;font-size:10px;line-height:1.6}
 </style>
 """,unsafe_allow_html=True)
