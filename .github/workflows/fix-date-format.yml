@@ -38,3 +38,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'fix: usa formato brasileiro nas datas de colaboradores'
           git push
+      # trigger da correção de data
