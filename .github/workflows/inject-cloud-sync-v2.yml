@@ -27,27 +27,31 @@ jobs:
           tag = '<script src="./cloud-sync-v2.js"></script>'
           if tag not in text:
               marker = '<script src="./supabase-sync.js"></script>'
-              if marker not in text:
-                  raise SystemExit('Marcador supabase-sync.js não encontrado')
-              text = text.replace(marker, marker + '\n' + tag, 1)
-              p.write_text(text, encoding='utf-8')
+              if marker in text:
+                  text = text.replace(marker, marker + '\n' + tag, 1)
+                  p.write_text(text, encoding='utf-8')
           PY
 
-      - name: Remover menu superior
+      - name: Restaurar botão >> e manter header preto
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('streamlit_app.py')
           s = p.read_text(encoding='utf-8')
-          old = '[data-testid="stToolbar"]{{display:flex !important;align-items:center !important;justify-content:flex-end !important;height:30px !important;min-height:30px !important;padding:0 8px !important;gap:2px !important;transform:none !important;}}'
-          new = '[data-testid="stToolbar"]{{display:none !important;height:0 !important;min-height:0 !important;}}'
-          if old in s:
-              s = s.replace(old, new, 1)
-          old = 'header[data-testid="stHeader"]{{display:block !important;background:#ffffff !important;height:30px !important;min-height:30px !important;border:0 !important;box-shadow:none !important;}}'
-          new = 'header[data-testid="stHeader"]{{display:none !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}'
-          if old in s:
-              s = s.replace(old, new, 1)
+
+          replacements = {
+              '[data-testid="stToolbar"]{{display:none !important;height:0 !important;min-height:0 !important;}}': '[data-testid="stToolbar"]{{display:flex !important;align-items:center !important;justify-content:flex-end !important;height:32px !important;min-height:32px !important;padding:0 8px !important;gap:2px !important;background:#090c0b !important;}}',
+              'button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;pointer-events:auto !important;}}',
+              'div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}': 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:4px !important;left:8px !important;z-index:2147483647 !important;width:40px !important;height:28px !important;align-items:center !important;justify-content:center !important;background:#090c0b !important;}}',
+              'div[data-testid="collapsedControl"] button{{display:none !important;}}': 'div[data-testid="collapsedControl"] button{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;width:34px !important;height:28px !important;margin:0 !important;padding:0 !important;background:transparent !important;color:#f4f5f4 !important;border:0 !important;}}',
+              'header[data-testid="stHeader"]{{display:none !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}': 'header[data-testid="stHeader"]{{display:block !important;height:32px !important;min-height:32px !important;background:#090c0b !important;border:0 !important;border-bottom:1px solid #1f2925 !important;box-shadow:none !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"]{{width:230px !important;min-width:230px !important;max-width:230px !important;}}': 'section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}',
+              'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}': 'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;}}',
+          }
+          for old, new in replacements.items():
+              if old in s:
+                  s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
           PY
           python -m py_compile streamlit_app.py
@@ -62,5 +66,5 @@ jobs:
             echo 'Nenhuma alteração necessária.'
             exit 0
           fi
-          git commit -m 'Remove menu superior [skip ci]'
+          git commit -m 'Restaura botão de abertura da sidebar [skip ci]'
           git push
