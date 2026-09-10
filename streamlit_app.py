@@ -56,13 +56,30 @@ if IS_LIGHT:
 else:
     APP_BG, SIDEBAR_BG, TEXT, MUTED, PANEL, BORDER, INPUT_BG, COLLAPSE = "#0b0f0e", "#090c0b", "#f4f5f4", "#9aa39f", "#101513", "#35403b", "#101513", "#ffffff"
 
+# Estado do menu superior. Ele pode ser recolhido sem eliminar o controle de reabertura.
+if "menu_superior_aberto" not in st.session_state:
+    st.session_state.menu_superior_aberto = False
+
+# O controle fica sempre visível no canto superior direito.
+if st.button("«" if st.session_state.menu_superior_aberto else "»", key="topmenu_toggle", help="Recolher/abrir menu superior"):
+    st.session_state.menu_superior_aberto = not st.session_state.menu_superior_aberto
+    st.rerun()
+
+TOP_MENU_DISPLAY = "flex" if st.session_state.menu_superior_aberto else "none"
+TOP_BUTTON_BG = "#ffffff" if IS_LIGHT else "#101513"
+TOP_BUTTON_TEXT = "#68736e" if IS_LIGHT else "#ffffff"
+
 st.markdown(f"""
 <style>
 #MainMenu,footer{{visibility:hidden}}
-/* Barra superior do Streamlit: ocultar ferramentas Share/Star/Edit/GitHub,
-   mas manter o header e o botão nativo de recolher/abrir a sidebar. */
-[data-testid="stToolbar"]{{display:none !important}}
-header[data-testid="stHeader"]{{background:transparent !important}}
+/* Menu superior nativo: fica recolhível, mas não é removido definitivamente. */
+[data-testid="stToolbar"]{{display:{TOP_MENU_DISPLAY} !important;align-items:center !important;}}
+header[data-testid="stHeader"]{{background:transparent !important;}}
+/* Botão independente para abrir/fechar o menu superior. */
+div.st-key-topmenu_toggle{{position:fixed !important;top:7px !important;right:10px !important;z-index:999999 !important;margin:0 !important;padding:0 !important;}}
+div.st-key-topmenu_toggle button{{width:38px !important;min-width:38px !important;height:32px !important;min-height:32px !important;padding:0 !important;border-radius:7px !important;border:1px solid {BORDER} !important;background:{TOP_BUTTON_BG} !important;color:{TOP_BUTTON_TEXT} !important;font-size:22px !important;font-weight:800 !important;line-height:1 !important;box-shadow:0 1px 3px rgba(0,0,0,.12) !important;}}
+div.st-key-topmenu_toggle button:hover{{background:{PRIMARY} !important;color:#111 !important;border-color:{PRIMARY} !important;}}
+div.st-key-topmenu_toggle button p{{color:inherit !important;font-size:20px !important;font-weight:900 !important;line-height:1 !important;margin:0 !important;}}
 .stApp{{background:{APP_BG};color:{TEXT}}}
 section[data-testid="stSidebar"]{{background:{SIDEBAR_BG} !important;border-right:1px solid {BORDER};width:230px !important;min-width:230px !important;max-width:230px !important;flex-shrink:1 !important;transition:width .2s ease,min-width .2s ease,max-width .2s ease}}
 section[data-testid="stSidebar"] > div:first-child{{padding:1px 9px 20px}}
