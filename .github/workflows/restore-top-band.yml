@@ -1,0 +1,34 @@
+name: Restore top white band
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore top band CSS
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'header[data-testid="stHeader"]{{background:transparent !important;}}'
+          new = 'header[data-testid="stHeader"]{{background:#ffffff !important;height:64px !important;border-bottom:1px solid #e5e7eb !important;box-shadow:0 1px 3px rgba(0,0,0,.06) !important;}}'
+          if old in s:
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+          if git diff --quiet -- streamlit_app.py; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py
+          git commit -m "Restaura faixa branca superior"
+          git push
