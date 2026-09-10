@@ -60,10 +60,11 @@ else:
     APP_BG, SIDEBAR_BG, TEXT, MUTED, PANEL, BORDER, INPUT_BG, COLLAPSE = "#0b0f0e", "#090c0b", "#f4f5f4", "#9aa39f", "#101513", "#35403b", "#101513", "#ffffff"
 
 # ============================================================
-# CONTROLE ÚNICO: SIDEBAR + MENU SUPERIOR
+# CONTROLE UNICO: UM BOTAO PARA OS DOIS MENUS
 # ============================================================
-# Este é o único botão criado pelo aplicativo para abrir/recolher os menus.
-# Ele fica fixo no canto superior esquerdo e continua visível mesmo com a sidebar fechada.
+# O botao abaixo e o unico controle criado pelo aplicativo.
+# O controle nativo do Streamlit fica totalmente oculto.
+# O mesmo clique mostra/recolhe a sidebar e o menu superior.
 if "menus_abertos" not in st.session_state:
     st.session_state.menus_abertos = True
 
@@ -79,17 +80,17 @@ st.markdown(f"""
 #MainMenu, footer{{visibility:hidden}}
 
 /* ============================================================
-   BOTÃO ÚNICO - SEMPRE NO CANTO SUPERIOR ESQUERDO
+   BOTAO UNICO - EXATAMENTE NO CANTO SUPERIOR ESQUERDO
    ============================================================ */
 div.st-key-controle_unico_menus{{
     position:fixed !important;
     top:8px !important;
-    left:10px !important;
-    z-index:1000000 !important;
-    margin:0 !important;
-    padding:0 !important;
+    left:4px !important;
+    z-index:2147483647 !important;
     width:40px !important;
     height:34px !important;
+    margin:0 !important;
+    padding:0 !important;
 }}
 div.st-key-controle_unico_menus button{{
     width:40px !important;
@@ -97,29 +98,42 @@ div.st-key-controle_unico_menus button{{
     max-width:40px !important;
     height:34px !important;
     min-height:34px !important;
+    max-height:34px !important;
     padding:0 !important;
     margin:0 !important;
     border-radius:8px !important;
     border:1px solid {BORDER} !important;
-    background:{SIDEBAR_BG} !important;
-    color:{TEXT} !important;
+    background:#ffffff !important;
+    color:#1f2937 !important;
     box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
 }}
 div.st-key-controle_unico_menus button:hover{{
     background:{PRIMARY} !important;
-    color:#111 !important;
+    color:#111111 !important;
     border-color:{PRIMARY} !important;
 }}
 div.st-key-controle_unico_menus button p{{
     color:inherit !important;
-    font-size:22px !important;
+    font-size:21px !important;
     font-weight:900 !important;
     line-height:1 !important;
     margin:0 !important;
+    padding:0 !important;
 }}
 
 /* ============================================================
-   MENU SUPERIOR - USA O MESMO ESTADO DO BOTÃO
+   ELIMINA QUALQUER CONTROLE NATIVO DO STREAMLIT
+   ============================================================ */
+button[data-testid="stSidebarCollapseButton"],
+button[aria-label="Close sidebar"],
+button[aria-label="Open sidebar"]{{
+    display:none !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+}}
+
+/* ============================================================
+   MENU SUPERIOR - CONTROLADO PELO BOTAO UNICO
    ============================================================ */
 header[data-testid="stHeader"]{{
     background:transparent !important;
@@ -130,7 +144,7 @@ header[data-testid="stHeader"]{{
 }}
 
 /* ============================================================
-   SIDEBAR - USA O MESMO ESTADO DO BOTÃO
+   SIDEBAR - CONTROLADA PELO MESMO BOTAO
    ============================================================ */
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
@@ -145,11 +159,12 @@ section[data-testid="stSidebar"] > div:first-child{{
     width:230px !important;
     min-width:230px !important;
     padding:1px 9px 20px;
+    overflow:hidden !important;
 }}
-
-/* Esconde o controle nativo da sidebar para garantir que exista somente UM botão. */
-button[data-testid="stSidebarCollapseButton"]{{
-    display:none !important;
+section[data-testid="stSidebar"][aria-expanded="false"]{{
+    width:{SIDEBAR_WIDTH} !important;
+    min-width:{SIDEBAR_WIDTH} !important;
+    max-width:{SIDEBAR_WIDTH} !important;
 }}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
