@@ -2,4 +2,3 @@ streamlit>=1.40,<2.0
 supabase==2.31.0
 pandas>=2.2,<3.0
 Pillow>=10.0,<12.0
-# Gestão de Equipes: atualização visual em andamento
