@@ -389,7 +389,7 @@ elif pagina == "equipes":
             with cc2:
                 data_adm = st.date_input("Data de admissão", value=None, key="data_adm_novo")
                 equipe_label = st.selectbox("Equipe", ["Sem equipe"] + list(equipes_opts.keys()))
-                foto_url = st.text_input("URL da foto", placeholder="Opcional")
+                foto_arquivo = st.file_uploader("Foto do colaborador *", type=["png", "jpg", "jpeg", "webp"], help="Inclua a foto do colaborador. Tamanho máximo: 2 MB.")
             criar_colab = st.form_submit_button("CADASTRAR COLABORADOR", type="primary", use_container_width=True)
         if criar_colab:
             nome_limpo = nome_colab.strip()
@@ -398,9 +398,15 @@ elif pagina == "equipes":
                 st.error("Informe o nome do colaborador.")
             elif mat and any((x.get("matricula") or "").strip().casefold() == mat.casefold() for x in colaboradores_raw):
                 st.error("Essa matrícula já está cadastrada.")
+            elif foto_arquivo is None:
+                st.error("Inclua a foto do colaborador.")
+            elif foto_arquivo.size > 2 * 1024 * 1024:
+                st.error("A foto deve ter no máximo 2 MB.")
             else:
                 try:
-                    novo = client.table("almox_colaboradores").insert({"nome": nome_limpo, "matricula": mat, "funcao": funcao.strip() or None, "data_admissao": data_adm.isoformat() if data_adm else None, "equipe_id": equipes_opts.get(equipe_label), "equipe_atual": equipe_label if equipe_label != "Sem equipe" else None, "foto_url": foto_url.strip() or None, "ativo": True}).execute().data
+                    foto_bytes = foto_arquivo.getvalue()
+                    foto_b64 = base64.b64encode(foto_bytes).decode("ascii")
+                    novo = client.table("almox_colaboradores").insert({"nome": nome_limpo, "matricula": mat, "funcao": funcao.strip() or None, "data_admissao": data_adm.isoformat() if data_adm else None, "equipe_id": equipes_opts.get(equipe_label), "equipe_atual": equipe_label if equipe_label != "Sem equipe" else None, "foto_base64": foto_b64, "foto_mime": foto_arquivo.type or "image/jpeg", "foto_nome": foto_arquivo.name, "ativo": True}).execute().data
                     if novo:
                         registrar_historico("colaborador_criado", f"Colaborador criado: {nome_limpo}", {"colaborador_id": novo[0].get("id"), "nome": nome_limpo})
                         st.success(f"Colaborador '{nome_limpo}' cadastrado com sucesso.")
@@ -461,7 +467,10 @@ elif pagina == "equipes":
                         atual = escolhido.get("equipe_id")
                         idx = eqids.index(atual) if atual in eqids else 0
                         eq_e_label = st.selectbox("Equipe", ["Sem equipe"] + list(equipes_opts.keys()), index=idx, key=f"eq_edit_{cid}")
-                        foto_e = st.text_input("URL da foto", value=escolhido.get("foto_url") or "", key=f"foto_edit_{cid}")
+                        if escolhido.get("foto_base64"):
+                            st.image(f"data:{escolhido.get('foto_mime') or 'image/jpeg'};base64,{escolhido['foto_base64']}", width=140)
+                            st.caption(f"Foto atual: {escolhido.get('foto_nome') or 'arquivo salvo'}")
+                        foto_e = st.file_uploader("Substituir foto", type=["png", "jpg", "jpeg", "webp"], help="Opcional. Se selecionar um arquivo, a foto atual será substituída.", key=f"foto_edit_{cid}")
                     salvar_c = st.form_submit_button("SALVAR COLABORADOR", type="primary")
                 if salvar_c:
                     mat_e = mat_e.strip() or None
@@ -472,7 +481,13 @@ elif pagina == "equipes":
                     else:
                         try:
                             eqid = equipes_opts.get(eq_e_label)
-                            client.table("almox_colaboradores").update({"nome": nome_e.strip(), "matricula": mat_e, "funcao": func_e.strip() or None, "data_admissao": data_e.isoformat() if data_e else None, "equipe_id": eqid, "equipe_atual": eq_e_label if eqid else None, "foto_url": foto_e.strip() or None}).eq("id", cid).execute()
+                            dados_update = {"nome": nome_e.strip(), "matricula": mat_e, "funcao": func_e.strip() or None, "data_admissao": data_e.isoformat() if data_e else None, "equipe_id": eqid, "equipe_atual": eq_e_label if eqid else None}
+                            if foto_e is not None:
+                                if foto_e.size > 2 * 1024 * 1024:
+                                    st.error("A foto deve ter no máximo 2 MB.")
+                                    st.stop()
+                                dados_update.update({"foto_base64": base64.b64encode(foto_e.getvalue()).decode("ascii"), "foto_mime": foto_e.type or "image/jpeg", "foto_nome": foto_e.name})
+                            client.table("almox_colaboradores").update(dados_update).eq("id", cid).execute()
                             registrar_historico("colaborador_editado", f"Colaborador editado: {nome_e.strip()}", {"colaborador_id": cid, "nome": nome_e.strip()})
                             st.session_state.pop("editar_colaborador_id", None)
                             st.rerun()
