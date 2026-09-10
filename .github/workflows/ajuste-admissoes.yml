@@ -45,35 +45,28 @@ jobs:
               data = pd.to_datetime(c.get("data_admissao"), errors="coerce")
               data_txt = data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"
               cards_admissoes.append(
-                  f'''\
-                  <div class="ge-admission-item">
-                      <div class="ge-admission-photo">{foto_html(c,54)}</div>
-                      <div class="ge-admission-name" title="{c.get('nome', '')}">{nome_curto(c.get('nome'))}</div>
-                      <div class="ge-admission-date">{data_txt}</div>
-                  </div>
-                  '''
+                  '<div class="ge-admission-item">'
+                  '<div class="ge-admission-photo">' + foto_html(c,54) + '</div>'
+                  '<div class="ge-admission-name">' + nome_curto(c.get("nome")) + '</div>'
+                  '<div class="ge-admission-date">' + data_txt + '</div>'
+                  '</div>'
               )
 
           if cards_admissoes:
               st.markdown(
-                  f'''\
-                  <div class="ge-admissions-panel">
-                      <div class="ge-admissions-title">Admissões mais recentes</div>
-                      <div class="ge-admissions-grid">
-                          {''.join(cards_admissoes)}
-                      </div>
-                  </div>
-                  ''',
+                  '<div class="ge-admissions-panel">'
+                  '<div class="ge-admissions-title">Admissões mais recentes</div>'
+                  '<div class="ge-admissions-grid">'
+                  + ''.join(cards_admissoes) +
+                  '</div></div>',
                   unsafe_allow_html=True,
               )
           else:
               st.markdown(
-                  '''\
-                  <div class="ge-admissions-panel">
-                      <div class="ge-admissions-title">Admissões mais recentes</div>
-                      <div class="ge-empty">Nenhuma data de admissão cadastrada.</div>
-                  </div>
-                  ''',
+                  '<div class="ge-admissions-panel">'
+                  '<div class="ge-admissions-title">Admissões mais recentes</div>'
+                  '<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>'
+                  '</div>',
                   unsafe_allow_html=True,
               )'''
 
