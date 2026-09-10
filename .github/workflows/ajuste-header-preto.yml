@@ -1,0 +1,44 @@
+name: Ajuste header preto
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  ajustar:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Aplicar header compacto preto
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'header[data-testid="stHeader"]{{display:none !important;height:0 !important;min-height:0 !important;border:0 !important;box-shadow:none !important;}}'
+          new = 'header[data-testid="stHeader"]{{display:block !important;height:32px !important;min-height:32px !important;background:#090c0b !important;border:0 !important;border-bottom:1px solid #1f2925 !important;box-shadow:none !important;}}'
+          if old not in s:
+              raise SystemExit('Regra atual do header não encontrada')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Validar Python
+        run: python -m py_compile streamlit_app.py
+
+      - name: Commit e limpeza
+        shell: bash
+        run: |
+          rm -f .github/workflows/ajuste-header-preto.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py .github/workflows/ajuste-header-preto.yml
+          git commit -m 'fix: menu superior com fundo preto [skip ci]'
+          git push
