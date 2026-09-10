@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 from supabase_client import get_client
 
-st.set_page_config(page_title="Gestão Almoxarifado", page_icon="📦", layout="wide")
+st.set_page_config(page_title="GESTÃO OPERACIONAL | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")
 st.markdown("""
 <style>
 #MainMenu,footer,header{visibility:hidden}.stApp{background:#0b0f0e;color:#f4f5f4}[data-testid="stSidebar"]{background:#090c0b;border-right:1px solid #252b28}.block-container{max-width:1500px;padding:28px 34px 50px}.brand{font-size:28px;font-weight:900;padding:8px 4px 20px;border-bottom:1px solid #1e2522;margin-bottom:18px}.brand span,.section{color:#ffd20a}.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p,.muted{color:#9aa39f}.period{background:#ffd20a;color:#111;padding:10px 15px;border-radius:9px;font-weight:800}.section{font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}.panel{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;border-radius:15px;padding:19px;margin-top:14px}.notice{padding:12px 14px;border-left:3px solid #ffd20a;background:#171d1a;color:#c7ceca;border-radius:7px;font-size:11px}div[data-testid="stMetric"]{background:linear-gradient(145deg,#141a17,#101513);border:1px solid #35403b;padding:15px;border-radius:12px}
