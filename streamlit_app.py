@@ -70,7 +70,7 @@ st.markdown(f"""
 #MainMenu, footer{{visibility:hidden}}
 
 /* ============================================================
-   REMOVE SOMENTE O CONTROLE EXTRA DO MENU SUPERIOR
+   MENU SUPERIOR - SEM BOTÃO EXTRA
    ============================================================ */
 [data-testid="stToolbar"]{{
     display:flex !important;
@@ -78,7 +78,7 @@ st.markdown(f"""
 }}
 
 /* ============================================================
-   BOTÃO NATIVO DA SIDEBAR - ÚNICO CONTROLE
+   BOTÃO NATIVO DA SIDEBAR - ESTADO ABERTO
    ============================================================ */
 button[data-testid="stSidebarCollapseButton"]{{
     display:flex !important;
@@ -87,6 +87,7 @@ button[data-testid="stSidebarCollapseButton"]{{
     position:fixed !important;
     top:25px !important;
     left:8px !important;
+    right:auto !important;
     z-index:2147483647 !important;
     width:40px !important;
     height:34px !important;
@@ -106,6 +107,53 @@ button[data-testid="stSidebarCollapseButton"]:hover{{
     border-color:{PRIMARY} !important;
 }}
 button[data-testid="stSidebarCollapseButton"] svg{{
+    width:20px !important;
+    height:20px !important;
+}}
+
+/* ============================================================
+   BOTÃO NATIVO QUANDO A SIDEBAR ESTÁ RECOLHIDA
+   O STREAMLIT MOVE O CONTROLE PARA collapsedControl.
+   Fixamos esse MESMO botão no canto superior esquerdo.
+   ============================================================ */
+div[data-testid="collapsedControl"]{{
+    position:fixed !important;
+    top:25px !important;
+    left:8px !important;
+    right:auto !important;
+    bottom:auto !important;
+    inset-inline-start:8px !important;
+    inset-inline-end:auto !important;
+    z-index:2147483647 !important;
+    width:40px !important;
+    height:34px !important;
+    margin:0 !important;
+    padding:0 !important;
+    transform:none !important;
+}}
+div[data-testid="collapsedControl"] button{{
+    display:flex !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+    position:static !important;
+    width:40px !important;
+    height:34px !important;
+    min-width:40px !important;
+    min-height:34px !important;
+    padding:0 !important;
+    margin:0 !important;
+    border-radius:8px !important;
+    border:1px solid {BORDER} !important;
+    background:#ffffff !important;
+    color:#1f2937 !important;
+    box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
+}}
+div[data-testid="collapsedControl"] button:hover{{
+    background:{PRIMARY} !important;
+    color:#111111 !important;
+    border-color:{PRIMARY} !important;
+}}
+div[data-testid="collapsedControl"] svg{{
     width:20px !important;
     height:20px !important;
 }}
@@ -135,6 +183,19 @@ section[data-testid="stSidebar"] > div:first-child{{
     min-width:230px !important;
     padding:1px 9px 20px;
     overflow:hidden !important;
+}}
+
+/* Quando recolhida, não deixe a largura fixa empurrar o conteúdo.
+   O botão continua existindo em collapsedControl. */
+section[data-testid="stSidebar"][aria-expanded="false"]{{
+    width:0 !important;
+    min-width:0 !important;
+    max-width:0 !important;
+}}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
+    width:0 !important;
+    min-width:0 !important;
+    padding:0 !important;
 }}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
