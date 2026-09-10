@@ -96,6 +96,7 @@ if IS_LIGHT:
     PANEL = "#ffffff"
     BORDER = "#d7ded9"
     INPUT_BG = "#f8faf9"
+    COLLAPSE = "#68736e"
 else:
     APP_BG = "#0b0f0e"
     SIDEBAR_BG = "#090c0b"
@@ -104,6 +105,7 @@ else:
     PANEL = "#101513"
     BORDER = "#35403b"
     INPUT_BG = "#101513"
+    COLLAPSE = "#ffffff"
 
 st.markdown(f"""
 <style>
@@ -125,6 +127,17 @@ section[data-testid="stSidebar"][aria-expanded="false"]{{
 }}
 section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{
     width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;
+}}
+button[data-testid="stSidebarCollapseButton"]{{
+    color:{COLLAPSE} !important;
+    background:{SIDEBAR_BG} !important;
+    border:0 !important;
+    box-shadow:none !important;
+}}
+button[data-testid="stSidebarCollapseButton"] svg,
+button[data-testid="stSidebarCollapseButton"] svg *{{
+    color:{COLLAPSE} !important;
+    stroke:{COLLAPSE} !important;
 }}
 .block-container{{max-width:1500px;padding:28px 34px 50px}}
 .hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}
