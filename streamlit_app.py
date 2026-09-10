@@ -60,27 +60,42 @@ else:
     APP_BG, SIDEBAR_BG, TEXT, MUTED, PANEL, BORDER, INPUT_BG, COLLAPSE = "#0b0f0e", "#090c0b", "#f4f5f4", "#9aa39f", "#101513", "#35403b", "#101513", "#ffffff"
 
 # ============================================================
-# UM ÚNICO CONTROLE: BOTÃO NATIVO DO STREAMLIT
+# CONTROLE ÚNICO: SIDEBAR + MENU SUPERIOR
 # ============================================================
-# Não criamos outro st.button. O próprio botão nativo da sidebar é o único
-# controle. O CSS usa o estado aria-expanded da sidebar para esconder/mostrar
-# o menu superior junto com ela.
+# Este é o único botão criado pelo aplicativo para abrir/recolher os menus.
+# Ele fica fixo no canto superior esquerdo e continua visível mesmo com a sidebar fechada.
+if "menus_abertos" not in st.session_state:
+    st.session_state.menus_abertos = True
+
+if st.button("«" if st.session_state.menus_abertos else "»", key="controle_unico_menus", help="Abrir/recolher menus"):
+    st.session_state.menus_abertos = not st.session_state.menus_abertos
+    st.rerun()
+
+MENUS_DISPLAY = "flex" if st.session_state.menus_abertos else "none"
+SIDEBAR_WIDTH = "230px" if st.session_state.menus_abertos else "0px"
+
 st.markdown(f"""
 <style>
 #MainMenu, footer{{visibility:hidden}}
 
 /* ============================================================
-   CONTROLE ÚNICO - CANTO SUPERIOR ESQUERDO
+   BOTÃO ÚNICO - SEMPRE NO CANTO SUPERIOR ESQUERDO
    ============================================================ */
-button[data-testid="stSidebarCollapseButton"]{{
-    display:flex !important;
+div.st-key-controle_unico_menus{{
     position:fixed !important;
     top:8px !important;
     left:10px !important;
     z-index:1000000 !important;
+    margin:0 !important;
+    padding:0 !important;
     width:40px !important;
     height:34px !important;
+}}
+div.st-key-controle_unico_menus button{{
+    width:40px !important;
     min-width:40px !important;
+    max-width:40px !important;
+    height:34px !important;
     min-height:34px !important;
     padding:0 !important;
     margin:0 !important;
@@ -90,41 +105,51 @@ button[data-testid="stSidebarCollapseButton"]{{
     color:{TEXT} !important;
     box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
 }}
-button[data-testid="stSidebarCollapseButton"]:hover{{
+div.st-key-controle_unico_menus button:hover{{
     background:{PRIMARY} !important;
     color:#111 !important;
     border-color:{PRIMARY} !important;
 }}
-button[data-testid="stSidebarCollapseButton"] svg{{
-    width:20px !important;
-    height:20px !important;
-}}
-
-/* O MESMO botão controla visualmente o menu superior.
-   Quando a sidebar fica recolhida, o toolbar também desaparece. */
-[data-testid="stToolbar"]{{
-    display:flex !important;
-    align-items:center !important;
-}}
-body:has(section[data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stToolbar"]{{
-    display:none !important;
-}}
-
-header[data-testid="stHeader"]{{
-    background:transparent !important;
+div.st-key-controle_unico_menus button p{{
+    color:inherit !important;
+    font-size:22px !important;
+    font-weight:900 !important;
+    line-height:1 !important;
+    margin:0 !important;
 }}
 
 /* ============================================================
-   SIDEBAR
+   MENU SUPERIOR - USA O MESMO ESTADO DO BOTÃO
+   ============================================================ */
+header[data-testid="stHeader"]{{
+    background:transparent !important;
+}}
+[data-testid="stToolbar"]{{
+    display:{MENUS_DISPLAY} !important;
+    align-items:center !important;
+}}
+
+/* ============================================================
+   SIDEBAR - USA O MESMO ESTADO DO BOTÃO
    ============================================================ */
 section[data-testid="stSidebar"]{{
     background:{SIDEBAR_BG} !important;
     border-right:1px solid {BORDER};
+    width:{SIDEBAR_WIDTH} !important;
+    min-width:{SIDEBAR_WIDTH} !important;
+    max-width:{SIDEBAR_WIDTH} !important;
+    overflow:hidden !important;
+    transition:width .2s ease,min-width .2s ease,max-width .2s ease;
 }}
 section[data-testid="stSidebar"] > div:first-child{{
     width:230px !important;
     min-width:230px !important;
     padding:1px 9px 20px;
+}}
+
+/* Esconde o controle nativo da sidebar para garantir que exista somente UM botão. */
+button[data-testid="stSidebarCollapseButton"]{{
+    display:none !important;
 }}
 
 .stApp{{background:{APP_BG};color:{TEXT}}}
