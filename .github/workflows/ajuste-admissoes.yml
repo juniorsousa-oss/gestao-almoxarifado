@@ -151,6 +151,8 @@ jobs:
               }
           }
           '''
+              css = css.replace("{", "{{").replace("}", "}}")
+              css = css.replace("{{PANEL}}", "{PANEL}").replace("{{BORDER}}", "{BORDER}").replace("{{TEXT}}", "{TEXT}")
               pos = text.find("</style>")
               if pos < 0:
                   raise SystemExit("Bloco CSS principal não encontrado; nenhuma alteração feita.")
