@@ -24,35 +24,32 @@ jobs:
           path = Path("streamlit_app.py")
           text = path.read_text(encoding="utf-8")
 
-          old_block = '''        st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Admissões mais recentes</div>', unsafe_allow_html=True)
-          recentes = sorted([c for c in ativos_colaboradores if c.get("data_admissao")], key=lambda x:x.get("data_admissao") or "", reverse=True)[:5]
-          if recentes:
-              cols = st.columns(len(recentes))
-              for col,c in zip(cols,recentes):
-                  data = pd.to_datetime(c.get("data_admissao"), errors="coerce")
-                  data_txt = data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"
-                  with col:
-                      st.markdown(f'<div style="text-align:center">{foto_html(c,54)}<div style="font-size:11px;font-weight:900;color:#f4f5f4;margin-top:7px">{nome_curto(c.get("nome"))}</div><div style="font-size:9px;color:#89938e">{data_txt}</div></div>', unsafe_allow_html=True)
-          else:
-              st.markdown('<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>', unsafe_allow_html=True)
-          st.markdown('</div>', unsafe_allow_html=True)'''
+          inicio = text.find('        st.markdown(\'<div class="ge-overview-panel"><div class="ge-panel-title">Admissões mais recentes</div>\', unsafe_allow_html=True)')
+          if inicio < 0:
+              raise SystemExit("Início do bloco de admissões não encontrado; nenhuma alteração feita.")
 
-          new_block = """        recentes = sorted(
-              [c for c in ativos_colaboradores if c.get(\"data_admissao\")],
-              key=lambda x: x.get(\"data_admissao\") or \"\",
+          fim_marcador = '        st.markdown(\'</div>\', unsafe_allow_html=True)'
+          fim = text.find(fim_marcador, inicio)
+          if fim < 0:
+              raise SystemExit("Fim do bloco de admissões não encontrado; nenhuma alteração feita.")
+          fim += len(fim_marcador)
+
+          novo_bloco = '''        recentes = sorted(
+              [c for c in ativos_colaboradores if c.get("data_admissao")],
+              key=lambda x: x.get("data_admissao") or "",
               reverse=True,
           )[:5]
 
           cards_admissoes = []
           for c in recentes:
-              data = pd.to_datetime(c.get(\"data_admissao\"), errors=\"coerce\")
-              data_txt = data.strftime(\"%d/%m/%Y\") if not pd.isna(data) else \"—\"
+              data = pd.to_datetime(c.get("data_admissao"), errors="coerce")
+              data_txt = data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"
               cards_admissoes.append(
                   f'''\
-                  <div class=\"ge-admission-item\">
-                      <div class=\"ge-admission-photo\">{foto_html(c,54)}</div>
-                      <div class=\"ge-admission-name\" title=\"{c.get('nome', '')}\">{nome_curto(c.get('nome'))}</div>
-                      <div class=\"ge-admission-date\">{data_txt}</div>
+                  <div class="ge-admission-item">
+                      <div class="ge-admission-photo">{foto_html(c,54)}</div>
+                      <div class="ge-admission-name" title="{c.get('nome', '')}">{nome_curto(c.get('nome'))}</div>
+                      <div class="ge-admission-date">{data_txt}</div>
                   </div>
                   '''
               )
@@ -60,9 +57,9 @@ jobs:
           if cards_admissoes:
               st.markdown(
                   f'''\
-                  <div class=\"ge-admissions-panel\">
-                      <div class=\"ge-admissions-title\">Admissões mais recentes</div>
-                      <div class=\"ge-admissions-grid\">
+                  <div class="ge-admissions-panel">
+                      <div class="ge-admissions-title">Admissões mais recentes</div>
+                      <div class="ge-admissions-grid">
                           {''.join(cards_admissoes)}
                       </div>
                   </div>
@@ -72,18 +69,18 @@ jobs:
           else:
               st.markdown(
                   '''\
-                  <div class=\"ge-admissions-panel\">
-                      <div class=\"ge-admissions-title\">Admissões mais recentes</div>
-                      <div class=\"ge-empty\">Nenhuma data de admissão cadastrada.</div>
+                  <div class="ge-admissions-panel">
+                      <div class="ge-admissions-title">Admissões mais recentes</div>
+                      <div class="ge-empty">Nenhuma data de admissão cadastrada.</div>
                   </div>
                   ''',
                   unsafe_allow_html=True,
-              )"""
+              )'''
 
-          if old_block not in text:
-              raise SystemExit("Bloco de admissões original não encontrado; nenhuma alteração feita.")
+          text = text[:inicio] + novo_bloco + text[fim:]
 
-          css = '''
+          if ".ge-admissions-panel{" not in text:
+              css = '''
           .ge-admissions-panel{
               background:linear-gradient(145deg,{PANEL},#0d1210);
               border:1px solid {BORDER};
@@ -159,15 +156,11 @@ jobs:
               }
           }
           '''
-
-          marker = "</style>"
-          if ".ge-admissions-panel{" not in text:
-              pos = text.find(marker)
+              pos = text.find("</style>")
               if pos < 0:
                   raise SystemExit("Bloco CSS principal não encontrado; nenhuma alteração feita.")
               text = text[:pos] + css + text[pos:]
 
-          text = text.replace(old_block, new_block, 1)
           path.write_text(text, encoding="utf-8")
 
       - name: Validar sintaxe Python
@@ -177,8 +170,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f .github/workflows/ajuste-admissoes.yml
-          git add streamlit_app.py .github/workflows/ajuste-admissoes.yml
+          rm -f .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
+          git add streamlit_app.py .github/workflows/ajuste-admissoes.yml .github/trigger-ajuste.txt
           git diff --cached --quiet && exit 0
           git commit -m "fix: corrigir layout das admissões recentes"
           git push origin HEAD:main
