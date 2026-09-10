@@ -147,7 +147,7 @@ div[data-testid="collapsedControl"] svg{{width:20px !important;height:20px !impo
 div.st-key-controle_unico_menus{{display:none !important;}}
 header[data-testid="stHeader"]{{display:block !important;height:32px !important;min-height:32px !important;background:#090c0b !important;border:0 !important;border-bottom:1px solid #1f2925 !important;box-shadow:none !important;}}
 section[data-testid="stSidebar"]{{background:{SIDEBAR_BG} !important;border-right:1px solid {BORDER};width:230px !important;min-width:230px !important;max-width:230px !important;overflow:hidden !important;}}
-section[data-testid="stSidebar"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px;overflow:hidden !important;}}
+section[data-testid="stSidebar"] > div:first-child{{width:230px !important;min-width:230px !important;padding:0 9px 16px;overflow:hidden !important;}}
 section[data-testid="stSidebar"][aria-expanded="false"]{{width:0 !important;min-width:0 !important;max-width:0 !important;}}
 section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;}}
 .stApp{{background:{APP_BG};color:{TEXT}}}
@@ -160,14 +160,14 @@ section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width
 .panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:22px;margin-top:14px}}
 .notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
 div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};padding:15px;border-radius:12px}}
-[data-testid="stSidebar"] .stButton{{margin:0 0 8px 0}}
+[data-testid="stSidebar"] .stButton{{margin:0 0 6px 0}}
 [data-testid="stSidebar"] .stButton > button{{width:100%;min-height:48px;height:48px;border-radius:12px;border:1px solid {BORDER};background:{INPUT_BG};color:{TEXT} !important;font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;text-align:center;padding:0 10px;box-shadow:none;transition:all .15s ease}}
 [data-testid="stSidebar"] .stButton > button:hover{{background:{PRIMARY}22;border-color:{PRIMARY};color:{TEXT} !important}}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]{{background:{PRIMARY} !important;color:#0b0f0e !important;border:2px solid #f4f5f4;box-shadow:0 0 0 1px {PRIMARY} inset}}
 [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover{{background:{PRIMARY} !important;color:#0b0f0e !important}}
 [data-testid="stSidebar"] .stButton > button p{{font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;letter-spacing:.15px;color:inherit !important;text-align:center !important;width:100%}}
 [data-testid="stSidebar"] .stButton > button div{{justify-content:center !important}}
-.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:8px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:0 0 3px;padding:0 0 5px;border-bottom:1px solid {BORDER}}}
 .sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}}
 .sidebar-logo-img{{display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;margin:auto}}
 .sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#ffffff;border-radius:8px;font-size:11px;line-height:1.4}}
