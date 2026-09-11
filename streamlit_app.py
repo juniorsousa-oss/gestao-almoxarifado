@@ -309,7 +309,7 @@ elif pagina=="equipes":
                 if st.button("ADICIONAR COLABORADOR",key=f"add_{eid}",use_container_width=True):
                     disponiveis=[c for c in ativos_colaboradores if str(c.get("equipe_id"))!=eid]
                     opts={f"{c.get('nome','')} — {c.get('matricula') or 'sem matrícula'}":c.get("id") for c in disponiveis}
-                    with st.dialog(f"Adicionar colaboradores — {e.get('nome','')}"):
+                    with st.popover(f"ADICIONAR COLABORADORES — {e.get('nome','')}"):
                         with st.form(f"form_add_{eid}"):
                             sel=st.multiselect("Colaboradores",list(opts.keys()));ok=st.form_submit_button("ADICIONAR",type="primary",use_container_width=True)
                         if ok:
@@ -323,7 +323,7 @@ elif pagina=="equipes":
                 if st.button("DEFINIR RESPONSÁVEL",key=f"resp_{eid}",use_container_width=True):
                     opts={"Nenhum":None};
                     for col in ativos_colaboradores:opts[f"{col.get('nome','')} — {col.get('funcao') or 'Sem função'}"]=col.get("id")
-                    with st.dialog(f"Responsável — {e.get('nome','')}"):
+                    with st.popover(f"RESPONSÁVEL — {e.get('nome','')}"):
                         with st.form(f"form_resp_{eid}"):
                             labels=list(opts.keys());atual=e.get("responsavel_id");idx=[str(x) for x in opts.values()].index(str(atual)) if atual is not None and str(atual) in [str(x) for x in opts.values()] else 0;escolha=st.selectbox("Responsável",labels,index=idx);ok=st.form_submit_button("VINCULAR RESPONSÁVEL",type="primary",use_container_width=True)
                         if ok:
