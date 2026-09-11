@@ -2,8 +2,26 @@ name: test-trigger
 on:
   push:
     branches: [main]
+permissions:
+  contents: write
 jobs:
-  test:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo TEST_OK
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python tools/patch_equipes_layout.py
+      - run: python tools/fix_generated_label.py
+      - run: python -m py_compile streamlit_app.py
+      - name: Publicar correcoes e limpar temporarios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git add streamlit_app.py
+          git diff --cached --quiet || git commit -m 'fix: corrigir equipes organograma e colaboradores'
+          git pull --rebase origin main
+          git rm .github/workflows/test-trigger.yml .github/workflows/aplicar-ajustes-equipes.yml tools/patch_equipes_layout.py tools/fix_generated_label.py tools/.equipes_patch_trigger
+          git commit -m 'chore: limpar patch temporario'
+          git push origin HEAD:main
