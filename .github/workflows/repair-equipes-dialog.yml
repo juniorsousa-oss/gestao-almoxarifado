@@ -1,0 +1,34 @@
+name: repair-equipes-dialog
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix dialog context usage
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('streamlit_app.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('with st.dialog(f"Adicionar colaboradores — {e.get(\'nome\',\'\')}"):', 'with st.popover(f"ADICIONAR COLABORADORES — {e.get(\'nome\',\'\')}"):')
+          s=s.replace('with st.dialog(f"Responsável — {e.get(\'nome\',\'\')}"):', 'with st.popover(f"RESPONSÁVEL — {e.get(\'nome\',\'\')}"):')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile streamlit_app.py
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py
+          git diff --cached --quiet || git commit -m 'fix: corrigir abertura dos popovers da aba equipes'
+          git push
+      - name: Remove one-time repair workflow
+        run: |
+          git rm .github/workflows/repair-equipes-dialog.yml
+          git commit -m 'chore: remover workflow temporário de reparo'
+          git push
