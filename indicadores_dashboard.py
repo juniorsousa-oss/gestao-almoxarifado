@@ -34,10 +34,8 @@ def _month_label(value):
 
 def _prepare_rows(rows, view):
     ordered = sorted(rows, key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
-    if view != "month":
+    if view != "month" or not ordered:
         return ordered
-    if not ordered:
-        return []
     df = pd.DataFrame(ordered)
     df["_date"] = pd.to_datetime(df["competencia"], errors="coerce")
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
@@ -47,61 +45,154 @@ def _prepare_rows(rows, view):
         return ordered
     df["_periodo"] = df["_date"].dt.to_period("M")
     grouped = df.groupby("_periodo", sort=True).agg(valor=("valor", "mean"), meta=("meta", "mean")).reset_index()
-    result = []
-    for _, row in grouped.iterrows():
-        result.append({"competencia": row["_periodo"].to_timestamp(), "valor": row["valor"], "meta": row["meta"]})
-    return result
+    return [
+        {"competencia": row["_periodo"].to_timestamp(), "valor": row["valor"], "meta": row["meta"]}
+        for _, row in grouped.iterrows()
+    ]
 
 
-def _chart(rows, title):
-    if not rows:
-        return '<div class="ind-empty">Nenhum lançamento histórico.</div>'
-    values = [float(r.get("valor") or 0) for r in rows]
-    metas = [float(r.get("meta") or 0) for r in rows if r.get("meta") is not None]
-    maxv = max([100.0] + values + metas)
-    bars = []
-    for r in rows:
-        valor = float(r.get("valor") or 0)
-        meta = float(r.get("meta") or 0)
-        h = max(3, min(100, valor / maxv * 100))
-        meta_pos = max(2, min(98, meta / maxv * 100))
-        date_txt = _month_label(r.get("competencia")) if len(rows) != 1 else _month_label(r.get("competencia"))
-        bars.append(f'''<div class="ind-bar-item">
-          <div class="ind-bar-value" style="bottom:{h:.2f}%">{_pct(valor)}</div>
-          <div class="ind-bar-track"><div class="ind-bar" style="height:{h:.2f}%"></div><div class="ind-meta-line" style="bottom:{meta_pos:.2f}%"><span>{_pct(meta)}</span></div></div>
-          <div class="ind-bar-date">{date_txt}</div>
-        </div>''')
-    n = len(rows)
-    return f'''<div class="ind-chart-scroll"><div class="ind-chart" style="--ind-n:{n}">
-      <div class="ind-grid"><span>100%</span><span>80%</span><span>60%</span><span>40%</span><span>20%</span><span>0%</span></div>
-      <div class="ind-bars">{"".join(bars)}</div>
-    </div></div>'''
-
-
-def _indicator_card(name, rows, index, view):
-    ordered = sorted(rows, key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
-    latest = ordered[-1] if ordered else {}
-    valor = float(latest.get("valor") or 0) if latest else 0
-    meta = float(latest.get("meta")) if latest.get("meta") is not None else None
-    diff = valor - meta if meta is not None else None
-    status = "Acima da meta" if diff is not None and diff >= 0 else ("Abaixo da meta" if diff is not None else "Sem histórico")
-    status_cls = "ok" if diff is not None and diff >= 0 else ("bad" if diff is not None else "neutral")
-    title_num = f"{index:02d}"
-    cards = f'''<div class="ind-kpis">
-      <div class="ind-kpi"><div class="ind-kpi-label">ÚLTIMO RESULTADO</div><div class="ind-kpi-value">{_pct(valor) if ordered else '—'}</div><div class="ind-kpi-sub">Último lançamento</div></div>
-      <div class="ind-kpi"><div class="ind-kpi-label">META ATUAL</div><div class="ind-kpi-value">{_pct(meta) if meta is not None else '—'}</div><div class="ind-kpi-sub">Meta do último lançamento</div></div>
+def _kpis(rows, selected_index=None):
+    ordered = rows or []
+    if not ordered:
+        valor = meta = diff = None
+        status = "Sem histórico"
+        status_cls = "neutral"
+        selected_label = "Nenhum lançamento"
+    else:
+        idx = selected_index if selected_index is not None and 0 <= selected_index < len(ordered) else len(ordered) - 1
+        selected = ordered[idx]
+        valor = float(selected.get("valor")) if selected.get("valor") is not None else None
+        meta = float(selected.get("meta")) if selected.get("meta") is not None else None
+        diff = valor - meta if valor is not None and meta is not None else None
+        status = "Acima da meta" if diff is not None and diff >= 0 else ("Abaixo da meta" if diff is not None else "Sem meta")
+        status_cls = "ok" if diff is not None and diff >= 0 else ("bad" if diff is not None else "neutral")
+        selected_label = _month_label(selected.get("competencia"))
+    return f'''<div class="ind-kpis">
+      <div class="ind-kpi"><div class="ind-kpi-label">RESULTADO SELECIONADO</div><div class="ind-kpi-value">{_pct(valor)}</div><div class="ind-kpi-sub">{selected_label}</div></div>
+      <div class="ind-kpi"><div class="ind-kpi-label">META</div><div class="ind-kpi-value">{_pct(meta) if meta is not None else '—'}</div><div class="ind-kpi-sub">Referência do lançamento</div></div>
       <div class="ind-kpi"><div class="ind-kpi-label">DIFERENÇA</div><div class="ind-kpi-value">{_pct_diff(diff) if diff is not None else '—'}</div><div class="ind-kpi-sub">Resultado − meta</div></div>
-      <div class="ind-kpi ind-status {status_cls}"><div class="ind-status-arrow">{'↑' if status_cls=='ok' else ('↓' if status_cls=='bad' else '—')}</div><div><div class="ind-kpi-label">STATUS</div><div class="ind-status-text">{status}</div><div class="ind-kpi-sub">{len(rows)} lançamento(s) histórico(s)</div></div></div>
+      <div class="ind-kpi ind-status {status_cls}"><div class="ind-status-arrow">{'↑' if status_cls=='ok' else ('↓' if status_cls=='bad' else '—')}</div><div><div class="ind-kpi-label">STATUS</div><div class="ind-status-text">{status}</div><div class="ind-kpi-sub">{selected_label}</div></div></div>
     </div>'''
+
+
+def _chart(rows, title, chart_key):
+    if not rows:
+        st.markdown('<div class="ind-empty">Nenhum lançamento histórico.</div>', unsafe_allow_html=True)
+        return None
+
+    try:
+        import plotly.graph_objects as go
+    except Exception:
+        st.error("Não foi possível carregar o componente gráfico.")
+        return None
+
+    ordered = rows
+    labels = [_month_label(r.get("competencia")) for r in ordered]
+    values = [float(r.get("valor") or 0) for r in ordered]
+    metas = [float(r.get("meta") or 0) for r in ordered]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=list(range(len(ordered))),
+        y=values,
+        name="Resultado",
+        marker=dict(color="#ffd43d", line=dict(color="#ffd43d", width=0)),
+        text=[_pct(v) for v in values],
+        textposition="outside",
+        hovertemplate="%{customdata[0]}<br>Resultado: %{y:.2f}%<br>Meta: %{customdata[1]:.2f}%<extra>Clique para selecionar</extra>",
+        customdata=[[labels[i], metas[i]] for i in range(len(ordered))],
+        cliponaxis=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=list(range(len(ordered))),
+        y=metas,
+        name="Meta",
+        mode="lines+markers",
+        line=dict(color="#f4f5f4", width=3),
+        marker=dict(color="#f4f5f4", size=5),
+        hovertemplate="%{customdata[0]}<br>Meta: %{y:.2f}%<extra></extra>",
+        customdata=[[labels[i]] for i in range(len(ordered))],
+    ))
+    fig.update_layout(
+        height=285,
+        margin=dict(l=35, r=15, t=28, b=45),
+        paper_bgcolor="#0b100e",
+        plot_bgcolor="#0b100e",
+        font=dict(color="#b5bcb8", size=10),
+        hoverlabel=dict(bgcolor="#111714", font_color="#f4f5f4"),
+        bargap=0.28,
+        showlegend=False,
+        clickmode="event+select",
+        xaxis=dict(
+            tickmode="array", tickvals=list(range(len(ordered))), ticktext=labels,
+            showgrid=False, zeroline=False, fixedrange=False, tickfont=dict(size=9),
+        ),
+        yaxis=dict(
+            range=[0, 105], tickmode="array", tickvals=[0,20,40,60,80,100],
+            ticksuffix="%", gridcolor="#25302b", zeroline=False, fixedrange=True,
+        ),
+    )
+    event = st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=chart_key,
+        on_select="rerun",
+        selection_mode="points",
+        config={"displayModeBar": False, "responsive": True},
+    )
+    if event is not None:
+        try:
+            points = event.selection.point_indices
+            if points:
+                return int(points[0])
+        except Exception:
+            pass
+    return None
+
+
+def _render_indicator(name, rows, index):
+    state_key = f"ind_view_{index}"
+    selected_key = f"ind_selected_{index}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = "all"
+    if selected_key not in st.session_state:
+        st.session_state[selected_key] = None
+
+    view = st.session_state[state_key]
     chart_rows = _prepare_rows(rows, view)
-    return f'''<section class="ind-section">
-      <div class="ind-section-title">{title_num} · {_safe(name)}</div>
-      {cards}
-      <div class="ind-chart-panel">
-        <div class="ind-chart-head"><div><div class="ind-chart-title">Comparativo histórico</div><div class="ind-legend"><span><i class="ind-dot result"></i>Resultado</span><span><i class="ind-dot target"></i>Meta</span></div></div></div>
-        {_chart(chart_rows, name)}
-      </div>
-    </section>'''
+    if not chart_rows:
+        st.session_state[selected_key] = None
+
+    st.markdown(f'<section class="ind-section"><div class="ind-section-title">{index:02d} · {_safe(name)}</div></section>', unsafe_allow_html=True)
+
+    # Os controles pertencem ao próprio indicador.
+    c1, c2, c3 = st.columns([1.25, 1.25, 5], gap="small")
+    with c1:
+        if st.button("TOTAL DE LANÇAMENTOS", key=f"ind_all_{index}", use_container_width=True, type="primary" if view == "all" else "secondary"):
+            st.session_state[state_key] = "all"
+            st.session_state[selected_key] = None
+            st.rerun()
+    with c2:
+        if st.button("AGRUPADO MÊS A MÊS", key=f"ind_month_{index}", use_container_width=True, type="primary" if view == "month" else "secondary"):
+            st.session_state[state_key] = "month"
+            st.session_state[selected_key] = None
+            st.rerun()
+
+    selected_index = st.session_state.get(selected_key)
+    if selected_index is not None and selected_index >= len(chart_rows):
+        selected_index = None
+        st.session_state[selected_key] = None
+
+    st.markdown('<div class="ind-panel-open">', unsafe_allow_html=True)
+    st.markdown(_kpis(chart_rows, selected_index), unsafe_allow_html=True)
+    st.markdown('''<div class="ind-chart-panel">
+      <div class="ind-chart-head"><div><div class="ind-chart-title">Comparativo histórico</div><div class="ind-legend"><span><i class="ind-dot result"></i>Resultado</span><span><i class="ind-dot target"></i>Meta</span></div></div></div>''', unsafe_allow_html=True)
+    clicked = _chart(chart_rows, name, f"ind_chart_{index}_{view}")
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+    if clicked is not None:
+        st.session_state[selected_key] = clicked
+        st.rerun()
 
 
 def render_indicadores(indicadores):
@@ -122,9 +213,9 @@ def render_indicadores(indicadores):
     st.markdown('''<style>
     .ind-page-title{font-size:22px;font-weight:900;color:#f4f5f4;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px}
     .ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:18px}
-    .ind-section{background:linear-gradient(145deg,#101513,#0b0f0e);border:1px solid #34413b;border-radius:16px;padding:10px 10px 12px;margin:0 0 14px;overflow:hidden}
-    .ind-section-title{font-size:16px;font-weight:900;color:#ffd43d;text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;padding:0 2px}
-    .ind-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:9px}
+    .ind-section{background:linear-gradient(145deg,#101513,#0b0f0e);border:1px solid #34413b;border-radius:16px;padding:10px 10px 0;margin:0 0 4px;overflow:hidden}
+    .ind-section-title{font-size:16px;font-weight:900;color:#ffd43d;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px;padding:0 2px}
+    .ind-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 9px}
     .ind-kpi{position:relative;min-height:78px;border:1px solid #304039;border-radius:11px;background:linear-gradient(145deg,#151b18,#0d1110);padding:12px 14px;box-sizing:border-box;overflow:hidden}
     .ind-kpi:after{content:"";position:absolute;width:68px;height:68px;border-radius:50%;right:-25px;bottom:-34px;background:rgba(255,212,61,.06)}
     .ind-kpi-label{font-size:9px;font-weight:900;color:#a8b0ac;letter-spacing:.5px;text-transform:uppercase}
@@ -135,31 +226,15 @@ def render_indicadores(indicadores):
     .ind-status-arrow{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(34,197,94,.12);color:#4ade80;font-size:23px;font-weight:900;flex:0 0 38px}
     .ind-status.bad .ind-status-arrow{background:rgba(255,77,79,.12);color:#ff6668}.ind-status.neutral .ind-status-arrow{background:rgba(140,150,145,.12);color:#aab2ae}
     .ind-status-text{font-size:14px;font-weight:900;color:#4ade80;margin-top:4px}.ind-status.bad .ind-status-text{color:#ff6668}.ind-status.neutral .ind-status-text{color:#aab2ae}
-    .ind-chart-panel{border:1px solid #26342e;border-radius:11px;background:#0b100e;padding:12px 10px 7px}
+    .ind-chart-panel{border:1px solid #26342e;border-radius:11px;background:#0b100e;padding:12px 10px 7px;margin-bottom:14px}
     .ind-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #202a26;padding:0 1px 9px;margin-bottom:5px}
     .ind-chart-title{font-size:13px;font-weight:900;color:#f4f5f4}.ind-legend{display:flex;gap:15px;margin-top:7px;font-size:9px;color:#9ba49f}.ind-legend span{display:flex;align-items:center;gap:5px}.ind-dot{display:inline-block;width:15px;height:4px;border-radius:4px}.ind-dot.result{background:#ffd43d}.ind-dot.target{background:#f4f5f4}
-    .ind-chart-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:2px}.ind-chart{position:relative;min-width:max(100%,calc(var(--ind-n) * 82px + 55px));height:205px;padding:13px 6px 0 36px;box-sizing:border-box}
-    .ind-grid{position:absolute;left:36px;right:6px;top:13px;bottom:30px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}.ind-grid:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(20% - 1px),#25302b calc(20% - 1px),#25302b 20%)}.ind-grid span{font-size:8px;color:#68736e;position:relative;z-index:2;transform:translateX(-30px)}
-    .ind-bars{position:absolute;left:50px;right:10px;top:13px;bottom:30px;display:flex;align-items:flex-end;justify-content:space-around;gap:17px}.ind-bar-item{height:100%;flex:0 0 50px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}.ind-bar-track{height:100%;width:44px;position:relative;display:flex;align-items:flex-end}.ind-bar{width:44px;background:linear-gradient(180deg,#ffd84d,#f7ca2c);border-radius:7px 7px 0 0;box-shadow:0 0 16px rgba(255,212,61,.12)}.ind-bar-value{position:absolute;font-size:8px;font-weight:900;color:#f4f5f4;white-space:nowrap;z-index:5;transform:translateY(-100%)}
-    .ind-meta-line{position:absolute;left:-7px;right:-7px;height:3px;background:#f4f5f4;border-radius:5px;box-shadow:0 0 7px rgba(255,255,255,.55);z-index:4}.ind-meta-line span{position:absolute;left:50%;transform:translate(-50%,3px);background:#f4f5f4;color:#111;border-radius:3px;padding:2px 4px;font-size:7px;font-weight:900;white-space:nowrap}
-    .ind-bar-date{font-size:8px;color:#b5bcb8;font-weight:900;margin-top:6px;white-space:nowrap}.ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px}
+    .ind-panel-open{margin-top:-1px}
+    .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:14px}
+    div[data-testid="stPlotlyChart"]{margin-top:-2px}
     @media(max-width:900px){.ind-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
     </style>''', unsafe_allow_html=True)
 
     st.markdown('<div class="ind-page-title">INDICADORES OPERACIONAIS</div><div class="ind-page-sub">Acompanhamento dos principais indicadores do almoxarifado.</div>', unsafe_allow_html=True)
     for i, (name, rows) in enumerate(groups.items(), 1):
-        state_key = f"ind_view_{i}"
-        if state_key not in st.session_state:
-            st.session_state[state_key] = "all"
-        c1, c2, c3 = st.columns([1, 1, 5])
-        with c1:
-            if st.button("TOTAL DE LANÇAMENTOS", key=f"ind_all_{i}", use_container_width=True, type="primary" if st.session_state[state_key] == "all" else "secondary"):
-                st.session_state[state_key] = "all"
-                st.rerun()
-        with c2:
-            if st.button("AGRUPADO MÊS A MÊS", key=f"ind_month_{i}", use_container_width=True, type="primary" if st.session_state[state_key] == "month" else "secondary"):
-                st.session_state[state_key] = "month"
-                st.rerun()
-        with c3:
-            pass
-        st.markdown(_indicator_card(name, rows, i, st.session_state[state_key]), unsafe_allow_html=True)
+        _render_indicator(name, rows, i)
