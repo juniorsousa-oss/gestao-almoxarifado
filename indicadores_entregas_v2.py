@@ -317,6 +317,7 @@ def _ultima_meta(indicadores):
         return 0.0
 
 
+@st.cache_data(show_spinner=False,max_entries=6)
 def _excel_auditoria(resultado, meta):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -484,6 +485,7 @@ def _salvar(resultado, meta):
     return acao
 
 
+@st.fragment
 def render_alimentacao_entregas_v2(indicadores):
     hoje = _agora_local().date()
     periodo_fim = hoje - timedelta(days=1)
@@ -579,6 +581,7 @@ def render_alimentacao_entregas_v2(indicadores):
                 try:
                     acao = _salvar(resultado, meta)
                     st.session_state["entregas_v2_registrado"] = True
+                    st.cache_data.clear()
                     st.success(f"Resultado {acao} com a data de hoje: {resultado['resultado_final']:.2f}%.")
                 except Exception as exc:
                     st.error(f"Não foi possível registrar no Supabase: {exc}")

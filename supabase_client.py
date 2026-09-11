@@ -36,6 +36,7 @@ def _validate_ascii(name: str, value: str) -> None:
         ) from exc
 
 
+@st.cache_resource(show_spinner=False)
 def get_client() -> Client:
     url = _secret("SUPABASE_URL", PROJECT_URL)
     key = _secret("SUPABASE_KEY") or _secret("SUPABASE_ANON_KEY")

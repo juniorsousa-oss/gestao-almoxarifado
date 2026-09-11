@@ -59,6 +59,7 @@ def salvar_configuracoes(config):
     except Exception:
         return False
 
+@st.cache_data(show_spinner=False)
 def detectar_cor_fundo_logo(logo_b64,logo_mime=None):
     if not logo_b64:return "#ffffff"
     try:
@@ -171,10 +172,10 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 </style>
 """,unsafe_allow_html=True)
 
-@st.cache_data(ttl=30)
-def rows(table,limit=500,order=None):
-    q=get_client().table(table).select("*")
-    if order:q=q.order(order,desc=True)
+@st.cache_data(ttl=120,show_spinner=False)
+def rows(table,limit=500,order=None,desc=True,columns="*"):
+    q=get_client().table(table).select(columns)
+    if order:q=q.order(order,desc=desc)
     return q.limit(limit).execute().data or []
 def df(data):return pd.DataFrame(data) if data else pd.DataFrame()
 
@@ -190,6 +191,7 @@ def nome_curto(nome):
 def registrar_historico(tipo,descricao,dados):
     try:get_client().table("almox_historico").insert({"tipo":tipo,"descricao":descricao,"dados":dados}).execute()
     except Exception:pass
+    finally:rows.clear()
 
 def save_global_config():
     ok=salvar_configuracoes(config)
@@ -198,7 +200,9 @@ def save_global_config():
 
 def vincular_colaborador_a_equipe(cid,eid,nome=None):
     dados={"equipe_id":eid,"equipe_atual":nome}
-    return get_client().table("almox_colaboradores").update(dados).eq("id",cid).execute()
+    resultado=get_client().table("almox_colaboradores").update(dados).eq("id",cid).execute()
+    rows.clear()
+    return resultado
 
 if "pagina" not in st.session_state:st.session_state.pagina="dashboard"
 paginas_ids=["dashboard","indicadores","historico","equipes","configuracoes"]
@@ -226,7 +230,7 @@ except Exception:conectado=False
 if not conectado:st.error("Supabase ainda não está configurado no ambiente do Streamlit.");st.stop()
 
 if pagina=="dashboard":
-    indicadores=rows("almox_indicadores",order="competencia");colaboradores=rows("almox_colaboradores");equipes=rows("almox_equipes");historico=rows("almox_historico",order="criado_em");snapshots=rows("mrp_snapshots",order="created_at")
+    indicadores=rows("almox_indicadores",order="competencia");colaboradores=rows("almox_colaboradores",columns="id");equipes=rows("almox_equipes",columns="id");historico=rows("almox_historico",order="criado_em",columns="id");snapshots=rows("mrp_snapshots",order="created_at",columns="id,created_at")
     st.markdown(f'<div class="section">{txt("secao_dados_reais")}</div>',unsafe_allow_html=True)
     a,b,c,d=st.columns(4);a.metric(txt("secao_indicadores"),len(indicadores));b.metric(txt("secao_colaboradores"),len(colaboradores));c.metric(txt("secao_equipes"),len(equipes));d.metric("MRP salvos",len(snapshots))
     if indicadores:
@@ -245,7 +249,7 @@ elif pagina=="historico":
     st.markdown(f'<div class="section">{txt("secao_historico")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
 
 elif pagina=="equipes":
-    client=get_client();equipes_raw=client.table("almox_equipes").select("*").order("nome").execute().data or [];colaboradores_raw=client.table("almox_colaboradores").select("*").order("nome").execute().data or []
+    client=get_client();equipes_raw=rows("almox_equipes",order="nome",desc=False);colaboradores_raw=rows("almox_colaboradores",order="nome",desc=False)
     ativos_equipes=[x for x in equipes_raw if x.get("ativo",True)];ativos_colaboradores=[x for x in colaboradores_raw if x.get("ativo",True)]
     nomes_colab={str(x.get("id")):x for x in colaboradores_raw};nomes_eq={str(x.get("id")):x.get("nome","") for x in equipes_raw}
     k1,k2,k3,k4=st.columns(4)

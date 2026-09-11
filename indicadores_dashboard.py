@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import html
+import json
 import pandas as pd
 import streamlit as st
 from indicadores_pdf import gerar_pdf_indicadores
 from indicadores_entregas_v2 import render_alimentacao_entregas_v2
+
+
+@st.cache_data(ttl=300,show_spinner=False,max_entries=10)
+def _pdf_indicadores_cache(payload):
+    return gerar_pdf_indicadores(json.loads(payload))
 
 
 def _pct(v):
@@ -242,7 +248,8 @@ def render_indicadores(indicadores):
     with head_right:
         st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
         try:
-            pdf_bytes = gerar_pdf_indicadores(indicadores or [])
+            payload_pdf = json.dumps(indicadores or [],ensure_ascii=False,sort_keys=True,default=str)
+            pdf_bytes = _pdf_indicadores_cache(payload_pdf)
             st.download_button(
                 "EXPORTAR PDF",
                 data=pdf_bytes,
