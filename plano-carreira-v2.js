@@ -16,7 +16,6 @@
   }
 
   load(CORE,function(){
-    /* O editor dos indicadores é independente do Plano de Carreira. */
     if(!document.querySelector('script[data-dashboard-kpi-editor]')){
       var editor=document.createElement('script');
       editor.src='./dashboard-kpi-editor.js';
@@ -25,11 +24,24 @@
       document.head.appendChild(editor);
     }
 
-    /* Navegação: Plano de Carreira passa a ser a última aba de Gestão de Equipes. */
     var tab=document.createElement('script');
     tab.src='./equipes-carreira-tab.js';
     tab.async=false;
     tab.dataset.equipesCareerTab='1';
+    tab.onload=function(){
+      var ui=document.createElement('script');
+      ui.src='./ui-v2.js?v=20260911-1';
+      ui.async=false;
+      ui.dataset.uiV2='1';
+      document.head.appendChild(ui);
+    };
+    tab.onerror=function(){
+      var ui=document.createElement('script');
+      ui.src='./ui-v2.js?v=20260911-1';
+      ui.async=false;
+      ui.dataset.uiV2='1';
+      document.head.appendChild(ui);
+    };
     document.head.appendChild(tab);
   });
 })();
