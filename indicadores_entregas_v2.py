@@ -13,6 +13,7 @@ from supabase_client import get_client
 
 INDICADOR = "ENTREGAS NO PRAZO"
 TZ_APP = ZoneInfo("America/Sao_Paulo")
+LOGIC_VERSION = "2026-09-11-projeto-cm-ops-v3"
 
 
 def _agora_local():
@@ -527,7 +528,7 @@ def render_alimentacao_entregas_v2(indicadores):
             st.info("Envie as duas bases para gerar automaticamente a apuração.")
             return
 
-        fingerprint = hashlib.sha256(relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()
+        fingerprint = hashlib.sha256(LOGIC_VERSION.encode() + relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()
         if st.session_state.get("entregas_v2_fingerprint") != fingerprint:
             try:
                 with st.spinner("Fundindo as bases e calculando o indicador..."):
