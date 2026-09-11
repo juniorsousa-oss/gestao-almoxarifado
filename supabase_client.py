@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 import streamlit as st
+import layout_patch  # aplica o layout validado antes dos primeiros elementos da página
 from supabase import Client, create_client
 
 PROJECT_URL = "https://cuixazpxkvniqldmmnth.supabase.co"
@@ -54,8 +55,6 @@ def get_client() -> Client:
     if not url.startswith("https://"):
         raise RuntimeError("SUPABASE_URL inválida: use a URL https://...supabase.co")
 
-    # O erro dos logs ocorre na criação dos headers HTTPX. Uma chave Supabase
-    # legítima é ASCII; se houver Á, ç, aspas estranhas etc., a causa está no Secret.
     _validate_ascii("SUPABASE_URL", url)
     _validate_ascii("SUPABASE_KEY", key)
 
