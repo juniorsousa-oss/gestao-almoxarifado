@@ -16,60 +16,21 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p = Path('indicadores_dashboard.py')
           text = p.read_text(encoding='utf-8')
-
-          old = '''    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
-    with head_left:
-        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
-    with head_right:
-        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
-        try:
-            pdf_bytes = gerar_pdf_indicadores(indicadores or [])
-            st.download_button(
-                "EXPORTAR PDF",
-                data=pdf_bytes,
-                file_name="indicadores_operacionais.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                type="secondary",
-                key="exportar_indicadores_pdf",
-            )
-        except Exception as exc:
-            st.error(f"Não foi possível gerar o PDF: {exc}")
-
-    for i, (name, rows) in enumerate(groups.items(), 1):
-        _render_indicator(name, rows, i)'''
-
-          new = '''    # Os indicadores vêm primeiro. A área de divulgação/exportação fica
-    # deliberadamente no final da página, depois de todo o conteúdo.
-    for i, (name, rows) in enumerate(groups.items(), 1):
-        _render_indicator(name, rows, i)
-
-    export_wrap = st.container()
-    with export_wrap:
-        head_left, head_right = st.columns([5.5, 1.5], gap="medium")
-        with head_left:
-            st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
-        with head_right:
-            st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
-            try:
-                pdf_bytes = gerar_pdf_indicadores(indicadores or [])
-                st.download_button(
-                    "EXPORTAR PDF",
-                    data=pdf_bytes,
-                    file_name="indicadores_operacionais.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="secondary",
-                    key="exportar_indicadores_pdf",
-                )
-            except Exception as exc:
-                st.error(f"Não foi possível gerar o PDF: {exc}")'''
-
-          if old not in text:
-              raise SystemExit('Bloco de exportação não encontrado; nenhuma alteração aplicada.')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          pattern = re.compile(r'(?ms)^    head_left, head_right = st\.columns\(\[5\.5, 1\.5\], gap="medium"\)\n.*?^    for i, \(name, rows\) in enumerate\(groups\.items\(\), 1\):\n^        _render_indicator\(name, rows, i\)')
+          m = pattern.search(text)
+          if not m:
+              print('Exportação já está no final ou layout já corrigido.')
+              raise SystemExit(0)
+          block = m.group(0)
+          loop_marker = '    for i, (name, rows) in enumerate(groups.items(), 1):\n        _render_indicator(name, rows, i)'
+          export_block = block[:block.index(loop_marker)]
+          replacement = loop_marker + '\n\n    # Divulgação/exportação fica depois de todos os indicadores.\n' + export_block.rstrip() + '\n'
+          text = text[:m.start()] + replacement + text[m.end():]
+          p.write_text(text, encoding='utf-8')
+          print('Exportação movida para o final da página.')
           PY
       - name: Commit patch
         run: |
