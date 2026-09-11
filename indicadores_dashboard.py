@@ -4,7 +4,7 @@ import html
 import pandas as pd
 import streamlit as st
 from indicadores_pdf import gerar_pdf_indicadores
-from indicadores_entregas_auditoria import render_alimentacao_entregas_auditoria
+from indicadores_entregas_v2 import render_alimentacao_entregas_v2
 
 
 def _pct(v):
@@ -189,7 +189,7 @@ def _render_indicator(name, rows, index):
 
 
 def render_indicadores(indicadores):
-    render_alimentacao_entregas_auditoria(indicadores)
+    render_alimentacao_entregas_v2(indicadores)
 
     groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
     aliases = {
