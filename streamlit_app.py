@@ -23,7 +23,7 @@ ESTILOS_BOTOES=["Amarelo","Colorido"]
 TEXTOS_PADRAO={
     "menu_dashboard":"Dashboard","menu_indicadores":"Alimentar Indicadores","menu_historico":"Histórico",
     "menu_equipes":"Gestão de Equipes","menu_carreira":"Plano de Carreira","menu_configuracoes":"Configurações",
-    "titulo_dashboard":"Dashboard","titulo_indicadores":"Alimentar Indicadores","titulo_historico":"Histórico",
+    "titulo_dashboard":"Dashboard","titulo_indicadores":"Indicadores Operacionais","titulo_historico":"Histórico",
     "titulo_equipes":"Gestão de Equipes","titulo_carreira":"Plano de Carreira","titulo_configuracoes":"Configurações",
     "subtitulo_global":"Gestão operacional do almoxarifado","secao_dados_reais":"Dados reais do Supabase",
     "secao_indicadores":"Indicadores","secao_historico":"Histórico real","secao_colaboradores":"Colaboradores",
@@ -95,7 +95,7 @@ section[data-testid="stSidebar"]{{background:{SIDEBAR_BG}!important;border-right
 section[data-testid="stSidebar"]>div:first-child{{width:230px!important;min-width:230px!important;padding:0 9px 16px;overflow:hidden!important}}
 section[data-testid="stSidebar"][aria-expanded="false"]{{width:0!important;min-width:0!important;max-width:0!important}}
 .stApp{{background:{APP_BG};color:{TEXT}}}.block-container{{max-width:1500px;padding:8px 34px 50px}}
-.hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;color:{TEXT}}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.period{{background:{PRIMARY};color:#111;padding:10px 15px;border-radius:9px;font-weight:900;text-transform:uppercase}}
+.hero{{display:flex;justify-content:space-between;align-items:center;gap:24px;margin:10px 0 24px;padding:20px 22px;border:1px solid {BORDER};border-radius:16px;background:linear-gradient(145deg,{PANEL},#0d1210);box-sizing:border-box;min-height:112px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;line-height:1.1;font-weight:900;color:{TEXT};text-transform:uppercase;letter-spacing:.3px}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.hero p{{margin:8px 0 0;font-size:14px;line-height:1.4}}.period{{background:{PRIMARY};color:#111;padding:12px 18px;border-radius:10px;font-weight:900;text-transform:uppercase;white-space:nowrap;font-size:14px}}
 .section{{color:{PRIMARY};font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}}
 .panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:18px;margin-top:14px}}
 .notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}

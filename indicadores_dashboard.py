@@ -231,7 +231,7 @@ def render_indicadores(indicadores):
 
     head_left, head_right = st.columns([5.5, 1.5], gap="medium")
     with head_left:
-        st.markdown('<div class="ind-page-title">INDICADORES OPERACIONAIS</div><div class="ind-page-sub">Acompanhamento dos principais indicadores do almoxarifado.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
     with head_right:
         st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
         try:
