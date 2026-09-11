@@ -180,7 +180,7 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
     base["Entregue em dia"] = False
 
     c1 = base["Data de Separação"].notna() & (base["Data de Separação"] <= base["Data CM"])
-    base.loc[c1, "Critério entrega"] = "DATA DE SEPARAÇÃO <== DATA CM"
+    base.loc[c1, "Critério entrega"] = "DATA DE SEPARAÇÃO <= DATA CM"
     base.loc[c1, "Entregue em dia"] = True
 
     pend = ~base["Entregue em dia"]
