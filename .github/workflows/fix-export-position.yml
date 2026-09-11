@@ -1,0 +1,80 @@
+name: Fix export button position
+on:
+  push:
+    paths:
+      - '.github/trigger-export-position.txt'
+      - '.github/workflows/fix-export-position.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move export block to bottom
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('indicadores_dashboard.py')
+          text = p.read_text(encoding='utf-8')
+
+          old = '''    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
+    with head_left:
+        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
+    with head_right:
+        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
+        try:
+            pdf_bytes = gerar_pdf_indicadores(indicadores or [])
+            st.download_button(
+                "EXPORTAR PDF",
+                data=pdf_bytes,
+                file_name="indicadores_operacionais.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="secondary",
+                key="exportar_indicadores_pdf",
+            )
+        except Exception as exc:
+            st.error(f"Não foi possível gerar o PDF: {exc}")
+
+    for i, (name, rows) in enumerate(groups.items(), 1):
+        _render_indicator(name, rows, i)'''
+
+          new = '''    # Os indicadores vêm primeiro. A área de divulgação/exportação fica
+    # deliberadamente no final da página, depois de todo o conteúdo.
+    for i, (name, rows) in enumerate(groups.items(), 1):
+        _render_indicator(name, rows, i)
+
+    export_wrap = st.container()
+    with export_wrap:
+        head_left, head_right = st.columns([5.5, 1.5], gap="medium")
+        with head_left:
+            st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
+        with head_right:
+            st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
+            try:
+                pdf_bytes = gerar_pdf_indicadores(indicadores or [])
+                st.download_button(
+                    "EXPORTAR PDF",
+                    data=pdf_bytes,
+                    file_name="indicadores_operacionais.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="secondary",
+                    key="exportar_indicadores_pdf",
+                )
+            except Exception as exc:
+                st.error(f"Não foi possível gerar o PDF: {exc}")'''
+
+          if old not in text:
+              raise SystemExit('Bloco de exportação não encontrado; nenhuma alteração aplicada.')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add indicadores_dashboard.py
+          git diff --cached --quiet || git commit -m 'fix: mover exportacao para o final da pagina'
+          git push
