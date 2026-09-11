@@ -1,0 +1,39 @@
+name: Fix Entregas Cache
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-entregas-cache.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Corrigir cache da lógica de entregas
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('indicadores_entregas_v2.py')
+          s = p.read_text(encoding='utf-8')
+          if 'LOGIC_VERSION = ' not in s:
+              s = s.replace('TZ_APP = ZoneInfo("America/Sao_Paulo")\n', 'TZ_APP = ZoneInfo("America/Sao_Paulo")\nLOGIC_VERSION = "2026-09-11-projeto-cm-ops-v3"\n', 1)
+          old = 'fingerprint = hashlib.sha256(relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()'
+          new = 'fingerprint = hashlib.sha256(LOGIC_VERSION.encode() + relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()'
+          if old not in s:
+              raise SystemExit('Linha de fingerprint não encontrada')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          python -m py_compile indicadores_entregas_v2.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add indicadores_entregas_v2.py
+          git commit -m 'Força recálculo ao mudar lógica de Entregas'
+          rm .github/workflows/fix-entregas-cache.yml
+          git add .github/workflows/fix-entregas-cache.yml
+          git commit -m 'Remove workflow temporário de cache'
+          git push origin main
