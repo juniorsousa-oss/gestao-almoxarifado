@@ -9,16 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply layout
+      - name: Patch application
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
-          p = Path('streamlit_app.py')
-          s = p.read_text(encoding='utf-8')
+          p=Path('streamlit_app.py')
+          s=p.read_text(encoding='utf-8')
 
-          css_pattern = r'\.ge-colab-card\{\{.*?\.ge-colab-select button\[kind="primary"\]\{\{box-shadow:0 0 0 2px rgba\(255,212,61,\.14\)!important\}\}\n\n\.ge-click-card.*?\.ge-grandchildren.*?\n\.meta-card'
-          css_replacement = '''.ge-colab-grid{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;align-items:stretch}}
+          css=r'''          .ge-colab-grid{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;align-items:stretch}}
           .ge-colab-card{{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #35403b;border-radius:16px;padding:16px 14px 13px;min-height:330px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.14);overflow:hidden}}
           .ge-colab-card.selected{{border:2px solid #ffd43d;box-shadow:0 0 0 4px rgba(255,212,61,.08),0 10px 25px rgba(0,0,0,.22)}}
           .ge-colab-photo-wrap{{width:96px;height:96px;flex:0 0 96px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 5px rgba(255,212,61,.07);overflow:hidden;margin:0 auto 13px}}
@@ -52,28 +52,22 @@ jobs:
           .org-child::before{{content:"";position:absolute;top:-14px;left:50%;width:2px;height:14px;background:#4a5750;transform:translateX(-50%)}}
           .org-level.single .org-child::before{{height:28px;top:-28px}}
           .org-children-nested{{width:100%;display:flex;flex-direction:column;align-items:center}}
-          .org-controls{{margin:0 0 12px}}
-          .org-controls button{{border-radius:9px!important;font-size:10px!important;font-weight:900!important}}
           .org-zoom-value{{height:38px;display:flex;align-items:center;justify-content:center;border:1px solid #35403b;border-radius:9px;background:#101513;color:#ffd43d;font-size:11px;font-weight:900}}
-          .org-empty{{color:#8f9994;font-size:12px;padding:20px;text-align:center}}
           @media(max-width:1100px){{.ge-colab-grid{{grid-template-columns:repeat(3,minmax(0,1fr))}}}}
           @media(max-width:800px){{.ge-colab-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.org-wrap{{padding:16px}}.org-viewport{{max-height:620px}}}}
-
           .meta-card'''
-          s2, n = re.subn(css_pattern, css_replacement, s, count=1, flags=re.S)
-          if n != 1:
-              raise SystemExit('CSS target not found')
-          s = s2
+          s,n=re.subn(r'\.ge-colab-card\{\{.*?\.meta-card',css,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('CSS replacement target not found')
 
-          colab_pattern = r'        if filtrados:\n            selected_id=st\.session_state\.get\("colab_selecionado"\).*?        else:st\.info\("Nenhum colaborador encontrado\."\)'
-          colab_replacement = '''        if filtrados:
+          colab='''        if filtrados:
             selected_id=st.session_state.get("colab_selecionado")
             for base in range(0,len(filtrados),5):
                 cols=st.columns(5,gap="medium")
                 for col,c in zip(cols,filtrados[base:base+5]):
                     cid=str(c.get("id"));selecionado=selected_id==cid
                     nome=(c.get("nome") or "Sem nome").upper();func=(c.get("funcao") or "SEM FUNÇÃO").upper()
-                    equipe=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "SEM EQUIPE");status_txt="ATIVO" if c.get("ativo",True) else "INATIVO";matricula=str(c.get("matricula") or "SEM MATRÍCULA")
+                    equipe=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "SEM EQUIPE")
+                    status_txt="ATIVO" if c.get("ativo",True) else "INATIVO";matricula=str(c.get("matricula") or "SEM MATRÍCULA")
                     with col:
                         with st.container(border=True):
                             st.markdown(f'<div class="ge-colab-card {"selected" if selecionado else ""}">',unsafe_allow_html=True)
@@ -83,13 +77,10 @@ jobs:
                             if st.button("SELECIONADO" if selecionado else "SELECIONAR",key=f"card_colab_{cid}",use_container_width=True,type="primary" if selecionado else "secondary"):
                                 st.session_state.colab_selecionado=cid;st.rerun()
         else:st.info("Nenhum colaborador encontrado.")'''
-          s2, n = re.subn(colab_pattern, colab_replacement, s, count=1, flags=re.S)
-          if n != 1:
-              raise SystemExit('COLLAB target not found')
-          s = s2
+          s,n=re.subn(r'        if filtrados:\n            selected_id=st\.session_state\.get\("colab_selecionado"\).*?        else:st\.info\("Nenhum colaborador encontrado\."\)',colab,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('COLLAB replacement target not found')
 
-          org_pattern = r'    with tab_organograma:\n.*?\n    else:st\.info\("Cadastre colaboradores ativos para montar o organograma\."\)\n\nelif pagina=="carreira":'
-          org_replacement = '''    with tab_organograma:
+          org='''    with tab_organograma:
         people=ativos_colaboradores
         ids=[str(c.get("id")) for c in people]
         byid={str(c.get("id")):c for c in people}
@@ -110,18 +101,18 @@ jobs:
                     else:children[root_id].append(cid)
                 for pid in children:children[pid].sort(key=lambda x:(byid[x].get("nome") or "").upper())
                 return children
-            def render_branch(pid,children,depth=2):
+            def render_branch(pid,children):
                 kids=children.get(pid,[])
                 if not kids:return ""
                 single=" single" if len(kids)==1 else ""
-                html_parts=[f'<div class="org-level{single}">']
+                parts=[f'<div class="org-level{single}">']
                 for kid in kids:
-                    html_parts.append(f'<div class="org-child">{org_node(byid[kid])}')
-                    nested=render_branch(kid,children,depth+1)
-                    if nested:html_parts.append(f'<div class="org-children-nested"><div class="org-down"></div>{nested}</div>')
-                    html_parts.append('</div>')
-                html_parts.append('</div>')
-                return ''.join(html_parts)
+                    parts.append(f'<div class="org-child">{org_node(byid[kid])}')
+                    nested=render_branch(kid,children)
+                    if nested:parts.append(f'<div class="org-children-nested"><div class="org-down"></div>{nested}</div>')
+                    parts.append('</div>')
+                parts.append('</div>')
+                return ''.join(parts)
             children=build_children(saved_parents,saved_root)
             if "org_zoom" not in st.session_state:st.session_state.org_zoom=80
             c1,c2,c3,c4,c5=st.columns([1,1.4,1.2,1.4,1],gap="small")
@@ -168,20 +159,14 @@ jobs:
         else:st.info("Cadastre colaboradores ativos para montar o organograma.")
 
 elif pagina=="carreira":'''
-          s2, n = re.subn(org_pattern, org_replacement, s, count=1, flags=re.S)
-          if n != 1:
-              raise SystemExit('ORG target not found')
-          s = s2
+          s,n=re.subn(r'    with tab_organograma:\n.*?\n    else:st\.info\("Cadastre colaboradores ativos para montar o organograma\."\)\n\nelif pagina=="carreira":',org,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('ORG replacement target not found')
 
-          p.write_text(s, encoding='utf-8')
+          p.write_text(s,encoding='utf-8')
           PY
           python -m py_compile streamlit_app.py
-      - name: Commit and remove patch workflow
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add streamlit_app.py .github/workflows/apply-layout-v3.yml
-          git commit -m "fix: reproduce approved organogram and collaborator layout" || exit 0
-          git rm .github/workflows/apply-layout-v3.yml
-          git commit -m "chore: remove temporary layout patch workflow"
+          git add streamlit_app.py
+          git commit -m "fix: reproduce approved organogram and collaborator layout" || true
           git push
