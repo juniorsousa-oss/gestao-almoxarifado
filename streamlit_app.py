@@ -201,7 +201,8 @@ def vincular_colaborador_a_equipe(cid,eid,nome=None):
     return get_client().table("almox_colaboradores").update(dados).eq("id",cid).execute()
 
 if "pagina" not in st.session_state:st.session_state.pagina="dashboard"
-paginas_ids=["dashboard","indicadores","historico","equipes","carreira","configuracoes"]
+paginas_ids=["dashboard","indicadores","historico","equipes","configuracoes"]
+if st.session_state.pagina=="carreira":st.session_state.pagina="equipes"
 with st.sidebar:
     logo_b64=config.get("logo_base64")
     if logo_b64:
@@ -253,7 +254,7 @@ elif pagina=="equipes":
     k3.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores alocados</div><div class="value">{sum(1 for x in ativos_colaboradores if x.get("equipe_id"))}</div><div class="sub">Com equipe definida</div></div>',unsafe_allow_html=True)
     k4.markdown(f'<div class="ge-kpi"><div class="label">Sem equipe</div><div class="value">{sum(1 for x in ativos_colaboradores if not x.get("equipe_id"))}</div><div class="sub">Aguardando alocação</div></div>',unsafe_allow_html=True)
 
-    tab_geral,tab_organograma,tab_equipes,tab_colaboradores=st.tabs(["VISÃO GERAL","ORGANOGRAMA","EQUIPES","COLABORADORES"])
+    tab_geral,tab_organograma,tab_equipes,tab_colaboradores,tab_carreira=st.tabs(["VISÃO GERAL","ORGANOGRAMA","EQUIPES","COLABORADORES",txt("titulo_carreira").upper()])
 
     @st.dialog("Criar equipe")
     def dialog_nova_equipe():
@@ -501,13 +502,13 @@ elif pagina=="equipes":
                     if save_global_config(): registrar_historico("organograma_atualizado","Organograma atualizado",{"raiz_id":draft_root,"colaboradores":len(people)});st.rerun()
                     else: st.error("Não foi possível salvar o organograma.")
         else: st.info("Cadastre colaboradores ativos para montar o organograma.")
-elif pagina=="carreira":
-    st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))
+    with tab_carreira:
+        st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))
 elif pagina=="configuracoes":
     st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True);st.write("As configurações ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
     st.markdown("### Personalização de textos e fontes");novo_textos=textos.copy();novo_fontes=fontes.copy();a,b=st.columns(2)
     with a:
-        for _id,_rot in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]:novo_textos["menu_"+_id]=st.text_input("Menu: "+_rot,value=textos["menu_"+_id],key="edit_menu_"+_id)
+        for _id,_rot in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("configuracoes","Configurações")]:novo_textos["menu_"+_id]=st.text_input("Menu: "+_rot,value=textos["menu_"+_id],key="edit_menu_"+_id)
         for _id,_rot in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]:novo_textos["titulo_"+_id]=st.text_input("Título: "+_rot,value=textos["titulo_"+_id],key="edit_titulo_"+_id)
     with b:
         novo_textos["subtitulo_global"]=st.text_input("Subtítulo principal",value=textos["subtitulo_global"],key="edit_subtitulo")
