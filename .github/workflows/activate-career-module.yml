@@ -36,6 +36,7 @@ jobs:
           from pathlib import Path
           path = Path("streamlit_app.py")
           text = path.read_text(encoding="utf-8")
+
           replacements = {
               'button[data-testid="stSidebarCollapseButton"]{{display:none !important;visibility:hidden !important;pointer-events:none !important;}}': 'button[data-testid="stSidebarCollapseButton"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;}}',
               'div[data-testid="collapsedControl"]{{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}}': 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:4px !important;left:8px !important;z-index:2147483647 !important;width:40px !important;height:28px !important;align-items:center !important;justify-content:center !important;background:#090c0b !important;}}',
@@ -44,37 +45,9 @@ jobs:
               'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:230px !important;min-width:230px !important;padding:1px 9px 20px !important;}}': 'section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child{{width:0 !important;min-width:0 !important;padding:0 !important;overflow:hidden !important;}}',
           }
           for old, new in replacements.items():
-              if old in text: text = text.replace(old, new, 1)
+              if old in text:
+                  text = text.replace(old, new, 1)
           path.write_text(text, encoding="utf-8")
-
-      - name: Padronizar cabeçalhos das páginas
-        shell: python
-        run: |
-          from pathlib import Path
-          path=Path('streamlit_app.py')
-          text=path.read_text(encoding='utf-8')
-          old='.hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;color:{TEXT}}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.period{{background:{PRIMARY};color:#111;padding:10px 15px;border-radius:9px;font-weight:900;text-transform:uppercase}}'
-          new='.hero{{display:flex;justify-content:space-between;align-items:center;gap:24px;margin:10px 0 24px;padding:20px 22px;border:1px solid {BORDER};border-radius:16px;background:linear-gradient(145deg,{PANEL},#0d1210);box-sizing:border-box;min-height:112px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;line-height:1.1;font-weight:900;color:{TEXT};text-transform:uppercase;letter-spacing:.3px}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.hero p{{margin:8px 0 0;font-size:14px;line-height:1.4}}.period{{background:{PRIMARY};color:#111;padding:12px 18px;border-radius:10px;font-weight:900;text-transform:uppercase;white-space:nowrap;font-size:14px}}'
-          if old not in text: raise SystemExit('hero CSS não encontrado')
-          text=text.replace(old,new,1)
-          text=text.replace('"titulo_indicadores":"Alimentar Indicadores"','"titulo_indicadores":"Indicadores Operacionais"',1)
-          path.write_text(text,encoding='utf-8')
-          p=Path('indicadores_dashboard.py')
-          text=p.read_text(encoding='utf-8')
-          old2='''    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
-    with head_left:
-        st.markdown('<div class="ind-page-title">INDICADORES OPERACIONAIS</div><div class="ind-page-sub">Acompanhamento dos principais indicadores do almoxarifado.</div>', unsafe_allow_html=True)
-    with head_right:
-        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)'''
-          new2='''    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
-    with head_left:
-        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
-    with head_right:
-        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)'''
-          if old2 not in text: raise SystemExit('header indicadores não encontrado')
-          text=text.replace(old2,new2,1)
-          text=text.replace('.ind-page-title{font-size:22px;font-weight:900;color:#f4f5f4;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px}.ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:12px}', '.ind-page-spacer{height:1px}.ind-page-title{font-size:22px;font-weight:900;color:#f4f5f4;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px}.ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:12px}',1)
-          p.write_text(text,encoding='utf-8')
 
       - name: Validar Python
         run: python -m py_compile streamlit_app.py
@@ -82,13 +55,13 @@ jobs:
       - name: Publicar alterações no main
         shell: bash
         run: |
-          rm -f .github/trigger-sidebar-button.txt .github/header-trigger.txt
-          if git diff --quiet -- index.html streamlit_app.py indicadores_dashboard.py; then
+          rm -f .github/trigger-sidebar-button.txt
+          if git diff --quiet -- index.html streamlit_app.py; then
             echo "Nenhuma alteração necessária."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html streamlit_app.py indicadores_dashboard.py
-          git commit -m "fix: padronizar cabeçalhos das páginas [skip ci]"
+          git add index.html streamlit_app.py
+          git commit -m "fix: manter botão de abrir menu visível [skip ci]"
           git push
