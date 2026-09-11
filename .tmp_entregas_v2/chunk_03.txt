@@ -1,0 +1,139 @@
+amente", "entregas_em_dia_pct",
+            "projetos_atendidos_pct", "resultado_final", "diretas", "solicitacao_tardia", "tipo_ii", "sem_separacao",
+            "quantidade_pendente_total", "relatorio_nome", "relatorio_sha256", "relatorio_tamanho", "mrp_nome",
+            "mrp_sha256", "mrp_tamanho",
+        ]
+    }
+    payload = {
+        "competencia": competencia,
+        "categoria": "OPERACIONAL",
+        "indicador": INDICADOR,
+        "valor": round(float(resultado["resultado_final"]), 2),
+        "meta": round(float(meta), 2),
+        "unidade": "%",
+        "observacao": json.dumps({"origem": "entregas_no_prazo_v2", **audit}, ensure_ascii=False, separators=(",", ":")),
+        "atualizado_em": datetime.now(timezone.utc).isoformat(),
+    }
+    existente = (
+        client.table("almox_indicadores").select("id").eq("indicador", INDICADOR)
+        .eq("competencia", competencia).limit(1).execute().data or []
+    )
+    if existente:
+        client.table("almox_indicadores").update(payload).eq("id", existente[0]["id"]).execute()
+        acao = "atualizado"
+    else:
+        client.table("almox_indicadores").insert(payload).execute()
+        acao = "salvo"
+
+    try:
+        client.table("almox_historico").insert({
+            "tipo": "indicador_entregas_no_prazo_v2",
+            "descricao": f"Entregas no prazo {acao}: {pd.to_datetime(competencia).strftime('%d/%m/%Y')}",
+            "dados": audit,
+        }).execute()
+    except Exception:
+        pass
+    return acao
+
+
+def render_alimentacao_entregas_v2(indicadores):
+    hoje = _agora_local().date()
+    periodo_fim = hoje - timedelta(days=1)
+    with st.expander("ALIMENTAR · ENTREGAS NO PRAZO", expanded=False):
+        st.caption(
+            f"Registro: {hoje.strftime('%d/%m/%Y')} · Período automático: 01/{hoje.strftime('%m/%Y')} a {periodo_fim.strftime('%d/%m/%Y')}. "
+            "Envie o Relatório Geral e o MRP_Consulta; a fusão e o cálculo são automáticos."
+        )
+        c1, c2, c3 = st.columns([1.25, 1.25, 0.75])
+        with c1:
+            relatorio = st.file_uploader(
+                "RELATÓRIO GERAL", type=["xlsx", "xlsm", "xltx"], key="entregas_v2_relatorio"
+            )
+        with c2:
+            mrp = st.file_uploader(
+                "MRP_CONSULTA", type=["xlsx", "xlsm", "xltx"], key="entregas_v2_mrp"
+            )
+        with c3:
+            st.text_input("Data do registro", value=hoje.strftime("%d/%m/%Y"), disabled=True, key="entregas_v2_data")
+            meta = st.number_input(
+                "Meta (%)", min_value=0.0, max_value=100.0, value=float(_ultima_meta(indicadores)), step=0.1,
+                key="entregas_v2_meta",
+            )
+
+        if relatorio is None or mrp is None:
+            st.info("Envie as duas bases para gerar automaticamente a apuração.")
+            return
+
+        fingerprint = hashlib.sha256(relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()
+        if st.session_state.get("entregas_v2_fingerprint") != fingerprint:
+            try:
+                with st.spinner("Fundindo as bases e calculando o indicador..."):
+                    resultado = calcular_entregas_v2(relatorio, mrp, hoje)
+                st.session_state["entregas_v2_resultado"] = resultado
+                st.session_state["entregas_v2_fingerprint"] = fingerprint
+                st.session_state.pop("entregas_v2_registrado", None)
+            except Exception as exc:
+                st.session_state.pop("entregas_v2_resultado", None)
+                st.error(f"Não foi possível calcular: {exc}")
+                return
+
+        resultado = st.session_state.get("entregas_v2_resultado")
+        if not resultado:
+            return
+
+        st.success(
+            f"Base calculada: {resultado['solicitacoes']} solicitações em {resultado['projetos_programados']} projetos."
+        )
+        a, b, c, d = st.columns(4)
+        a.metric("Solicitações", resultado["solicitacoes"])
+        b.metric("Entregues em dia", resultado["entregues_em_dia"])
+        c.metric("Projetos programados", resultado["projetos_programados"])
+        d.metric("Atendidos completamente", resultado["atendidos_completamente"])
+
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Entregas em dia", f"{resultado['entregas_em_dia_pct']:.2f}%")
+        p2.metric("Projetos atendidos", f"{resultado['projetos_atendidos_pct']:.2f}%")
+        p3.metric("ENTREGAS NO PRAZO", f"{resultado['resultado_final']:.2f}%")
+
+        st.caption(
+            f"Entregas validadas: {resultado['diretas']} por Separação <= CM · "
+            f"{resultado['solicitacao_tardia']} por solicitação posterior à CM · "
+            f"{resultado['tipo_ii']} por Tipo II · {resultado['entregas_atrasadas']} permanecem atrasadas."
+        )
+        st.caption(
+            f"Sem Data de Separação: {resultado['sem_separacao']} linhas. "
+            f"Quantidade pendente no MRP para os projetos do período: {resultado['quantidade_pendente_total']:.2f}."
+        )
+
+        with st.expander("RESUMO DAS AÇÕES — LINHAS SEM DATA DE SEPARAÇÃO"):
+            st.dataframe(pd.DataFrame(resultado["acoes_resumo"]), use_container_width=True, hide_index=True)
+        with st.expander("CONFERÊNCIA POR PROJETO"):
+            st.dataframe(pd.DataFrame(resultado["projetos"]), use_container_width=True, hide_index=True)
+        with st.expander("BASE FUNDIDA — LINHA A LINHA"):
+            st.dataframe(pd.DataFrame(resultado["base_fundida"]), use_container_width=True, hide_index=True)
+
+        excel_bytes = _excel_auditoria(resultado, meta)
+        x1, x2 = st.columns(2)
+        with x1:
+            st.download_button(
+                "EXPORTAR AUDITORIA · EXCEL",
+                data=excel_bytes,
+                file_name=f"auditoria_entregas_no_prazo_{hoje.isoformat()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="entregas_v2_excel",
+            )
+        with x2:
+            if st.button(
+                f"REGISTRAR RESULTADO · {hoje.strftime('%d/%m/%Y')}", type="primary", use_container_width=True,
+                key="entregas_v2_salvar"
+            ):
+                try:
+                    acao = _salvar(resultado, meta)
+                    st.session_state["entregas_v2_registrado"] = True
+                    st.success(f"Resultado {acao} com a data de hoje: {resultado['resultado_final']:.2f}%.")
+                except Exception as exc:
+                    st.error(f"Não foi possível registrar no Supabase: {exc}")
+
+        if st.session_state.get("entregas_v2_registrado"):
+            st.info("A mesma data atualiza o registro existente, sem duplicar o indicador.")
