@@ -1,0 +1,44 @@
+name: Apply Entregas V2
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-entregas-v2.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Build module and patch dashboard
+        shell: bash
+        run: |
+          cat .tmp_entregas_v2/chunk_00.txt .tmp_entregas_v2/chunk_01.txt .tmp_entregas_v2/chunk_02.txt .tmp_entregas_v2/chunk_03.txt > indicadores_entregas_v2.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('indicadores_dashboard.py')
+          s=p.read_text(encoding='utf-8')
+          old='from indicadores_entregas_auditoria import render_alimentacao_entregas_auditoria'
+          new='from indicadores_entregas_v2 import render_alimentacao_entregas_v2'
+          if old not in s:
+              raise SystemExit('Import antigo não encontrado')
+          s=s.replace(old,new,1)
+          old_call='    render_alimentacao_entregas_auditoria(indicadores)'
+          new_call='    render_alimentacao_entregas_v2(indicadores)'
+          if old_call not in s:
+              raise SystemExit('Chamada antiga não encontrada')
+          s=s.replace(old_call,new_call,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile indicadores_entregas_v2.py indicadores_dashboard.py
+          rm -rf .tmp_entregas_v2
+          rm -f .github/workflows/apply-entregas-v2.yml
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Reformula Entregas no Prazo com fusão Relatório Geral e MRP" || exit 0
+          git push origin main
