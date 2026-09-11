@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date
 import base64
-from collections import Counter
+from collections import Counter, defaultdict
 from io import BytesIO
 import pandas as pd
 from PIL import Image
@@ -10,372 +10,473 @@ from supabase_client import get_client
 
 st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
 
-DEFAULT_CONFIG = {"tema":"Escuro (Padrão)","cor_principal":"Amarelo (Padrão)","estilo_botoes":"Amarelo","logo_base64":None,"logo_name":None,"logo_mime":None,"logo_bg":"#ffffff","textos":{},"fontes":{}}
-CORES = {"Amarelo (Padrão)":"#ffd43d","Azul":"#1683ff","Verde":"#22c55e","Vermelho":"#ff4d4f","Roxo":"#8b5cf6","Laranja":"#ff922b","Ciano":"#22c7d6","Rosa":"#ec4899","Lima":"#a3e635"}
-TEMAS=["Escuro (Padrão)","Claro","Automático"]; ESTILOS_BOTOES=["Amarelo","Colorido"]
-TEXTOS_PADRAO={"menu_dashboard":"Dashboard","menu_indicadores":"Alimentar Indicadores","menu_historico":"Histórico","menu_equipes":"Gestão de Equipes","menu_carreira":"Plano de Carreira","menu_configuracoes":"Configurações","titulo_dashboard":"Dashboard","titulo_indicadores":"Alimentar Indicadores","titulo_historico":"Histórico","titulo_equipes":"Gestão de Equipes","titulo_carreira":"Plano de Carreira","titulo_configuracoes":"Configurações","subtitulo_global":"Gestão operacional do almoxarifado","secao_dados_reais":"Dados reais do Supabase","secao_indicadores":"Indicadores","secao_historico":"Histórico real","secao_colaboradores":"Colaboradores","secao_equipes":"Equipes","secao_organograma":"Organograma","secao_configuracoes":"Configurações","secao_plano":"Plano de carreira","mensagem_sem_indicadores":"A tabela almox_indicadores está conectada, mas ainda não possui lançamentos.","diagnostico":"Diagnóstico","mensagem_indicadores":"Consulta do banco real habilitada. A gravação será liberada junto com autenticação adequada.","mensagem_carreira":"Módulo preparado para receber níveis, competências, metas e trilhas de desenvolvimento.","rodape_linha1":"Gestão Operacional","rodape_linha2":"SETTA • Streamlit + Supabase","rodape_linha3":"Gestão Almoxarifado • Streamlit + Supabase • migração em andamento"}
-FONTES_PADRAO={"menu":"Arial","titulo":"Arial","subtitulo":"Arial"}; FONTES=["Arial","Verdana","Trebuchet MS","Georgia","Courier New","Times New Roman"]
+DEFAULT_CONFIG = {
+    "tema":"Escuro (Padrão)", "cor_principal":"Amarelo (Padrão)", "estilo_botoes":"Amarelo",
+    "logo_base64":None, "logo_name":None, "logo_mime":None, "logo_bg":"#ffffff",
+    "textos":{}, "fontes":{}, "metas_equipes":{},
+    "organograma":{"titulo":"ORGANOGRAMA DO ALMOXARIFADO","raiz_id":None,"pais":{}}
+}
+CORES={"Amarelo (Padrão)":"#ffd43d","Azul":"#1683ff","Verde":"#22c55e","Vermelho":"#ff4d4f","Roxo":"#8b5cf6","Laranja":"#ff922b","Ciano":"#22c7d6","Rosa":"#ec4899","Lima":"#a3e635"}
+TEMAS=["Escuro (Padrão)","Claro","Automático"]
+ESTILOS_BOTOES=["Amarelo","Colorido"]
+TEXTOS_PADRAO={
+    "menu_dashboard":"Dashboard","menu_indicadores":"Alimentar Indicadores","menu_historico":"Histórico",
+    "menu_equipes":"Gestão de Equipes","menu_carreira":"Plano de Carreira","menu_configuracoes":"Configurações",
+    "titulo_dashboard":"Dashboard","titulo_indicadores":"Alimentar Indicadores","titulo_historico":"Histórico",
+    "titulo_equipes":"Gestão de Equipes","titulo_carreira":"Plano de Carreira","titulo_configuracoes":"Configurações",
+    "subtitulo_global":"Gestão operacional do almoxarifado","secao_dados_reais":"Dados reais do Supabase",
+    "secao_indicadores":"Indicadores","secao_historico":"Histórico real","secao_colaboradores":"Colaboradores",
+    "secao_equipes":"Equipes","secao_organograma":"Organograma","secao_configuracoes":"Configurações",
+    "secao_plano":"Plano de carreira","mensagem_sem_indicadores":"A tabela almox_indicadores está conectada, mas ainda não possui lançamentos.",
+    "diagnostico":"Diagnóstico","mensagem_indicadores":"Consulta do banco real habilitada.",
+    "mensagem_carreira":"Módulo preparado para receber níveis, competências, metas e trilhas de desenvolvimento.",
+    "rodape_linha1":"Gestão Operacional","rodape_linha2":"SETTA • Streamlit + Supabase",
+    "rodape_linha3":"Gestão Almoxarifado • Streamlit + Supabase • migração em andamento"
+}
+FONTES_PADRAO={"menu":"Arial","titulo":"Arial","subtitulo":"Arial"}
+FONTES=["Arial","Verdana","Trebuchet MS","Georgia","Courier New","Times New Roman"]
 
 def carregar_configuracoes():
     try:
         resultado=get_client().table("almox_app_state").select("estado").eq("id","global").limit(1).execute()
         if resultado.data:
-            estado=resultado.data[0].get("estado") or {}; config=DEFAULT_CONFIG.copy()
-            for k,v in estado.items():
-                if k in config: config[k]=v
-            config["textos"]={**TEXTOS_PADRAO,**(estado.get("textos") or {})}; config["fontes"]={**FONTES_PADRAO,**(estado.get("fontes") or {})}; return config
-    except Exception as e: st.session_state.config_erro=str(e)
-    config=DEFAULT_CONFIG.copy(); config["textos"]=TEXTOS_PADRAO.copy(); config["fontes"]=FONTES_PADRAO.copy(); return config
+            estado=resultado.data[0].get("estado") or {}
+            config={**DEFAULT_CONFIG,**{k:v for k,v in estado.items() if k in DEFAULT_CONFIG}}
+            config["textos"]={**TEXTOS_PADRAO,**(estado.get("textos") or {})}
+            config["fontes"]={**FONTES_PADRAO,**(estado.get("fontes") or {})}
+            config["metas_equipes"]={**(estado.get("metas_equipes") or {})}
+            config["organograma"]={**DEFAULT_CONFIG["organograma"],**(estado.get("organograma") or {})}
+            config["organograma"]["pais"]={str(k):str(v) for k,v in (config["organograma"].get("pais") or {}).items()}
+            return config
+    except Exception as e:
+        st.session_state.config_erro=str(e)
+    return {**DEFAULT_CONFIG,"textos":TEXTOS_PADRAO.copy(),"fontes":FONTES_PADRAO.copy(),"metas_equipes":{},"organograma":DEFAULT_CONFIG["organograma"].copy()}
 
-def salvar_configuracoes(config): return bool(get_client().table("almox_app_state").upsert({"id":"global","estado":config},on_conflict="id").execute().data)
-def detectar_cor_fundo_logo(logo_b64,logo_mime=None):
-    if not logo_b64: return "#ffffff"
+def salvar_configuracoes(config):
     try:
-        if (logo_mime or "").lower()=="image/svg+xml": return "#ffffff"
-        imagem=Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA"); imagem.thumbnail((160,160)); pixels=[(r,g,b) for r,g,b,a in imagem.getdata() if a>=220]
-        if not pixels: return "#ffffff"
-        agrupadas=[((r//16)*16,(g//16)*16,(b//16)*16) for r,g,b in pixels]; return "#{:02x}{:02x}{:02x}".format(*Counter(agrupadas).most_common(1)[0][0])
-    except Exception: return "#ffffff"
+        return bool(get_client().table("almox_app_state").upsert({"id":"global","estado":config},on_conflict="id").execute().data)
+    except Exception:
+        return False
+
+def detectar_cor_fundo_logo(logo_b64,logo_mime=None):
+    if not logo_b64:return "#ffffff"
+    try:
+        if (logo_mime or "").lower()=="image/svg+xml":return "#ffffff"
+        imagem=Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA");imagem.thumbnail((160,160))
+        pixels=[(r,g,b) for r,g,b,a in imagem.getdata() if a>=220]
+        if not pixels:return "#ffffff"
+        agrupadas=[((r//16)*16,(g//16)*16,(b//16)*16) for r,g,b in pixels]
+        return "#{:02x}{:02x}{:02x}".format(*Counter(agrupadas).most_common(1)[0][0])
+    except Exception:return "#ffffff"
 
 if "config_carregada" not in st.session_state:
-    st.session_state.config=carregar_configuracoes(); st.session_state.config_carregada=True
-elif "config" not in st.session_state: st.session_state.config=carregar_configuracoes()
-config=st.session_state.config; config["textos"]={**TEXTOS_PADRAO,**(config.get("textos") or {})}; config["fontes"]={**FONTES_PADRAO,**(config.get("fontes") or {})}; textos=config["textos"]; fontes=config["fontes"]
-def txt(chave): return textos.get(chave,TEXTOS_PADRAO.get(chave,chave))
-PRIMARY=CORES.get(config.get("cor_principal"),CORES["Amarelo (Padrão)"]); IS_LIGHT=config.get("tema")=="Claro"
-if IS_LIGHT: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG,COLLAPSE="#f4f6f5","#ffffff","#18201d","#68736e","#ffffff","#d7ded9","#f8faf9","#68736e"
-else: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG,COLLAPSE="#0b0f0e","#090c0b","#f4f5f4","#9aa39f","#101513","#35403b","#101513","#ffffff"
+    st.session_state.config=carregar_configuracoes();st.session_state.config_carregada=True
+config=st.session_state.config
+config["textos"]={**TEXTOS_PADRAO,**(config.get("textos") or {})}
+config["fontes"]={**FONTES_PADRAO,**(config.get("fontes") or {})}
+config["metas_equipes"]={**(config.get("metas_equipes") or {})}
+config["organograma"]={**DEFAULT_CONFIG["organograma"],**(config.get("organograma") or {})}
+config["organograma"]["pais"]={str(k):str(v) for k,v in (config["organograma"].get("pais") or {}).items()}
+textos=config["textos"];fontes=config["fontes"]
+def txt(k):return textos.get(k,TEXTOS_PADRAO.get(k,k))
+PRIMARY=CORES.get(config.get("cor_principal"),CORES["Amarelo (Padrão)"])
+IS_LIGHT=config.get("tema")=="Claro"
+if IS_LIGHT: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG="#f4f6f5","#ffffff","#18201d","#68736e","#ffffff","#d7ded9","#f8faf9"
+else: APP_BG,SIDEBAR_BG,TEXT,MUTED,PANEL,BORDER,INPUT_BG="#0b0f0e","#090c0b","#f4f5f4","#9aa39f","#101513","#35403b","#101513"
 
 st.markdown(f"""
 <style>
 #MainMenu,footer{{visibility:hidden}}
-[data-testid="stToolbar"]{{display:flex!important;align-items:center!important;justify-content:flex-end!important;height:32px!important;min-height:32px!important;padding:0 8px!important;background:#090c0b!important}}
+header[data-testid="stHeader"]{{display:block!important;height:32px!important;min-height:32px!important;background:#090c0b!important;border-bottom:1px solid #1f2925!important}}
+[data-testid="stToolbar"]{{display:flex!important;align-items:center!important;justify-content:flex-end!important;height:32px!important;background:#090c0b!important}}
 button[data-testid="stSidebarCollapseButton"]{{display:flex!important;visibility:visible!important;pointer-events:auto!important}}
-button[data-testid="stSidebarCollapseButton"]:hover{{background:{PRIMARY}!important;color:#111!important;border-color:{PRIMARY}!important}}
-button[data-testid="stSidebarCollapseButton"] svg{{width:20px!important;height:20px!important}}
-div[data-testid="collapsedControl"]{{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:fixed!important;top:4px!important;left:8px!important;z-index:2147483647!important;width:40px!important;height:28px!important;align-items:center!important;justify-content:center!important;background:#090c0b!important}}
-div[data-testid="collapsedControl"] button{{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;width:34px!important;height:28px!important;margin:0!important;padding:0!important;background:transparent!important;color:#f4f5f4!important;border:0!important}}
-div[data-testid="collapsedControl"] button:hover{{background:{PRIMARY}!important;color:#111!important;border-color:{PRIMARY}!important}}
-div[data-testid="collapsedControl"] svg{{width:20px!important;height:20px!important}}
-div.st-key-controle_unico_menus{{display:none!important}}
-header[data-testid="stHeader"]{{display:block!important;height:32px!important;min-height:32px!important;background:#090c0b!important;border:0!important;border-bottom:1px solid #1f2925!important}}
 section[data-testid="stSidebar"]{{background:{SIDEBAR_BG}!important;border-right:1px solid {BORDER};width:230px!important;min-width:230px!important;max-width:230px!important;overflow:hidden!important}}
 section[data-testid="stSidebar"]>div:first-child{{width:230px!important;min-width:230px!important;padding:0 9px 16px;overflow:hidden!important}}
 section[data-testid="stSidebar"][aria-expanded="false"]{{width:0!important;min-width:0!important;max-width:0!important}}
-section[data-testid="stSidebar"][aria-expanded="false"]>div:first-child{{width:0!important;min-width:0!important;padding:0!important;overflow:hidden!important}}
 .stApp{{background:{APP_BG};color:{TEXT}}}.block-container{{max-width:1500px;padding:8px 34px 50px}}
-.hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;color:{TEXT}}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.period{{background:{PRIMARY};color:#111;padding:10px 15px;border-radius:9px;font-weight:800}}.section{{color:{PRIMARY};font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}}
-.panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:22px;margin-top:14px}}.notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
+.hero{{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}}.hero h1{{margin:0;font-family:{fontes["titulo"]},sans-serif;font-size:30px;color:{TEXT}}}.hero p,.muted{{font-family:{fontes["subtitulo"]},sans-serif;color:{MUTED}}}.period{{background:{PRIMARY};color:#111;padding:10px 15px;border-radius:9px;font-weight:900;text-transform:uppercase}}
+.section{{color:{PRIMARY};font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:22px 0 10px}}
+.panel{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};border-radius:15px;padding:18px;margin-top:14px}}
+.notice{{padding:12px 14px;border-left:3px solid {PRIMARY};background:{PANEL};color:{MUTED};border-radius:7px;font-size:11px}}
 div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);border:1px solid {BORDER};padding:15px;border-radius:12px}}
-[data-testid="stButton"] button[kind="primary"]{{color:#111111!important;background:{PRIMARY}!important;border-color:{PRIMARY}!important}}[data-testid="stButton"] button[kind="primary"] p{{color:#111111!important}}
-[data-testid="stSidebar"] .stButton{{margin:0 0 3px 0}}[data-testid="stSidebar"] .stButton>button{{width:100%;min-height:62px;height:62px;border-radius:14px;border:1px solid transparent;background:transparent;color:{TEXT}!important;font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;text-align:left;padding:0 14px 0 18px;box-shadow:none;position:relative}}[data-testid="stSidebar"] .stButton>button p{{color:inherit!important}}
-[data-testid="stSidebar"] .stButton>button[kind="primary"]{{background:rgba(255,212,61,.085)!important;color:{PRIMARY}!important;border-left:4px solid {PRIMARY}}}
-[data-testid="stSidebar"] div.st-key-menu_dashboard button p::before,[data-testid="stSidebar"] div.st-key-menu_indicadores button p::before,[data-testid="stSidebar"] div.st-key-menu_historico button p::before,[data-testid="stSidebar"] div.st-key-menu_equipes button p::before,[data-testid="stSidebar"] div.st-key-menu_carreira button p::before,[data-testid="stSidebar"] div.st-key-menu_configuracoes button p::before{{display:inline-block;width:30px;margin-right:12px;text-align:center;font-size:21px;vertical-align:-3px;color:#e7ecea}}
-[data-testid="stSidebar"] div.st-key-menu_dashboard button p::before{{content:"▦"}}[data-testid="stSidebar"] div.st-key-menu_indicadores button p::before{{content:"▥"}}[data-testid="stSidebar"] div.st-key-menu_historico button p::before{{content:"◷"}}[data-testid="stSidebar"] div.st-key-menu_equipes button p::before{{content:"♧"}}[data-testid="stSidebar"] div.st-key-menu_carreira button p::before{{content:"◎"}}[data-testid="stSidebar"] div.st-key-menu_configuracoes button p::before{{content:"⚙"}}
-[data-testid="stSidebar"] div.st-key-menu_dashboard button::after,[data-testid="stSidebar"] div.st-key-menu_indicadores button::after,[data-testid="stSidebar"] div.st-key-menu_historico button::after,[data-testid="stSidebar"] div.st-key-menu_equipes button::after,[data-testid="stSidebar"] div.st-key-menu_carreira button::after,[data-testid="stSidebar"] div.st-key-menu_configuracoes button::after{{content:"›";position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:27px;color:#9aa39f}}
-[data-testid="stSidebar"] div.st-key-menu_dashboard button[kind="primary"] p::before,[data-testid="stSidebar"] div.st-key-menu_indicadores button[kind="primary"] p::before,[data-testid="stSidebar"] div.st-key-menu_historico button[kind="primary"] p::before,[data-testid="stSidebar"] div.st-key-menu_equipes button[kind="primary"] p::before,[data-testid="stSidebar"] div.st-key-menu_carreira button[kind="primary"] p::before,[data-testid="stSidebar"] div.st-key-menu_configuracoes button[kind="primary"] p::before{{color:{PRIMARY}}}
+[data-testid="stButton"] button[kind="primary"]{{color:#111!important;background:{PRIMARY}!important;border-color:{PRIMARY}!important}}[data-testid="stButton"] button[kind="primary"] p{{color:#111!important}}
+/* SIDEBAR: somente nomes, sem ícones, e 20px menos altura/espacamento */
+[data-testid="stSidebar"] .stButton{{margin:0!important}}
+[data-testid="stSidebar"] .stButton>button{{width:100%;min-height:42px!important;height:42px!important;border-radius:12px;border:1px solid transparent;background:transparent;color:{TEXT}!important;font-family:{fontes["menu"]},sans-serif;font-size:14px;font-weight:900;text-align:left;padding:0 14px 0 18px;box-shadow:none;position:relative}}
+[data-testid="stSidebar"] .stButton>button p{{color:inherit!important;margin:0!important}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button p::before,[data-testid="stSidebar"] div.st-key-menu_indicadores button p::before,[data-testid="stSidebar"] div.st-key-menu_historico button p::before,[data-testid="stSidebar"] div.st-key-menu_equipes button p::before,[data-testid="stSidebar"] div.st-key-menu_carreira button p::before,[data-testid="stSidebar"] div.st-key-menu_configuracoes button p::before{{display:none!important;content:none!important}}
+[data-testid="stSidebar"] div.st-key-menu_dashboard button::after,[data-testid="stSidebar"] div.st-key-menu_indicadores button::after,[data-testid="stSidebar"] div.st-key-menu_historico button::after,[data-testid="stSidebar"] div.st-key-menu_equipes button::after,[data-testid="stSidebar"] div.st-key-menu_carreira button::after,[data-testid="stSidebar"] div.st-key-menu_configuracoes button::after{{content:"›";position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:24px;color:#9aa39f}}
 [data-testid="stSidebar"] div.st-key-menu_dashboard button[kind="primary"]::after,[data-testid="stSidebar"] div.st-key-menu_indicadores button[kind="primary"]::after,[data-testid="stSidebar"] div.st-key-menu_historico button[kind="primary"]::after,[data-testid="stSidebar"] div.st-key-menu_equipes button[kind="primary"]::after,[data-testid="stSidebar"] div.st-key-menu_carreira button[kind="primary"]::after,[data-testid="stSidebar"] div.st-key-menu_configuracoes button[kind="primary"]::after{{color:{PRIMARY}}}
-.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-24px 0 10px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}.sidebar-logo-wrap{{width:190px;height:82px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;overflow:hidden}}.sidebar-logo-img{{display:block;width:100%;height:100%;object-fit:contain;margin:auto}}.sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#fff;border-radius:8px;font-size:11px;line-height:1.4}}.sidebar-footer{{margin:20px 5px 0;padding-top:16px;border-top:1px solid {BORDER};color:{MUTED};font-family:{fontes["subtitulo"]},sans-serif;font-size:10px;line-height:1.6}}
-.logo-preview{{min-height:250px;border:1px solid {BORDER};border-radius:12px;background:{INPUT_BG};display:flex;align-items:center;justify-content:center;padding:20px}}.logo-preview img{{max-width:100%;max-height:210px;object-fit:contain}}
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{{background:rgba(255,212,61,.085)!important;color:{PRIMARY}!important;border-left:4px solid {PRIMARY}}}
+.sidebar-logo-section{{width:100%;display:flex;flex-direction:column;align-items:center;margin:-24px 0 8px;padding:0 0 9px;border-bottom:1px solid {BORDER}}}.sidebar-logo-wrap{{width:190px;height:82px;display:flex;justify-content:center;align-items:center;background:var(--logo-bg);border:1px solid var(--logo-border);border-radius:12px;overflow:hidden}}.sidebar-logo-img{{display:block;width:100%;height:100%;object-fit:contain;margin:auto}}.sidebar-logo-placeholder{{width:176px;height:68px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280;background:#fff;border-radius:8px;font-size:11px;line-height:1.4}}.sidebar-footer{{margin:12px 5px 0;padding-top:12px;border-top:1px solid {BORDER};color:{MUTED};font-size:10px;line-height:1.6}}
+.ge-tabs-note{{color:#a4ada8;font-size:14px;margin:0 0 16px 2px;line-height:1.45}}
+.ge-kpi{{background:linear-gradient(145deg,#151b18,#0d1110);border:1px solid #34413b;border-radius:15px;padding:19px 21px;min-height:112px}}.ge-kpi .label{{font-size:12px;color:#9ba49f;text-transform:uppercase;letter-spacing:1px;font-weight:800}}.ge-kpi .value{{font-size:36px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:9px}}.ge-kpi .sub{{font-size:12px;color:#ffd43d;margin-top:8px}}
+/* IMAGEM 02: títulos dos dois painéis sem balões desproporcionais */
+.ge-overview-panel{{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:15px;padding:9px 18px 7px;margin-top:16px}}
+.ge-panel-title{{font-size:14px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.7px;margin:0 0 6px}}
+.ge-mini{{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid #26302c}}.ge-mini:last-child{{border-bottom:0}}.ge-mini .rank{{width:31px;height:31px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex:0 0 31px}}.ge-mini .main{{flex:1;min-width:0}}.ge-mini .name{{font-size:14px;font-weight:800;color:#f4f5f4}}.ge-mini .desc{{font-size:12px;color:#929c97;margin-top:3px}}
+.ge-bar{{height:8px;background:#202925;border-radius:99px;overflow:hidden;margin-top:8px}}.ge-bar span{{display:block;height:100%;background:#ffd43d;border-radius:99px}}
+.ge-alert{{padding:15px 17px;border-radius:12px;border:1px solid #5b4a13;background:#211c0b;color:#ddd4a7;font-size:13px;line-height:1.5}}
+.ge-team-card,.ge-person-card{{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}}.ge-team-card{{padding:23px;margin-top:14px;position:relative;overflow:hidden}}.ge-team-head{{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}}.ge-team-title{{font-size:24px;font-weight:900;color:#f4f5f4;margin:0;line-height:1.2}}.ge-team-title span{{color:#ffd43d}}.ge-team-status{{font-size:11px;font-weight:900;border:1px solid #4a5a52;border-radius:999px;padding:7px 11px;color:#ffd43d;white-space:nowrap}}.ge-team-objective{{color:#aab2ae;font-size:14px;line-height:1.6;margin-top:10px;max-width:1050px}}.ge-team-grid{{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:14px;margin-top:20px}}.ge-info-box{{background:#0a0e0d;border:1px solid #26312c;border-radius:12px;padding:16px}}.ge-info-label{{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b9690;font-weight:900}}.ge-info-value{{font-size:14px;color:#f0f2f1;font-weight:800;margin-top:7px}}.ge-task{{font-size:12px;color:#c8cecb;padding:8px 0;border-bottom:1px solid #202824;line-height:1.4}}.ge-task:last-child{{border-bottom:0}}.ge-member{{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #202824}}.ge-member:last-child{{border-bottom:0}}.ge-member img,.ge-member .ge-avatar-fallback{{flex:0 0 40px}}.ge-member-name{{font-size:13px;font-weight:800;color:#f0f2f1}}.ge-member-role{{font-size:11px;color:#929c97;margin-top:3px}}.ge-empty{{color:#929c97;font-size:12px;padding:10px 0}}
+.ge-person-card{{padding:17px;text-align:center;min-height:250px;margin-bottom:12px;position:relative;transition:.15s;border:1px solid #34413b}}.ge-person-card.selected{{border:2px solid #ffd43d;box-shadow:0 0 0 2px rgba(255,212,61,.10)}}.ge-person-photo{{width:94px;height:94px;margin:1px auto 12px;border-radius:50%;padding:5px;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 4px rgba(255,212,61,.08)}}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{{width:80px!important;height:80px!important;border-radius:50%;display:block;object-fit:cover}}.ge-avatar-img{{border-radius:50%;object-fit:cover;display:block}}.ge-avatar-fallback{{border-radius:50%;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}}.ge-person-name{{font-size:14px;font-weight:900;color:#f4f5f4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}}.ge-person-role{{font-size:11px;color:#ffd43d;font-weight:800;margin-top:7px;min-height:28px;line-height:1.35}}.ge-person-team{{font-size:11px;color:#9aa39f;margin-top:5px;min-height:28px;line-height:1.35}}.ge-person-status{{font-size:11px;color:#9aa39f;margin-top:11px;line-height:1.3}}
+/* Cartão clicável */
+.ge-click-card{{width:100%;border:1px solid #34413b!important;border-radius:16px!important;background:linear-gradient(145deg,#111714,#0c100f)!important;padding:12px!important;text-align:center!important;min-height:250px!important;color:#f4f5f4!important}}
+.ge-click-card:hover{{border-color:#ffd43d!important}}
+.ge-click-card p{{white-space:pre-line!important;font-weight:900!important}}
+.org-wrap{{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px;padding:24px;overflow:auto;min-height:560px}}
+.org-title{{text-align:center;color:#ffd43d;font-weight:900;font-size:16px;text-transform:uppercase;margin-bottom:24px}}.org-tree{{display:flex;flex-direction:column;align-items:center;min-width:max-content;padding:8px 24px 30px}}
+.org-node{{width:190px;background:#121816;border:1px solid #4b5852;border-radius:12px;padding:10px;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.16)}}.org-node.root{{border:2px solid #ffd43d}}.org-node img,.org-node .fallback{{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #ffd43d;margin:0 auto 7px;display:block}}.org-node .fallback{{background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}}.org-node strong{{display:block;color:#f4f5f4;font-size:12px;text-transform:uppercase}}.org-node small{{display:block;color:#9aa39f;font-size:10px;margin-top:4px}}.org-connector{{height:22px;border-left:2px solid #626d67}}.org-children{{display:flex;gap:28px;align-items:flex-start;justify-content:center;position:relative}}.org-children::before{{content:"";position:absolute;top:0;left:calc(10%);right:calc(10%);border-top:2px solid #626d67}}.org-child{{display:flex;flex-direction:column;align-items:center;position:relative}}.org-child::before{{content:"";height:18px;border-left:2px solid #626d67}}.org-grandchildren{{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px}}
+.meta-card{{background:#0d1210;border:1px solid #29332f;border-radius:12px;padding:14px;margin-top:10px}}.meta-head{{display:flex;justify-content:space-between;gap:10px;align-items:center}}.meta-name{{font-size:13px;font-weight:900;color:#f4f5f4;text-transform:uppercase}}.meta-value{{font-size:13px;font-weight:900;color:#ffd43d}}.meta-progress{{height:7px;background:#202925;border-radius:99px;overflow:hidden;margin-top:9px}}.meta-progress span{{display:block;height:100%;background:#ffd43d;border-radius:99px}}
+[data-testid="stTabs"] button{{font-size:14px!important;font-weight:800!important;padding:10px 16px!important}}
+@media(max-width:900px){{.ge-team-grid{{grid-template-columns:1fr}}.org-children{{gap:14px}}.org-children::before{{display:none}}}}
 </style>
 """,unsafe_allow_html=True)
 
 @st.cache_data(ttl=30)
 def rows(table,limit=500,order=None):
     q=get_client().table(table).select("*")
-    if order: q=q.order(order,desc=True)
+    if order:q=q.order(order,desc=True)
     return q.limit(limit).execute().data or []
-def df(data): return pd.DataFrame(data) if data else pd.DataFrame()
-if "pagina" not in st.session_state: st.session_state.pagina="dashboard"
-paginas_ids=["dashboard","indicadores","historico","equipes","carreira","configuracoes"]; paginas=[txt("menu_"+x) for x in paginas_ids]
+def df(data):return pd.DataFrame(data) if data else pd.DataFrame()
+
+def foto_html(c,tamanho=72):
+    if not c:return '<div class="ge-avatar-fallback">?</div>'
+    b64=c.get("foto_base64");mime=c.get("foto_mime") or "image/jpeg"
+    if b64:return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">'
+    nome=(c.get("nome") or "?").strip();return f'<div class="ge-avatar-fallback" style="width:{tamanho}px;height:{tamanho}px">{nome[:1].upper()}</div>'
+
+def nome_curto(nome):
+    p=[x for x in (nome or "").split() if x];return " ".join(p[:2]) if p else "Sem nome"
+
+def registrar_historico(tipo,descricao,dados):
+    try:get_client().table("almox_historico").insert({"tipo":tipo,"descricao":descricao,"dados":dados}).execute()
+    except Exception:pass
+
+def save_global_config():
+    ok=salvar_configuracoes(config)
+    if ok:st.session_state.config=config
+    return ok
+
+def vincular_colaborador_a_equipe(cid,eid,nome=None):
+    dados={"equipe_id":eid,"equipe_atual":nome}
+    return get_client().table("almox_colaboradores").update(dados).eq("id",cid).execute()
+
+if "pagina" not in st.session_state:st.session_state.pagina="dashboard"
+paginas_ids=["dashboard","indicadores","historico","equipes","carreira","configuracoes"]
 with st.sidebar:
     logo_b64=config.get("logo_base64")
     if logo_b64:
-        logo_bg=detectar_cor_fundo_logo(logo_b64,config.get("logo_mime"))
-        try:
-            r,g,b=int(logo_bg[1:3],16),int(logo_bg[3:5],16),int(logo_bg[5:7],16); luminancia=.299*r+.587*g+.114*b; logo_border="#555555" if luminancia<150 else "#e5e7eb"
-        except Exception: logo_border="#e5e7eb"
-    else: logo_bg="#101513" if IS_LIGHT else "#ffffff"; logo_border="#e5e7eb"
-    if logo_b64: mime=config.get("logo_mime") or "image/png"; logo_html=f'<img class="sidebar-logo-img" src="data:{mime};base64,{logo_b64}" alt="Logo SETTA">'
-    else: logo_html='<div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div>'
+        logo_bg=detectar_cor_fundo_logo(logo_b64,config.get("logo_mime"));logo_border="#555555"
+        logo_html=f'<img class="sidebar-logo-img" src="data:{config.get("logo_mime") or "image/png"};base64,{logo_b64}" alt="Logo SETTA">'
+    else:logo_bg="#101513" if not IS_LIGHT else "#ffffff";logo_border="#e5e7eb";logo_html='<div class="sidebar-logo-placeholder">SUA LOGO AQUI<br>Configure em Configurações</div>'
     st.markdown(f'<div class="sidebar-logo-section"><div class="sidebar-logo-wrap" style="--logo-bg:{logo_bg};--logo-border:{logo_border};">{logo_html}</div></div>',unsafe_allow_html=True)
-    for _id,p in zip(paginas_ids,paginas):
+    for _id in paginas_ids:
         ativo=st.session_state.pagina==_id
-        if st.button(p.upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{_id}"): st.session_state.pagina=_id; st.rerun()
+        if st.button(txt("menu_"+_id).upper(),use_container_width=True,type="primary" if ativo else "secondary",key=f"menu_{_id}"):
+            st.session_state.pagina=_id;st.rerun()
     st.markdown(f"<div class='sidebar-footer'>{txt('rodape_linha1')}<br>{txt('rodape_linha2')}</div>",unsafe_allow_html=True)
+
 pagina=st.session_state.pagina
-if pagina not in paginas_ids: pagina="dashboard"; st.session_state.pagina=pagina
-MESES_PT=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]; competencia_atual=f"{MESES_PT[date.today().month-1]}/{date.today().strftime('%y')}"; titulo_id="titulo_"+pagina
-st.markdown(f'<div class="hero"><div><h1>{txt(titulo_id)}</h1><p>{txt("subtitulo_global")}</p></div><div class="period">{competencia_atual}</div></div>',unsafe_allow_html=True)
-try: get_client(); conectado=True
-except Exception: conectado=False
-if not conectado: st.error("Supabase ainda não está configurado no ambiente do Streamlit."); st.stop()
+MESES_PT=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+competencia_atual=f"{MESES_PT[date.today().month-1]}/{date.today().strftime('%y')}".upper()
+st.markdown(f'<div class="hero"><div><h1>{txt("titulo_"+pagina)}</h1><p>{txt("subtitulo_global")}</p></div><div class="period">{competencia_atual}</div></div>',unsafe_allow_html=True)
+
+try:get_client();conectado=True
+except Exception:conectado=False
+if not conectado:st.error("Supabase ainda não está configurado no ambiente do Streamlit.");st.stop()
 
 if pagina=="dashboard":
-    indicadores=rows("almox_indicadores",order="competencia"); colaboradores=rows("almox_colaboradores"); equipes=rows("almox_equipes"); historico=rows("almox_historico",order="criado_em"); snapshots=rows("mrp_snapshots",order="created_at")
-    st.markdown(f'<div class="section">{txt("secao_dados_reais")}</div>',unsafe_allow_html=True); a,b,c,d=st.columns(4); a.metric(txt("secao_indicadores"),len(indicadores)); b.metric(txt("secao_colaboradores"),len(colaboradores)); c.metric(txt("secao_equipes"),len(equipes)); d.metric("MRP salvos",len(snapshots))
+    indicadores=rows("almox_indicadores",order="competencia");colaboradores=rows("almox_colaboradores");equipes=rows("almox_equipes");historico=rows("almox_historico",order="criado_em");snapshots=rows("mrp_snapshots",order="created_at")
+    st.markdown(f'<div class="section">{txt("secao_dados_reais")}</div>',unsafe_allow_html=True)
+    a,b,c,d=st.columns(4);a.metric(txt("secao_indicadores"),len(indicadores));b.metric(txt("secao_colaboradores"),len(colaboradores));c.metric(txt("secao_equipes"),len(equipes));d.metric("MRP salvos",len(snapshots))
     if indicadores:
-        data=df(indicadores); st.markdown(f'<div class="section">{txt("secao_indicadores")}</div>',unsafe_allow_html=True)
+        data=df(indicadores);st.markdown(f'<div class="section">{txt("secao_indicadores")}</div>',unsafe_allow_html=True)
         if "competencia" in data.columns and "valor" in data.columns:
-            data["competencia"]=pd.to_datetime(data["competencia"],errors="coerce"); chart=data.dropna(subset=["competencia"]).pivot_table(index="competencia",columns="indicador",values="valor",aggfunc="last")
-            if not chart.empty: st.line_chart(chart)
+            data["competencia"]=pd.to_datetime(data["competencia"],errors="coerce");chart=data.dropna(subset=["competencia"]).pivot_table(index="competencia",columns="indicador",values="valor",aggfunc="last")
+            if not chart.empty:st.line_chart(chart)
         st.dataframe(data,use_container_width=True,hide_index=True)
-    else: st.info(txt("mensagem_sem_indicadores"))
-    with st.expander(txt("diagnostico")): st.write({"Supabase":"conectado","indicadores":len(indicadores),"colaboradores":len(colaboradores),"equipes":len(equipes),"histórico":len(historico),"MRP":len(snapshots)})
-elif pagina=="indicadores": st.markdown(f'<div class="notice">{txt("mensagem_indicadores")}</div>',unsafe_allow_html=True); st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)
-elif pagina=="historico": st.markdown(f'<div class="section">{txt("secao_historico")}</div>',unsafe_allow_html=True); st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
+    else:st.info(txt("mensagem_sem_indicadores"))
+    with st.expander(txt("diagnostico")):st.write({"Supabase":"conectado","indicadores":len(indicadores),"colaboradores":len(colaboradores),"equipes":len(equipes),"histórico":len(historico),"MRP":len(snapshots)})
+
+elif pagina=="indicadores":
+    st.markdown(f'<div class="notice">{txt("mensagem_indicadores")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)
+elif pagina=="historico":
+    st.markdown(f'<div class="section">{txt("secao_historico")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
 
 elif pagina=="equipes":
-    client=get_client()
-    def carregar_equipes(): return client.table("almox_equipes").select("*").order("nome").execute().data or []
-    def carregar_colaboradores(): return client.table("almox_colaboradores").select("*").order("nome").execute().data or []
-    def registrar_historico(tipo,descricao,dados):
-        try: client.table("almox_historico").insert({"tipo":tipo,"descricao":descricao,"dados":dados}).execute()
-        except Exception: pass
-    def nome_curto(nome):
-        partes=[x for x in (nome or "").split() if x]; return " ".join(partes[:2]) if partes else "Sem nome"
-    def foto_html(c,tamanho=72):
-        b64=c.get("foto_base64"); mime=c.get("foto_mime") or "image/jpeg"
-        if b64: return f'<img class="ge-avatar-img" style="width:{tamanho}px;height:{tamanho}px" src="data:{mime};base64,{b64}">'
-        return f'<div class="ge-avatar-fallback" style="width:{tamanho}px;height:{tamanho}px">{nome_curto(c.get("nome"))[:1].upper()}</div>'
-    def vincular_colaborador_a_equipe(colaborador_id,equipe_id,equipe_nome=None):
-        dados={"equipe_id":equipe_id,"equipe_atual":equipe_nome}
-        return client.table("almox_colaboradores").update(dados).eq("id",colaborador_id).execute()
-    equipes_raw=carregar_equipes(); colaboradores_raw=carregar_colaboradores(); ativos_equipes=[x for x in equipes_raw if x.get("ativo",True)]; ativos_colaboradores=[x for x in colaboradores_raw if x.get("ativo",True)]; inativos_colaboradores=[x for x in colaboradores_raw if not x.get("ativo",True)]; nomes_colab={str(x.get("id")):x for x in colaboradores_raw}; nomes_eq={str(x.get("id")):x.get("nome","") for x in equipes_raw}
-    st.markdown("""
-    <style>
-    .ge-shell{margin-top:4px}.ge-tabs-note{color:#a4ada8;font-size:14px;margin:0 0 16px 2px;line-height:1.45}
-    .ge-kpi{background:linear-gradient(145deg,#151b18,#0d1110);border:1px solid #34413b;border-radius:15px;padding:19px 21px;min-height:112px}.ge-kpi .label{font-size:12px;color:#9ba49f;text-transform:uppercase;letter-spacing:1px;font-weight:800}.ge-kpi .value{font-size:36px;line-height:1.05;font-weight:900;color:#f4f5f4;margin-top:9px}.ge-kpi .sub{font-size:12px;color:#ffd43d;margin-top:8px}
-    .ge-overview-panel,.ge-team-card,.ge-person-card{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #34413b;border-radius:16px}.ge-overview-panel{padding:14px 18px 12px;margin-top:16px}.ge-panel-title{font-size:17px;font-weight:900;color:#f3f5f4;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}.ge-mini{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid #26302c}.ge-mini .rank{width:31px;height:31px;border-radius:9px;background:#ffd43d;color:#111;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}.ge-mini .main{flex:1}.ge-mini .name{font-size:14px;font-weight:800;color:#f4f5f4}.ge-mini .desc{font-size:12px;color:#929c97;margin-top:3px}.ge-bar{height:8px;background:#202925;border-radius:99px;overflow:hidden;margin-top:8px}.ge-bar span{display:block;height:100%;background:#ffd43d;border-radius:99px}.ge-alert{padding:15px 17px;border-radius:12px;border:1px solid #5b4a13;background:#211c0b;color:#ddd4a7;font-size:13px;line-height:1.5}
-    .ge-team-card{padding:23px;margin-top:14px;position:relative;overflow:hidden}.ge-team-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.ge-team-title{font-size:24px;font-weight:900;color:#f4f5f4;margin:0;line-height:1.2}.ge-team-title span{color:#ffd43d}.ge-team-status{font-size:11px;font-weight:900;border:1px solid #4a5a52;border-radius:999px;padding:7px 11px;color:#ffd43d;white-space:nowrap}.ge-team-objective{color:#aab2ae;font-size:14px;line-height:1.6;margin-top:10px;max-width:1050px}.ge-team-grid{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:14px;margin-top:20px}.ge-info-box{background:#0a0e0d;border:1px solid #26312c;border-radius:12px;padding:16px}.ge-info-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b9690;font-weight:900}.ge-info-value{font-size:14px;color:#f0f2f1;font-weight:800;margin-top:7px}.ge-task{font-size:12px;color:#c8cecb;padding:8px 0;border-bottom:1px solid #202824;line-height:1.4}.ge-task:last-child{border-bottom:0}.ge-member{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #202824}.ge-member:last-child{border-bottom:0}.ge-member img,.ge-member .ge-avatar-fallback{flex:0 0 40px}.ge-member-name{font-size:13px;font-weight:800;color:#f0f2f1}.ge-member-role{font-size:11px;color:#929c97;margin-top:3px}.ge-empty{color:#929c97;font-size:12px;padding:10px 0}.ge-person-card{padding:17px;text-align:center;min-height:250px;margin-bottom:12px;position:relative}.ge-person-photo{width:94px;height:94px;margin:1px auto 12px;border-radius:50%;padding:5px;border:2px solid #ffd43d;background:#171d19;box-shadow:0 0 0 4px rgba(255,212,61,.08)}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{width:80px!important;height:80px!important;border-radius:50%;display:block;object-fit:cover}.ge-avatar-img{border-radius:50%;object-fit:cover;display:block}.ge-avatar-fallback{border-radius:50%;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-weight:900}.ge-person-name{font-size:14px;font-weight:900;color:#f4f5f4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}.ge-person-role{font-size:11px;color:#ffd43d;font-weight:800;margin-top:7px;min-height:28px;line-height:1.35}.ge-person-team{font-size:11px;color:#9aa39f;margin-top:5px;min-height:28px;line-height:1.35}.ge-person-status{font-size:11px;color:#9aa39f;margin-top:11px;line-height:1.3}.ge-form-panel{background:#111714;border:1px solid #34413b;border-radius:16px;padding:20px 22px;margin:12px 0 18px}.ge-action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 18px}.ge-team-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}.stDialog{border-radius:16px}.stDialog [data-testid="stDialog"]{{font-size:15px}}
-    [data-testid="stTabs"] button{{font-size:14px!important;font-weight:800!important;padding:10px 16px!important}}
-    @media(max-width:900px){{.ge-team-grid{{grid-template-columns:1fr}}.ge-person-card{{min-height:235px}}.ge-action-row,.ge-team-actions{{grid-template-columns:1fr}}}}
-    @media(max-width:560px){{.ge-person-card{{min-height:220px}}.ge-person-photo{{width:86px;height:86px}}.ge-person-photo img,.ge-person-photo .ge-avatar-fallback{{width:72px!important;height:72px!important}}}}
-    </style>
-    """,unsafe_allow_html=True)
-    k1,k2,k3,k4=st.columns(4); k1.markdown(f'<div class="ge-kpi"><div class="label">Equipes ativas</div><div class="value">{len(ativos_equipes)}</div><div class="sub">Estrutura operacional</div></div>',unsafe_allow_html=True); k2.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores ativos</div><div class="value">{len(ativos_colaboradores)}</div><div class="sub">Base atual</div></div>',unsafe_allow_html=True); k3.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores alocados</div><div class="value">{sum(1 for x in ativos_colaboradores if x.get("equipe_id"))}</div><div class="sub">Com equipe definida</div></div>',unsafe_allow_html=True); k4.markdown(f'<div class="ge-kpi"><div class="label">Sem equipe</div><div class="value">{sum(1 for x in ativos_colaboradores if not x.get("equipe_id"))}</div><div class="sub">Aguardando alocação</div></div>',unsafe_allow_html=True)
-    tab_geral,tab_equipes,tab_colaboradores=st.tabs(["VISÃO GERAL","EQUIPES","COLABORADORES"])
-    with tab_geral:
-        st.markdown('<div class="ge-tabs-note">Visão consolidada da estrutura do almoxarifado, equipes, pessoas e distribuição atual.</div>',unsafe_allow_html=True); a,b=st.columns([1.15,.85])
-        with a:
-            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Estrutura das equipes</div>',unsafe_allow_html=True)
-            for idx,equipe in enumerate(ativos_equipes,1):
-                membros=[c for c in ativos_colaboradores if str(c.get("equipe_id"))==str(equipe.get("id"))]; st.markdown(f'<div class="ge-mini"><div class="rank">{idx:02d}</div><div class="main"><div class="name">{equipe.get("nome","")}</div><div class="desc">{len(membros)} colaborador(es) · {len(equipe.get("tarefas") or [])} tarefa(s)</div><div class="ge-bar"><span style="width:{max(4,int((len(membros)/max(len(ativos_colaboradores),1))*100))}%"></span></div></div></div>',unsafe_allow_html=True)
-            if not ativos_equipes: st.markdown('<div class="ge-empty">Nenhuma equipe ativa cadastrada.</div>',unsafe_allow_html=True)
-            st.markdown('</div>',unsafe_allow_html=True)
-        with b:
-            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">Resumo de pessoas</div>',unsafe_allow_html=True); funcoes={}
-            for c in ativos_colaboradores:
-                f=(c.get("funcao") or "Sem função").strip().upper(); funcoes[f]=funcoes.get(f,0)+1
-            for f,n in sorted(funcoes.items(),key=lambda x:(-x[1],x[0]))[:7]: st.markdown(f'<div class="ge-mini"><div class="main"><div class="name">{f}</div><div class="desc">{n} colaborador(es)</div><div class="ge-bar"><span style="width:{max(4,int(n/max(len(ativos_colaboradores),1)*100))}%"></span></div></div></div>',unsafe_allow_html=True)
-            st.markdown('</div>',unsafe_allow_html=True)
-        sem_equipe=[c for c in ativos_colaboradores if not c.get("equipe_id")]
-        if sem_equipe: st.markdown(f'<div class="ge-alert"><b>Alocação pendente:</b> {len(sem_equipe)} colaborador(es) ativo(s) ainda estão sem equipe definida.</div>',unsafe_allow_html=True)
-        recentes=sorted([c for c in ativos_colaboradores if c.get("data_admissao")],key=lambda x:x.get("data_admissao") or "",reverse=True)[:5]; cards=[]
-        for c in recentes:
-            data=pd.to_datetime(c.get("data_admissao"),errors="coerce"); data_txt=data.strftime("%d/%m/%Y") if not pd.isna(data) else "—"; cards.append('<div class="ge-admission-item"><div class="ge-admission-photo">'+foto_html(c,60)+'</div><div class="ge-admission-name">'+nome_curto(c.get("nome"))+'</div><div class="ge-admission-date">'+data_txt+'</div></div>')
-        st.markdown("""<style>.ge-admissions-panel{background:linear-gradient(145deg,#101513,#0d1210);border:1px solid #35403b;border-radius:15px;padding:20px;margin-top:14px}.ge-admissions-title{color:#f4f5f4;font-size:17px;font-weight:900;text-transform:uppercase;margin:0 0 18px}.ge-admissions-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}.ge-admission-item{text-align:center;padding:0 18px;border-left:1px solid #35403b}.ge-admission-item:first-child{border-left:0}.ge-admission-photo{display:flex;justify-content:center;min-height:64px}.ge-admission-name{margin-top:10px;color:#f4f5f4;font-size:12px;font-weight:900}.ge-admission-date{margin-top:5px;color:#929c97;font-size:11px}@media(max-width:900px){.ge-admissions-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:22px}.ge-admission-item:nth-child(3){border-left:0}}@media(max-width:560px){.ge-admissions-grid{grid-template-columns:1fr}.ge-admission-item{border-left:0;border-top:1px solid #35403b;padding:18px 0 0}.ge-admission-item:first-child{border-top:0;padding-top:0}}</style>""",unsafe_allow_html=True)
-        st.markdown('<div class="ge-admissions-panel"><div class="ge-admissions-title">Admissões mais recentes</div><div class="ge-admissions-grid">'+(''.join(cards) if cards else '<div class="ge-empty">Nenhuma data de admissão cadastrada.</div>')+'</div></div>',unsafe_allow_html=True)
+    client=get_client();equipes_raw=client.table("almox_equipes").select("*").order("nome").execute().data or [];colaboradores_raw=client.table("almox_colaboradores").select("*").order("nome").execute().data or []
+    ativos_equipes=[x for x in equipes_raw if x.get("ativo",True)];ativos_colaboradores=[x for x in colaboradores_raw if x.get("ativo",True)]
+    nomes_colab={str(x.get("id")):x for x in colaboradores_raw};nomes_eq={str(x.get("id")):x.get("nome","") for x in equipes_raw}
+    k1,k2,k3,k4=st.columns(4)
+    k1.markdown(f'<div class="ge-kpi"><div class="label">Equipes ativas</div><div class="value">{len(ativos_equipes)}</div><div class="sub">Estrutura operacional</div></div>',unsafe_allow_html=True)
+    k2.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores ativos</div><div class="value">{len(ativos_colaboradores)}</div><div class="sub">Base atual</div></div>',unsafe_allow_html=True)
+    k3.markdown(f'<div class="ge-kpi"><div class="label">Colaboradores alocados</div><div class="value">{sum(1 for x in ativos_colaboradores if x.get("equipe_id"))}</div><div class="sub">Com equipe definida</div></div>',unsafe_allow_html=True)
+    k4.markdown(f'<div class="ge-kpi"><div class="label">Sem equipe</div><div class="value">{sum(1 for x in ativos_colaboradores if not x.get("equipe_id"))}</div><div class="sub">Aguardando alocação</div></div>',unsafe_allow_html=True)
+
+    tab_geral,tab_equipes,tab_colaboradores,tab_organograma=st.tabs(["VISÃO GERAL","EQUIPES","COLABORADORES","ORGANOGRAMA"])
 
     @st.dialog("Criar equipe")
     def dialog_nova_equipe():
         with st.form("dialog_form_nova_equipe",clear_on_submit=True):
-            nome_equipe=st.text_input("Nome da equipe *",placeholder="Ex.: Almoxarifado"); objetivo_equipe=st.text_area("Objetivo",placeholder="Descreva a finalidade da equipe.",height=100); responsaveis={"Nenhum":None}
-            for c in ativos_colaboradores: responsaveis[f"{c.get('nome','')} — {c.get('funcao') or 'Sem função'}"]=c.get("id")
-            resp_label=st.selectbox("Responsável",list(responsaveis.keys())); tarefas_texto=st.text_area("Tarefas principais",placeholder="Uma tarefa por linha",height=100); salvar=st.form_submit_button("CRIAR EQUIPE",type="primary",use_container_width=True)
-        if salvar:
-            nome_limpo=nome_equipe.strip()
-            if not nome_limpo: st.error("Informe o nome da equipe.")
-            elif any((x.get("nome") or "").strip().casefold()==nome_limpo.casefold() and x.get("ativo",True) for x in equipes_raw): st.error("Já existe uma equipe ativa com esse nome.")
-            else:
-                try:
-                    novo=client.table("almox_equipes").insert({"nome":nome_limpo,"objetivo":objetivo_equipe.strip() or None,"tarefas":[x.strip() for x in tarefas_texto.splitlines() if x.strip()],"responsavel_id":responsaveis[resp_label],"ativo":True}).execute().data
-                    if novo:
-                        equipe_id=novo[0].get("id")
-                        responsavel_id=responsaveis[resp_label]
-                        if responsavel_id: vincular_colaborador_a_equipe(responsavel_id,equipe_id,nome_limpo)
-                        registrar_historico("equipe_criada",f"Equipe criada: {nome_limpo}",{"equipe_id":equipe_id,"nome":nome_limpo,"responsavel_id":responsavel_id}); st.success(f"Equipe '{nome_limpo}' criada com sucesso."); st.rerun()
-                except Exception as e: st.error(f"Erro ao criar equipe: {e}")
+            nome=st.text_input("Nome da equipe *",placeholder="Ex.: Abastecimento de Produção");objetivo=st.text_area("Objetivo",height=90);resp_opts={"Nenhum":None}
+            for c in ativos_colaboradores:resp_opts[f"{c.get('nome','')} — {c.get('funcao') or 'Sem função'}"]=c.get("id")
+            resp=st.selectbox("Responsável",list(resp_opts.keys()));tarefas=st.text_area("Tarefas principais — uma por linha",height=90);ok=st.form_submit_button("CRIAR EQUIPE",type="primary",use_container_width=True)
+        if ok:
+            nome=nome.strip()
+            if not nome:st.error("Informe o nome da equipe.");return
+            if any((x.get("nome") or "").strip().casefold()==nome.casefold() and x.get("ativo",True) for x in equipes_raw):st.error("Já existe uma equipe ativa com esse nome.");return
+            try:
+                novo=client.table("almox_equipes").insert({"nome":nome,"objetivo":objetivo.strip() or None,"tarefas":[x.strip() for x in tarefas.splitlines() if x.strip()],"responsavel_id":resp_opts[resp],"ativo":True}).execute().data
+                if novo:
+                    eid=novo[0].get("id");rid=resp_opts[resp]
+                    if rid:vincular_colaborador_a_equipe(rid,eid,nome)
+                    registrar_historico("equipe_criada",f"Equipe criada: {nome}",{"equipe_id":eid,"nome":nome,"responsavel_id":rid});st.success(f"Equipe '{nome}' criada com sucesso.");st.rerun()
+            except Exception as e:st.error(f"Erro ao criar equipe: {e}")
 
     @st.dialog("Cadastrar colaborador")
     def dialog_novo_colaborador():
         equipes_opts={x.get("nome",""):x.get("id") for x in ativos_equipes}
         with st.form("dialog_form_novo_colaborador",clear_on_submit=True):
-            cc1,cc2=st.columns(2)
-            with cc1:
-                nome_colab=st.text_input("Nome completo *",placeholder="Nome do colaborador"); matricula=st.text_input("Matrícula",placeholder="Matrícula / registro interno"); funcao=st.text_input("Função / cargo",placeholder="Ex.: Almoxarife")
-            with cc2:
-                data_adm=st.date_input("Data de admissão",value=None,format="DD/MM/YYYY",key="data_adm_novo_dialog"); equipe_label=st.selectbox("Equipe",["Sem equipe"]+list(equipes_opts.keys())); foto_arquivo=st.file_uploader("Foto do colaborador *",type=["png","jpg","jpeg","webp"],help="Até 2 MB")
-            salvar=st.form_submit_button("CADASTRAR COLABORADOR",type="primary",use_container_width=True)
-        if salvar:
-            nome_limpo=nome_colab.strip(); mat=matricula.strip() or None
-            if not nome_limpo: st.error("Informe o nome do colaborador.")
-            elif mat and any((x.get("matricula") or "").strip().casefold()==mat.casefold() for x in colaboradores_raw): st.error("Essa matrícula já está cadastrada.")
-            elif foto_arquivo is None: st.error("Inclua a foto do colaborador.")
-            elif foto_arquivo.size>2*1024*1024: st.error("A foto deve ter no máximo 2 MB.")
-            else:
-                try:
-                    equipe_id=equipes_opts.get(equipe_label)
-                    foto_b64=base64.b64encode(foto_arquivo.getvalue()).decode("ascii"); novo=client.table("almox_colaboradores").insert({"nome":nome_limpo,"matricula":mat,"funcao":funcao.strip() or None,"data_admissao":data_adm.isoformat() if data_adm else None,"equipe_id":equipe_id,"equipe_atual":equipe_label if equipe_label!="Sem equipe" else None,"foto_base64":foto_b64,"foto_mime":foto_arquivo.type or "image/jpeg","foto_nome":foto_arquivo.name,"ativo":True}).execute().data
-                    if novo: registrar_historico("colaborador_criado",f"Colaborador criado: {nome_limpo}",{"colaborador_id":novo[0].get("id"),"nome":nome_limpo,"equipe_id":equipe_id}); st.success(f"Colaborador '{nome_limpo}' cadastrado com sucesso."); st.rerun()
-                except Exception as e: st.error(f"Erro ao cadastrar colaborador: {e}")
-
-    @st.dialog("Adicionar colaboradores à equipe")
-    def dialog_adicionar_colaboradores(equipe_id,equipe_nome):
-        atuais={str(c.get("id")) for c in ativos_colaboradores if str(c.get("equipe_id"))==str(equipe_id)}
-        disponiveis=[c for c in ativos_colaboradores if str(c.get("id")) not in atuais]
-        opcoes={f"{c.get('nome','')} — {c.get('matricula') or 'sem matrícula'}":c.get("id") for c in disponiveis}
-        if not opcoes:
-            st.info("Todos os colaboradores ativos já estão vinculados a esta equipe.")
-            return
-        with st.form(f"form_adicionar_colaboradores_{equipe_id}"):
-            selecionados=st.multiselect("Selecione as pessoas que farão parte da equipe",list(opcoes.keys()))
-            salvar=st.form_submit_button("ADICIONAR À EQUIPE",type="primary",use_container_width=True)
-        if salvar:
-            if not selecionados: st.warning("Selecione pelo menos um colaborador.")
-            else:
-                try:
-                    ids=[opcoes[x] for x in selecionados]
-                    for cid in ids: vincular_colaborador_a_equipe(cid,equipe_id,equipe_nome)
-                    registrar_historico("colaboradores_equipe",f"Colaboradores adicionados à equipe: {equipe_nome}",{"equipe_id":equipe_id,"colaborador_ids":ids}); st.success(f"{len(ids)} colaborador(es) vinculado(s) à equipe."); st.rerun()
-                except Exception as e: st.error(f"Erro ao vincular colaboradores: {e}")
-
-    @st.dialog("Definir responsável da equipe")
-    def dialog_responsavel_equipe(equipe_id,equipe_nome,responsavel_atual_id):
-        opcoes={"Nenhum":None}
-        for c in ativos_colaboradores: opcoes[f"{c.get('nome','')} — {c.get('funcao') or 'Sem função'}"]=c.get("id")
-        ids=list(opcoes.values()); idx=ids.index(responsavel_atual_id) if responsavel_atual_id in ids else 0
-        with st.form(f"form_responsavel_{equipe_id}"):
-            escolha=st.selectbox("Responsável",list(opcoes.keys()),index=idx)
-            salvar=st.form_submit_button("VINCULAR RESPONSÁVEL",type="primary",use_container_width=True)
-        if salvar:
+            c1,c2=st.columns(2)
+            with c1:nome=st.text_input("Nome completo *");mat=st.text_input("Matrícula");func=st.text_input("Função / cargo")
+            with c2:data_adm=st.date_input("Data de admissão",value=None,format="DD/MM/YYYY");eq_label=st.selectbox("Equipe",["Sem equipe"]+list(equipes_opts.keys()));foto=st.file_uploader("Foto do colaborador *",type=["png","jpg","jpeg","webp"])
+            ok=st.form_submit_button("CADASTRAR COLABORADOR",type="primary",use_container_width=True)
+        if ok:
+            nome=nome.strip();mat=mat.strip() or None
+            if not nome:st.error("Informe o nome do colaborador.");return
+            if mat and any((x.get("matricula") or "").strip().casefold()==mat.casefold() for x in colaboradores_raw):st.error("Essa matrícula já está cadastrada.");return
+            if foto is None:st.error("Inclua a foto do colaborador.");return
+            if foto.size>2*1024*1024:st.error("A foto deve ter no máximo 2 MB.");return
             try:
-                novo_resp=opcoes[escolha]
-                client.table("almox_equipes").update({"responsavel_id":novo_resp}).eq("id",equipe_id).execute()
-                if novo_resp: vincular_colaborador_a_equipe(novo_resp,equipe_id,equipe_nome)
-                registrar_historico("equipe_responsavel",f"Responsável definido: {equipe_nome}",{"equipe_id":equipe_id,"responsavel_id":novo_resp}); st.rerun()
-            except Exception as e: st.error(f"Erro ao vincular responsável: {e}")
+                eqid=equipes_opts.get(eq_label);b64=base64.b64encode(foto.getvalue()).decode("ascii")
+                novo=client.table("almox_colaboradores").insert({"nome":nome,"matricula":mat,"funcao":func.strip() or None,"data_admissao":data_adm.isoformat() if data_adm else None,"equipe_id":eqid,"equipe_atual":eq_label if eqid else None,"foto_base64":b64,"foto_mime":foto.type or "image/jpeg","foto_nome":foto.name,"ativo":True}).execute().data
+                if novo:registrar_historico("colaborador_criado",f"Colaborador criado: {nome}",{"colaborador_id":novo[0].get("id"),"nome":nome,"equipe_id":eqid});st.success(f"Colaborador '{nome}' cadastrado com sucesso.");st.rerun()
+            except Exception as e:st.error(f"Erro ao cadastrar colaborador: {e}")
+
+    @st.dialog("Metas da equipe")
+    def dialog_metas_equipe(equipe):
+        eid=str(equipe.get("id"));metas=list(config.get("metas_equipes",{}).get(eid,[]))
+        st.caption(f"Equipe: {equipe.get('nome','')}. Cadastre metas mensuráveis para acompanhar a execução.")
+        if metas:
+            for i,m in enumerate(metas):
+                a,b,c=st.columns([2,1,1]);a.write(f"**{m.get('nome','Meta')}**");b.write(f"Meta: **{m.get('valor','—')} {m.get('unidade','')}**");c.write(f"Prazo: **{m.get('prazo','—')}**")
+                if st.button("EXCLUIR",key=f"del_meta_{eid}_{i}"):
+                    metas.pop(i);config["metas_equipes"][eid]=metas;save_global_config();st.rerun()
+        with st.form(f"form_meta_{eid}"):
+            st.markdown("**NOVA META**");a,b,c=st.columns([2,1,1]);nome=a.text_input("Descrição da meta");valor=b.number_input("Valor",min_value=0.0,step=1.0);unidade=c.text_input("Unidade",placeholder="% / pedidos / horas");prazo=st.date_input("Prazo",value=date.today(),format="DD/MM/YYYY");ok=st.form_submit_button("ADICIONAR META",type="primary",use_container_width=True)
+        if ok:
+            if not nome.strip():st.error("Informe a descrição da meta.");return
+            metas.append({"nome":nome.strip(),"valor":valor,"unidade":unidade.strip(),"prazo":prazo.strftime("%d/%m/%Y"),"criada_em":date.today().isoformat()});config["metas_equipes"][eid]=metas
+            if save_global_config():st.success("Meta adicionada.");st.rerun()
+            else:st.error("Não foi possível salvar a meta.")
+
+    with tab_geral:
+        st.markdown('<div class="ge-tabs-note">Visão consolidada da estrutura do almoxarifado, equipes, pessoas e distribuição atual.</div>',unsafe_allow_html=True);a,b=st.columns([1.15,.85])
+        max_equipes=max([sum(1 for c in ativos_colaboradores if str(c.get("equipe_id"))==str(e.get("id"))) for e in ativos_equipes] or [1])
+        with a:
+            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">ESTRUTURA DAS EQUIPES</div>',unsafe_allow_html=True)
+            for idx,e in enumerate(ativos_equipes,1):
+                n=sum(1 for c in ativos_colaboradores if str(c.get("equipe_id"))==str(e.get("id")));tarefas=len(e.get("tarefas") or []);pct_bar=round(n/max_equipes*100,1) if max_equipes else 0
+                st.markdown(f'<div class="ge-mini"><div class="rank">{idx:02d}</div><div class="main"><div class="name">{e.get("nome","")}</div><div class="desc">{n} colaborador(es) · {tarefas} tarefa(s)</div><div class="ge-bar"><span style="width:{pct_bar}%"></span></div></div></div>',unsafe_allow_html=True)
+            if not ativos_equipes:st.markdown('<div class="ge-empty">Nenhuma equipe ativa cadastrada.</div>',unsafe_allow_html=True)
+            st.markdown('</div>',unsafe_allow_html=True)
+        with b:
+            funcoes=Counter((c.get("funcao") or "Sem função").strip().upper() for c in ativos_colaboradores);max_func=max(funcoes.values() or [1])
+            st.markdown('<div class="ge-overview-panel"><div class="ge-panel-title">RESUMO DE PESSOAS</div>',unsafe_allow_html=True)
+            for f,n in sorted(funcoes.items(),key=lambda x:(-x[1],x[0]))[:7]:
+                pct_bar=round(n/max_func*100,1);st.markdown(f'<div class="ge-mini"><div class="main"><div class="name">{f}</div><div class="desc">{n} colaborador(es)</div><div class="ge-bar"><span style="width:{pct_bar}%"></span></div></div></div>',unsafe_allow_html=True)
+            st.markdown('</div>',unsafe_allow_html=True)
+        sem=[c for c in ativos_colaboradores if not c.get("equipe_id")]
+        if sem:st.markdown(f'<div class="ge-alert"><b>Alocação pendente:</b> {len(sem)} colaborador(es) ativo(s) ainda estão sem equipe definida.</div>',unsafe_allow_html=True)
+        recentes=sorted([c for c in ativos_colaboradores if c.get("data_admissao")],key=lambda x:x.get("data_admissao") or "",reverse=True)[:5]
+        cards=[]
+        for c in recentes:
+            dt=pd.to_datetime(c.get("data_admissao"),errors="coerce");cards.append(f'<div style="text-align:center"><div>{foto_html(c,60)}</div><div style="font-weight:900;font-size:12px;margin-top:8px">{nome_curto(c.get("nome"))}</div><div class="muted" style="font-size:11px">{dt.strftime("%d/%m/%Y") if not pd.isna(dt) else "—"}</div></div>')
+        if cards:st.markdown('<div class="panel"><div class="ge-panel-title">ADMISSÕES MAIS RECENTES</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:18px">'+''.join(cards)+'</div></div>',unsafe_allow_html=True)
 
     with tab_equipes:
-        st.markdown('<div class="ge-tabs-note">Cada equipe aparece como um painel operacional, com objetivo, responsável, tarefas e integrantes.</div>',unsafe_allow_html=True)
-        if st.button("CRIAR EQUIPE",type="primary",use_container_width=True,key="abrir_nova_equipe"): dialog_nova_equipe()
-        filtro_eq=st.text_input("Buscar equipe",placeholder="Digite parte do nome...",key="busca_equipe"); equipes_exibicao=[x for x in equipes_raw if filtro_eq.strip().casefold() in (x.get("nome") or "").casefold()]
-        for equipe in equipes_exibicao:
-            eid=str(equipe.get("id")); membros=[c for c in ativos_colaboradores if str(c.get("equipe_id"))==eid]; resp=nomes_colab.get(str(equipe.get("responsavel_id"))); resp_html=f'{foto_html(resp,48)}<div><div class="ge-member-name">{resp.get("nome","")}</div><div class="ge-member-role">{resp.get("funcao") or "Sem função"}</div></div>' if resp else '<div class="ge-empty">Nenhum responsável definido.</div>'; tarefas=''.join([f'<div class="ge-task">{t}</div>' for t in (equipe.get("tarefas") or [])]) or '<div class="ge-empty">Nenhuma tarefa cadastrada.</div>'; membros_html=''.join([f'<div class="ge-member">{foto_html(c,40)}<div><div class="ge-member-name">{c.get("nome","")}</div><div class="ge-member-role">{c.get("funcao") or "Sem função"}</div></div></div>' for c in membros]) or '<div class="ge-empty">Nenhum colaborador associado a esta equipe.</div>'
-            st.markdown(f'<div class="ge-team-card"><div class="ge-team-head"><div><div class="ge-team-title"><span>●</span> {equipe.get("nome","")}</div><div class="ge-team-objective">{equipe.get("objetivo") or "Objetivo não informado."}</div></div><div class="ge-team-status">{"ATIVA" if equipe.get("ativo",True) else "INATIVA"}</div></div><div class="ge-team-grid"><div class="ge-info-box"><div class="ge-info-label">Responsável</div><div style="margin-top:10px;display:flex;align-items:center;gap:11px">{resp_html}</div></div><div class="ge-info-box"><div class="ge-info-label">Integrantes</div><div class="ge-info-value">{len(membros)} colaborador(es)</div><div class="ge-info-label" style="margin-top:14px">Tarefas</div><div class="ge-info-value">{len(equipe.get("tarefas") or [])} atividade(s)</div></div><div class="ge-info-box"><div class="ge-info-label">Tarefas principais</div>{tarefas}</div></div><div class="ge-info-box" style="margin-top:14px"><div class="ge-info-label">Equipe</div>{membros_html}</div></div>',unsafe_allow_html=True)
-            ca,cb,cc=st.columns(3)
-            with ca:
-                if st.button("ADICIONAR COLABORADOR",key=f"add_colab_eq_{eid}",use_container_width=True): dialog_adicionar_colaboradores(eid,equipe.get("nome","") )
-            with cb:
-                if st.button("EDITAR EQUIPE",key=f"editar_eq_{eid}",use_container_width=True): st.session_state["editar_equipe_id"]=eid; st.rerun()
-            with cc:
-                if st.button("INATIVAR EQUIPE" if equipe.get("ativo",True) else "REATIVAR EQUIPE",key=f"status_eq_{eid}",use_container_width=True):
-                    try: client.table("almox_equipes").update({"ativo":not equipe.get("ativo",True)}).eq("id",eid).execute(); registrar_historico("equipe_status",f"Status alterado: {equipe.get('nome','')}",{"equipe_id":eid,"ativo":not equipe.get("ativo",True)}); st.rerun()
-                    except Exception as e: st.error(f"Erro ao alterar status: {e}")
-            if st.button("DEFINIR RESPONSÁVEL",key=f"resp_eq_{eid}",use_container_width=True): dialog_responsavel_equipe(eid,equipe.get("nome","") ,equipe.get("responsavel_id"))
+        st.markdown('<div class="ge-tabs-note">Cada equipe aparece como um painel operacional, com objetivo, responsável, tarefas, integrantes e metas.</div>',unsafe_allow_html=True)
+        if st.button("CRIAR EQUIPE",type="primary",use_container_width=True,key="abrir_nova_equipe"):dialog_nova_equipe()
+        filtro=st.text_input("Buscar equipe",placeholder="Digite parte do nome...",key="busca_equipe");exib=[x for x in equipes_raw if filtro.strip().casefold() in (x.get("nome") or "").casefold()]
+        for e in exib:
+            eid=str(e.get("id"));membros=[c for c in ativos_colaboradores if str(c.get("equipe_id"))==eid];resp=nomes_colab.get(str(e.get("responsavel_id")));metas=config.get("metas_equipes",{}).get(eid,[])
+            resp_html=f'{foto_html(resp,48)}<div><div class="ge-member-name">{resp.get("nome","")}</div><div class="ge-member-role">{resp.get("funcao") or "Sem função"}</div></div>' if resp else '<div class="ge-empty">Nenhum responsável definido.</div>'
+            tarefas=''.join(f'<div class="ge-task">{t}</div>' for t in (e.get("tarefas") or [])) or '<div class="ge-empty">Nenhuma tarefa cadastrada.</div>'
+            membros_html=''.join(f'<div class="ge-member">{foto_html(c,40)}<div><div class="ge-member-name">{c.get("nome","")}</div><div class="ge-member-role">{c.get("funcao") or "Sem função"}</div></div></div>' for c in membros) or '<div class="ge-empty">Nenhum colaborador associado a esta equipe.</div>'
+            st.markdown(f'<div class="ge-team-card"><div class="ge-team-head"><div><div class="ge-team-title"><span>●</span> {e.get("nome","")}</div><div class="ge-team-objective">{e.get("objetivo") or "Objetivo não informado."}</div></div><div class="ge-team-status">{"ATIVA" if e.get("ativo",True) else "INATIVA"}</div></div><div class="ge-team-grid"><div class="ge-info-box"><div class="ge-info-label">Responsável</div><div style="margin-top:10px;display:flex;align-items:center;gap:11px">{resp_html}</div></div><div class="ge-info-box"><div class="ge-info-label">Integrantes</div><div class="ge-info-value">{len(membros)} colaborador(es)</div><div class="ge-info-label" style="margin-top:14px">Tarefas</div><div class="ge-info-value">{len(e.get("tarefas") or [])} atividade(s)</div></div><div class="ge-info-box"><div class="ge-info-label">Tarefas principais</div>{tarefas}</div></div><div class="ge-info-box" style="margin-top:14px"><div class="ge-info-label">EQUIPE</div>{membros_html}</div></div>',unsafe_allow_html=True)
+            a,b,c,d=st.columns(4)
+            with a:
+                if st.button("ADICIONAR COLABORADOR",key=f"add_{eid}",use_container_width=True):
+                    disponiveis=[c for c in ativos_colaboradores if str(c.get("equipe_id"))!=eid]
+                    opts={f"{c.get('nome','')} — {c.get('matricula') or 'sem matrícula'}":c.get("id") for c in disponiveis}
+                    with st.dialog(f"Adicionar colaboradores — {e.get('nome','')}"):
+                        with st.form(f"form_add_{eid}"):
+                            sel=st.multiselect("Colaboradores",list(opts.keys()));ok=st.form_submit_button("ADICIONAR",type="primary",use_container_width=True)
+                        if ok:
+                            if not sel:st.warning("Selecione pelo menos um colaborador.")
+                            else:
+                                for label in sel:vincular_colaborador_a_equipe(opts[label],eid,e.get("nome"))
+                                registrar_historico("colaboradores_equipe",f"Colaboradores adicionados: {e.get('nome','')}",{"equipe_id":eid,"colaborador_ids":[opts[x] for x in sel]});st.rerun()
+            with b:
+                if st.button("METAS DA EQUIPE",key=f"metas_{eid}",use_container_width=True):dialog_metas_equipe(e)
+            with c:
+                if st.button("DEFINIR RESPONSÁVEL",key=f"resp_{eid}",use_container_width=True):
+                    opts={"Nenhum":None};
+                    for col in ativos_colaboradores:opts[f"{col.get('nome','')} — {col.get('funcao') or 'Sem função'}"]=col.get("id")
+                    with st.dialog(f"Responsável — {e.get('nome','')}"):
+                        with st.form(f"form_resp_{eid}"):
+                            labels=list(opts.keys());atual=e.get("responsavel_id");idx=[str(x) for x in opts.values()].index(str(atual)) if atual is not None and str(atual) in [str(x) for x in opts.values()] else 0;escolha=st.selectbox("Responsável",labels,index=idx);ok=st.form_submit_button("VINCULAR RESPONSÁVEL",type="primary",use_container_width=True)
+                        if ok:
+                            rid=opts[escolha];client.table("almox_equipes").update({"responsavel_id":rid}).eq("id",eid).execute()
+                            if rid:vincular_colaborador_a_equipe(rid,eid,e.get("nome"))
+                            registrar_historico("equipe_responsavel",f"Responsável definido: {e.get('nome','')}",{"equipe_id":eid,"responsavel_id":rid});st.rerun()
+            with d:
+                if st.button("EDITAR EQUIPE",key=f"edit_{eid}",use_container_width=True):st.session_state["editar_equipe_id"]=eid;st.rerun()
+            if metas:
+                for m in metas:st.markdown(f'<div class="meta-card"><div class="meta-head"><div class="meta-name">META · {m.get("nome","")}</div><div class="meta-value">{m.get("valor","—")} {m.get("unidade","")}</div></div><div class="muted" style="font-size:11px;margin-top:5px">Prazo: {m.get("prazo","—")}</div></div>',unsafe_allow_html=True)
             if st.session_state.get("editar_equipe_id")==eid:
-                with st.form(f"form_editar_eq_{eid}"):
-                    nome_edit=st.text_input("Nome",value=equipe.get("nome") or ""); obj_edit=st.text_area("Objetivo",value=equipe.get("objetivo") or "",height=100); tarefas_edit=st.text_area("Tarefas — uma por linha",value="\n".join(equipe.get("tarefas") or []),height=100); resp_opts={"Nenhum":None}
-                    for c in ativos_colaboradores: resp_opts[f"{c.get('nome','')} — {c.get('funcao') or 'Sem função'}"]=c.get("id")
-                    ids_resp=list(resp_opts.values()); atual_resp=equipe.get("responsavel_id"); idx_resp=ids_resp.index(atual_resp) if atual_resp in ids_resp else 0; resp_edit=st.selectbox("Responsável",list(resp_opts.keys()),index=idx_resp); salvar_eq=st.form_submit_button("SALVAR ALTERAÇÕES",type="primary")
-                if salvar_eq:
+                with st.form(f"form_edit_{eid}"):
+                    nome_e=st.text_input("Nome",value=e.get("nome") or "");obj_e=st.text_area("Objetivo",value=e.get("objetivo") or "",height=90);tarefas_e=st.text_area("Tarefas — uma por linha",value="\n".join(e.get("tarefas") or []),height=90);ok=st.form_submit_button("SALVAR ALTERAÇÕES",type="primary")
+                if ok:
                     try:
-                        novo_nome=nome_edit.strip()
-                        novo_resp=resp_opts[resp_edit]
-                        client.table("almox_equipes").update({"nome":novo_nome,"objetivo":obj_edit.strip() or None,"tarefas":[x.strip() for x in tarefas_edit.splitlines() if x.strip()],"responsavel_id":novo_resp}).eq("id",eid).execute()
-                        if novo_resp: vincular_colaborador_a_equipe(novo_resp,eid,novo_nome)
-                        registrar_historico("equipe_editada",f"Equipe editada: {novo_nome}",{"equipe_id":eid,"nome":novo_nome,"responsavel_id":novo_resp}); st.session_state.pop("editar_equipe_id",None); st.rerun()
-                    except Exception as e: st.error(f"Erro ao editar equipe: {e}")
+                        client.table("almox_equipes").update({"nome":nome_e.strip(),"objetivo":obj_e.strip() or None,"tarefas":[x.strip() for x in tarefas_e.splitlines() if x.strip()]}).eq("id",eid).execute();st.session_state.pop("editar_equipe_id",None);st.rerun()
+                    except Exception as ex:st.error(f"Erro ao editar equipe: {ex}")
 
     with tab_colaboradores:
-        st.markdown('<div class="ge-tabs-note">Visual em cartões com foto, função, equipe e status.</div>',unsafe_allow_html=True)
-        if st.button("CADASTRAR COLABORADOR",type="primary",use_container_width=True,key="abrir_novo_colaborador"): dialog_novo_colaborador()
-        equipes_opts={x.get("nome",""):x.get("id") for x in ativos_equipes}; cf1,cf2=st.columns([2,1])
-        with cf1: busca=st.text_input("Buscar colaborador",placeholder="Nome, matrícula ou função...",key="busca_colab")
-        with cf2: status=st.selectbox("Status",["Todos","Ativos","Inativos"],key="filtro_status_colab")
+        st.markdown('<div class="ge-tabs-note">Clique diretamente no cartão do colaborador para selecioná-lo. A seleção controla as ações abaixo.</div>',unsafe_allow_html=True)
+        if st.button("CADASTRAR COLABORADOR",type="primary",use_container_width=True,key="abrir_novo_colaborador"):dialog_novo_colaborador()
+        cf1,cf2=st.columns([2,1]);
+        with cf1:busca=st.text_input("Buscar colaborador",placeholder="Nome, matrícula ou função...",key="busca_colab")
+        with cf2:status=st.selectbox("Status",["Todos","Ativos","Inativos"],key="filtro_status_colab")
         filtrados=[]
         for c in colaboradores_raw:
-            texto=" ".join([str(c.get("nome") or ""),str(c.get("matricula") or ""),str(c.get("funcao") or "")]).casefold(); ok=status=="Todos" or (status=="Ativos" and c.get("ativo",True)) or (status=="Inativos" and not c.get("ativo",True))
-            if busca.strip().casefold() in texto and ok: filtrados.append(c)
+            texto=" ".join([str(c.get("nome") or ""),str(c.get("matricula") or ""),str(c.get("funcao") or "")]).casefold();ok=status=="Todos" or (status=="Ativos" and c.get("ativo",True)) or (status=="Inativos" and not c.get("ativo",True))
+            if busca.strip().casefold() in texto and ok:filtrados.append(c)
         if filtrados:
+            selected_id=st.session_state.get("colab_selecionado")
             for base in range(0,len(filtrados),5):
                 cols=st.columns(5)
                 for col,c in zip(cols,filtrados[base:base+5]):
-                    eq_nome=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "Sem equipe")
-                    with col: st.markdown(f'<div class="ge-person-card"><div class="ge-person-photo">{foto_html(c,80)}</div><div class="ge-person-name" title="{c.get("nome","")}">{nome_curto(c.get("nome"))}</div><div class="ge-person-role">{c.get("funcao") or "Sem função"}</div><div class="ge-person-team">{eq_nome}</div><div class="ge-person-status">{"ATIVO" if c.get("ativo",True) else "INATIVO"} · {c.get("matricula") or "sem matrícula"}</div></div>',unsafe_allow_html=True)
-        else: st.info("Nenhum colaborador encontrado.")
-        if filtrados:
-            opcoes={f"{c.get('nome','')} — {c.get('matricula') or 'sem matrícula'}":c for c in filtrados}; escolhido=opcoes[st.selectbox("Selecione um colaborador para ações",list(opcoes.keys()),key="colab_acao")]; cid=str(escolhido.get("id")); ca,cb=st.columns(2)
-            with ca:
-                if st.button("EDITAR COLABORADOR",key=f"editar_colab_{cid}",use_container_width=True): st.session_state["editar_colaborador_id"]=cid; st.rerun()
-            with cb:
+                    cid=str(c.get("id"));label=f"{nome_curto(c.get('nome'))}\n{(c.get('funcao') or 'Sem função').upper()}\n{nomes_eq.get(str(c.get('equipe_id')),c.get('equipe_atual') or 'SEM EQUIPE')}\n{'ATIVO' if c.get('ativo',True) else 'INATIVO'} · {c.get('matricula') or 'sem matrícula'}"
+                    with col:
+                        st.markdown(f'<div class="ge-person-photo" style="margin-top:2px">{foto_html(c,80)}</div>',unsafe_allow_html=True)
+                        if st.button(label,key=f"card_colab_{cid}",use_container_width=True,type="primary" if selected_id==cid else "secondary"):
+                            st.session_state.colab_selecionado=cid;st.rerun()
+        else:st.info("Nenhum colaborador encontrado.")
+        escolhido=next((c for c in filtrados if str(c.get("id"))==str(st.session_state.get("colab_selecionado"))),None)
+        if escolhido:
+            cid=str(escolhido.get("id"));a,b=st.columns(2)
+            with a:
+                if st.button("EDITAR COLABORADOR",key=f"editar_colab_{cid}",use_container_width=True):st.session_state["editar_colaborador_id"]=cid;st.rerun()
+            with b:
                 if st.button("INATIVAR COLABORADOR" if escolhido.get("ativo",True) else "REATIVAR COLABORADOR",key=f"status_colab_{cid}",use_container_width=True):
-                    try: client.table("almox_colaboradores").update({"ativo":not escolhido.get("ativo",True)}).eq("id",cid).execute(); registrar_historico("colaborador_status",f"Status alterado: {escolhido.get('nome','')}",{"colaborador_id":cid,"ativo":not escolhido.get("ativo",True)}); st.rerun()
-                    except Exception as e: st.error(f"Erro ao alterar status: {e}")
+                    client.table("almox_colaboradores").update({"ativo":not escolhido.get("ativo",True)}).eq("id",cid).execute();registrar_historico("colaborador_status",f"Status alterado: {escolhido.get('nome','')}",{"colaborador_id":cid,"ativo":not escolhido.get("ativo",True)});st.rerun()
             if st.session_state.get("editar_colaborador_id")==cid:
                 with st.form(f"form_editar_colab_{cid}"):
-                    ec1,ec2=st.columns(2)
-                    with ec1: nome_e=st.text_input("Nome completo",value=escolhido.get("nome") or ""); mat_e=st.text_input("Matrícula",value=escolhido.get("matricula") or ""); func_e=st.text_input("Função / cargo",value=escolhido.get("funcao") or "")
-                    with ec2:
-                        try: data_val=pd.to_datetime(escolhido.get("data_admissao")).date() if escolhido.get("data_admissao") else None
-                        except Exception: data_val=None
-                        data_e=st.date_input("Data de admissão",value=data_val,format="DD/MM/YYYY",key=f"data_edit_{cid}"); eqids=[None]+list(equipes_opts.values()); atual=escolhido.get("equipe_id"); idx=eqids.index(atual) if atual in eqids else 0; eq_e_label=st.selectbox("Equipe",["Sem equipe"]+list(equipes_opts.keys()),index=idx,key=f"eq_edit_{cid}")
-                        if escolhido.get("foto_base64"): st.image(f"data:{escolhido.get('foto_mime') or 'image/jpeg'};base64,{escolhido['foto_base64']}",width=150); st.caption(f"Foto atual: {escolhido.get('foto_nome') or 'arquivo salvo'}")
-                        foto_e=st.file_uploader("Substituir foto",type=["png","jpg","jpeg","webp"],key=f"foto_edit_{cid}")
-                    salvar_c=st.form_submit_button("SALVAR COLABORADOR",type="primary")
-                if salvar_c:
+                    a,b=st.columns(2)
+                    with a:nome_e=st.text_input("Nome completo",value=escolhido.get("nome") or "");mat_e=st.text_input("Matrícula",value=escolhido.get("matricula") or "");func_e=st.text_input("Função / cargo",value=escolhido.get("funcao") or "")
+                    with b:
+                        try:data_val=pd.to_datetime(escolhido.get("data_admissao")).date() if escolhido.get("data_admissao") else None
+                        except Exception:data_val=None
+                        data_e=st.date_input("Data de admissão",value=data_val,format="DD/MM/YYYY",key=f"data_edit_{cid}");eqs={"Sem equipe":None};eqs.update({x.get("nome",""):x.get("id") for x in ativos_equipes});labels=list(eqs.keys());atual=escolhido.get("equipe_id");idx=labels.index(nomes_eq.get(str(atual),"Sem equipe")) if nomes_eq.get(str(atual),"Sem equipe") in labels else 0;eq_e=st.selectbox("Equipe",labels,index=idx,key=f"eq_edit_{cid}");foto_e=st.file_uploader("Substituir foto",type=["png","jpg","jpeg","webp"],key=f"foto_edit_{cid}")
+                    ok=st.form_submit_button("SALVAR COLABORADOR",type="primary")
+                if ok:
                     mat_e=mat_e.strip() or None
-                    if not nome_e.strip(): st.error("O nome é obrigatório.")
-                    elif mat_e and any(str(x.get("id"))!=cid and (x.get("matricula") or "").strip().casefold()==mat_e.casefold() for x in colaboradores_raw): st.error("Essa matrícula já está cadastrada para outro colaborador.")
+                    if not nome_e.strip():st.error("O nome é obrigatório.")
+                    elif mat_e and any(str(x.get("id"))!=cid and (x.get("matricula") or "").strip().casefold()==mat_e.casefold() for x in colaboradores_raw):st.error("Essa matrícula já está cadastrada para outro colaborador.")
                     else:
-                        try:
-                            eqid=equipes_opts.get(eq_e_label); dados_update={"nome":nome_e.strip(),"matricula":mat_e,"funcao":func_e.strip() or None,"data_admissao":data_e.isoformat() if data_e else None,"equipe_id":eqid,"equipe_atual":eq_e_label if eqid else None}
-                            if foto_e is not None:
-                                if foto_e.size>2*1024*1024: st.error("A foto deve ter no máximo 2 MB."); st.stop()
-                                dados_update.update({"foto_base64":base64.b64encode(foto_e.getvalue()).decode("ascii"),"foto_mime":foto_e.type or "image/jpeg","foto_nome":foto_e.name})
-                            client.table("almox_colaboradores").update(dados_update).eq("id",cid).execute(); registrar_historico("colaborador_editado",f"Colaborador editado: {nome_e.strip()}",{"colaborador_id":cid,"nome":nome_e.strip()}); st.session_state.pop("editar_colaborador_id",None); st.rerun()
-                        except Exception as e: st.error(f"Erro ao salvar colaborador: {e}")
+                        dados={"nome":nome_e.strip(),"matricula":mat_e,"funcao":func_e.strip() or None,"data_admissao":data_e.isoformat() if data_e else None,"equipe_id":eqs[eq_e],"equipe_atual":eq_e if eqs[eq_e] else None}
+                        if foto_e is not None:
+                            if foto_e.size>2*1024*1024:st.error("A foto deve ter no máximo 2 MB.");st.stop()
+                            dados.update({"foto_base64":base64.b64encode(foto_e.getvalue()).decode("ascii"),"foto_mime":foto_e.type or "image/jpeg","foto_nome":foto_e.name})
+                        client.table("almox_colaboradores").update(dados).eq("id",cid).execute();registrar_historico("colaborador_editado",f"Colaborador editado: {nome_e.strip()}",{"colaborador_id":cid,"nome":nome_e.strip()});st.session_state.pop("editar_colaborador_id",None);st.rerun()
 
-elif pagina=="carreira": st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True); st.info(txt("mensagem_carreira"))
+    with tab_organograma:
+        st.markdown('<div class="ge-tabs-note">Monte a hierarquia usando os colaboradores cadastrados. O nível 1 é a raiz; os demais níveis são calculados automaticamente.</div>',unsafe_allow_html=True)
+        people=ativos_colaboradores
+        ids=[str(c.get("id")) for c in people];byid={str(c.get("id")):c for c in people};org=config.get("organograma",{});pais={str(k):str(v) for k,v in (org.get("pais") or {}).items() if str(k) in ids and str(v) in ids and str(k)!=str(v)}
+        root_opts={f"NÍVEL 1 — {c.get('nome','')}":str(c.get('id')) for c in people};root_labels=list(root_opts.keys());root_id=str(org.get("raiz_id")) if str(org.get("raiz_id")) in ids else (str(people[0].get("id")) if people else "")
+        a,b=st.columns([2,1]);
+        with a:titulo_org=st.text_input("Título do organograma",value=org.get("titulo") or "ORGANOGRAMA DO ALMOXARIFADO",key="org_titulo")
+        with b:root_label=st.selectbox("Responsável / raiz",root_labels,index=max(0,[x for x in root_opts.values()].index(root_id)) if root_id in root_opts.values() else 0,key="org_root") if root_opts else None
+        st.markdown("### HIERARQUIA DOS COLABORADORES")
+        novas_pais={}
+        for c in people:
+            cid=str(c.get("id"));options={"NÍVEL 1 — RAIZ":""}
+            for p in people:
+                pid=str(p.get("id"));
+                if pid!=cid:options[f"{nome_curto(p.get('nome'))} — {(p.get('funcao') or 'Sem função').upper()}"]=pid
+            atual=pais.get(cid,"" );opts=list(options.values());idx=opts.index(atual) if atual in opts else 0
+            escolha=st.selectbox(f"{c.get('nome','')} · {c.get('funcao') or 'Sem função'}",list(options.keys()),index=idx,key=f"parent_{cid}")
+            novas_pais[cid]=options[escolha]
+        # valida ciclos; se houver, volta a pessoa para raiz
+        def has_cycle(start,parents):
+            seen=set();cur=start
+            while cur:
+                if cur in seen:return True
+                seen.add(cur);cur=parents.get(cur,"")
+            return False
+        for cid in list(novas_pais):
+            if has_cycle(cid,novas_pais):novas_pais[cid]=""
+        save1,save2=st.columns(2)
+        with save1:
+            if st.button("SALVAR ORGANOGRAMA",type="primary",use_container_width=True,key="save_org"):
+                root_id=str(root_opts.get(root_label)) if root_label else "";config["organograma"]={"titulo":titulo_org.strip() or "ORGANOGRAMA DO ALMOXARIFADO","raiz_id":root_id,"pais":novas_pais}
+                if save_global_config():st.success("Organograma salvo.");st.rerun()
+                else:st.error("Não foi possível salvar o organograma.")
+        with save2:
+            if st.button("REDEFINIR HIERARQUIA",use_container_width=True,key="reset_org"):
+                config["organograma"]={"titulo":"ORGANOGRAMA DO ALMOXARIFADO","raiz_id":None,"pais":{}};save_global_config();st.rerun()
+
+        root_id=str(root_opts.get(root_label)) if root_label else root_id
+        if root_id not in byid and people:root_id=str(people[0].get("id"))
+        if root_id:
+            # para exibição, filhos seguem a hierarquia salva/editada na tela
+            parents=novas_pais
+            def node(c,isroot=False):
+                photo=foto_html(c,58);return f'<div class="org-node {"root" if isroot else ""}">{photo}<strong>{c.get("nome","")}</strong><small>{c.get("funcao") or "Sem função"}</small></div>'
+            children=defaultdict(list)
+            for cid,pid in parents.items():
+                if cid!=root_id and pid:children[pid].append(cid)
+                elif cid!=root_id and not pid:children[root_id].append(cid)
+            def render_level(pid,depth=0):
+                kids=children.get(pid,[])
+                if not kids:return ""
+                inner=''
+                for kid in kids:
+                    inner+=f'<div class="org-child"><div class="org-connector"></div>{node(byid[kid])}{render_level(kid,depth+1)}</div>'
+                return f'<div class="org-children">{inner}</div>'
+            html=f'<div class="org-wrap"><div class="org-title">{titulo_org}</div><div class="org-tree">{node(byid[root_id],True)}<div class="org-connector"></div>{render_level(root_id)}</div></div>'
+            st.markdown(html,unsafe_allow_html=True)
+
+elif pagina=="carreira":
+    st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))
 elif pagina=="configuracoes":
-    st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True); st.write("As configurações abaixo ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
-    st.markdown("### Personalização de textos"); st.caption("Edite os nomes dos menus, títulos, subtítulo e seções. As alterações ficam salvas no Supabase."); novo_textos=textos.copy(); novo_fontes=fontes.copy(); pc1,pc2=st.columns(2)
-    with pc1:
-        st.markdown("**Menus da barra lateral**")
-        for _id,_rotulo in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]: novo_textos["menu_"+_id]=st.text_input(_rotulo,value=textos["menu_"+_id],key="edit_menu_"+_id)
-        st.markdown("**Títulos das páginas**")
-        for _id,_rotulo in [("dashboard","Título Dashboard"),("indicadores","Título Alimentar Indicadores"),("historico","Título Histórico"),("equipes","Título Gestão de Equipes"),("carreira","Título Plano de Carreira"),("configuracoes","Título Configurações")]: novo_textos["titulo_"+_id]=st.text_input(_rotulo,value=textos["titulo_"+_id],key="edit_titulo_"+_id)
-    with pc2:
-        st.markdown("**Subtítulos e seções**"); novo_textos["subtitulo_global"]=st.text_input("Subtítulo principal",value=textos["subtitulo_global"],key="edit_subtitulo_global")
-        for _chave,_rotulo in [("secao_dados_reais","Seção: Dados reais"),("secao_indicadores","Seção: Indicadores"),("secao_historico","Seção: Histórico"),("secao_colaboradores","Seção: Colaboradores"),("secao_equipes","Seção: Equipes"),("secao_organograma","Seção: Organograma"),("secao_plano","Seção: Plano de carreira")]: novo_textos[_chave]=st.text_input(_rotulo,value=textos[_chave],key="edit_"+_chave)
-        st.markdown("**Fontes**"); fonte_index={x:i for i,x in enumerate(FONTES)}; novo_fontes["menu"]=st.selectbox("Fonte dos menus",FONTES,index=fonte_index.get(fontes.get("menu"),0),key="font_menu"); novo_fontes["titulo"]=st.selectbox("Fonte dos títulos",FONTES,index=fonte_index.get(fontes.get("titulo"),0),key="font_titulo"); novo_fontes["subtitulo"]=st.selectbox("Fonte dos subtítulos",FONTES,index=fonte_index.get(fontes.get("subtitulo"),0),key="font_subtitulo")
+    st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True);st.write("As configurações ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
+    st.markdown("### Personalização de textos e fontes");novo_textos=textos.copy();novo_fontes=fontes.copy();a,b=st.columns(2)
+    with a:
+        for _id,_rot in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]:novo_textos["menu_"+_id]=st.text_input("Menu: "+_rot,value=textos["menu_"+_id],key="edit_menu_"+_id)
+        for _id,_rot in [("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]:novo_textos["titulo_"+_id]=st.text_input("Título: "+_rot,value=textos["titulo_"+_id],key="edit_titulo_"+_id)
+    with b:
+        novo_textos["subtitulo_global"]=st.text_input("Subtítulo principal",value=textos["subtitulo_global"],key="edit_subtitulo")
+        fi={x:i for i,x in enumerate(FONTES)};novo_fontes["menu"]=st.selectbox("Fonte dos menus",FONTES,index=fi.get(fontes.get("menu"),0));novo_fontes["titulo"]=st.selectbox("Fonte dos títulos",FONTES,index=fi.get(fontes.get("titulo"),0));novo_fontes["subtitulo"]=st.selectbox("Fonte dos subtítulos",FONTES,index=fi.get(fontes.get("subtitulo"),0))
     if st.button("SALVAR TEXTOS E FONTES",type="primary",use_container_width=True):
-        novo=config.copy(); novo["textos"]=novo_textos; novo["fontes"]=novo_fontes
-        try:
-            if salvar_configuracoes(novo): st.session_state.config=novo; st.success("Textos e fontes salvos no Supabase."); st.rerun()
-            else: st.error("Não foi possível salvar textos e fontes.")
-        except Exception as e: st.error(f"Erro ao salvar textos e fontes: {e}")
-    st.markdown("---"); st.markdown("### Aparência"); col1,col2=st.columns(2)
-    with col1:
-        tema=st.selectbox("Tema",TEMAS,index=TEMAS.index(config.get("tema",TEMAS[0]))); cor=st.selectbox("Cor principal",list(CORES.keys()),index=list(CORES.keys()).index(config.get("cor_principal","Amarelo (Padrão)"))); estilo=st.radio("Estilo dos botões",ESTILOS_BOTOES,index=ESTILOS_BOTOES.index(config.get("estilo_botoes","Amarelo")))
+        config["textos"]=novo_textos;config["fontes"]=novo_fontes
+        if save_global_config():st.success("Textos e fontes salvos.");st.rerun()
+        else:st.error("Não foi possível salvar.")
+    st.markdown("---");st.markdown("### Aparência");a,b=st.columns(2)
+    with a:
+        tema=st.selectbox("Tema",TEMAS,index=TEMAS.index(config.get("tema",TEMAS[0])));cor=st.selectbox("Cor principal",list(CORES.keys()),index=list(CORES.keys()).index(config.get("cor_principal","Amarelo (Padrão)")));estilo=st.radio("Estilo dos botões",ESTILOS_BOTOES,index=ESTILOS_BOTOES.index(config.get("estilo_botoes","Amarelo")))
         if st.button("SALVAR CONFIGURAÇÕES",type="primary",use_container_width=True):
-            novo=config.copy(); novo.update({"tema":tema,"cor_principal":cor,"estilo_botoes":estilo})
-            try:
-                if salvar_configuracoes(novo): st.session_state.config=novo; st.success("Configurações salvas."); st.rerun()
-                else: st.error("Não foi possível salvar as configurações.")
-            except Exception as e: st.error(f"Erro ao salvar as configurações: {e}")
-    with col2:
-        arquivo=st.file_uploader("Logo da empresa",type=["png","jpg","jpeg","svg"],help="Até 2 MB")
-        if arquivo is not None:
-            if arquivo.size>2*1024*1024: st.error("A logo deve ter no máximo 2 MB.")
-            else:
-                dados=base64.b64encode(arquivo.getvalue()).decode("ascii"); novo=config.copy(); novo.update({"logo_base64":dados,"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png"})
-                try:
-                    if salvar_configuracoes(novo): st.session_state.config=novo; st.success("Logo salva no Supabase."); st.rerun()
-                    else: st.error("Não foi possível salvar a logo.")
-                except Exception as e: st.error(f"Erro ao salvar a logo: {e}")
-        if config.get("logo_base64"):
-            mime=config.get("logo_mime") or "image/png"; st.markdown(f'<div class="logo-preview"><img src="data:{mime};base64,{config["logo_base64"]}"></div>',unsafe_allow_html=True)
-        else: st.info("Nenhuma logo configurada.")
+            config.update({"tema":tema,"cor_principal":cor,"estilo_botoes":estilo})
+            if save_global_config():st.success("Configurações salvas.");st.rerun()
+    with b:
+        arquivo=st.file_uploader("Logo da empresa",type=["png","jpg","jpeg","svg"])
+        if arquivo is not None and arquivo.size<=2*1024*1024:
+            config.update({"logo_base64":base64.b64encode(arquivo.getvalue()).decode("ascii"),"logo_name":arquivo.name,"logo_mime":arquivo.type or "image/png"})
+            if save_global_config():st.success("Logo salva.");st.rerun()
+        elif arquivo is not None:st.error("A logo deve ter no máximo 2 MB.")
+        if config.get("logo_base64"):st.markdown(f'<div class="panel"><img src="data:{config.get("logo_mime") or "image/png"};base64,{config["logo_base64"]}" style="max-width:100%;max-height:210px;object-fit:contain"></div>',unsafe_allow_html=True)
+        else:st.info("Nenhuma logo configurada.")
 
 st.markdown(f"<br><div class='muted'>{txt('rodape_linha3')}</div>",unsafe_allow_html=True)
