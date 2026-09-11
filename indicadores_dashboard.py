@@ -102,8 +102,6 @@ def _chart(rows, title, chart_key):
         customdata=[[labels[i], metas[i]] for i in range(len(rows))],
         hovertemplate="%{customdata[0]}<br>Resultado: %{y:.2f}%<br>Meta: %{customdata[1]:.2f}%<extra>Clique para selecionar</extra>",
         cliponaxis=False,
-        selected=dict(marker=dict(opacity=1, line=dict(color="#ffffff", width=2))),
-        unselected=dict(marker=dict(opacity=.72)),
     ))
     fig.add_trace(go.Scatter(
         x=list(range(len(rows))), y=metas, name="Meta", mode="lines+markers",
