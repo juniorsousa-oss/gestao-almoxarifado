@@ -7,6 +7,7 @@ import pandas as pd
 from PIL import Image
 import streamlit as st
 from supabase_client import get_client
+from indicadores_dashboard import render_indicadores
 
 st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")
 
@@ -237,7 +238,8 @@ if pagina=="dashboard":
     with st.expander(txt("diagnostico")):st.write({"Supabase":"conectado","indicadores":len(indicadores),"colaboradores":len(colaboradores),"equipes":len(equipes),"histórico":len(historico),"MRP":len(snapshots)})
 
 elif pagina=="indicadores":
-    st.markdown(f'<div class="notice">{txt("mensagem_indicadores")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)
+    indicadores=rows("almox_indicadores",order="competencia")
+    render_indicadores(indicadores)
 elif pagina=="historico":
     st.markdown(f'<div class="section">{txt("secao_historico")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_historico",order="criado_em")),use_container_width=True,hide_index=True)
 
