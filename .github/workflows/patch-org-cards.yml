@@ -1,0 +1,82 @@
+name: Patch organograma e colaboradores
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar melhorias
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+
+          old_css = '''.org-main{{min-height:620px}}.org-main .org-title{{font-size:20px;margin-bottom:34px}}.org-main .org-node{{width:220px;padding:12px}}.org-main .org-node strong{{font-size:13px}}.org-main .org-node small{{font-size:10px}}.org-main .org-children{{gap:36px}}'''
+          new_css = '''.org-main{{min-height:620px;background:linear-gradient(145deg,#111714,#0b0f0e);border:1px solid #35403b;border-radius:18px;padding:26px 22px 34px;box-shadow:0 14px 40px rgba(0,0,0,.18);overflow:hidden}}.org-main .org-title{{font-size:20px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;margin:0 0 28px;color:#f4f5f4;text-align:center}}.org-main .org-tree{{width:100%;overflow-x:auto;overflow-y:hidden;padding:10px 18px 28px;box-sizing:border-box}}.org-main .org-node{{width:238px;min-height:154px;box-sizing:border-box;padding:16px 14px 14px;border:1px solid #3b4741;border-radius:16px;background:linear-gradient(160deg,#18201c,#0d1210);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;position:relative;box-shadow:0 8px 24px rgba(0,0,0,.20);transition:transform .16s,border-color .16s,box-shadow .16s}}.org-main .org-node:hover{{transform:translateY(-2px);border-color:#ffd43d;box-shadow:0 12px 28px rgba(0,0,0,.28)}}.org-main .org-node.root{{border:2px solid #ffd43d;background:linear-gradient(160deg,#20271f,#111613);box-shadow:0 0 0 5px rgba(255,212,61,.08),0 12px 30px rgba(0,0,0,.25)}}.org-main .org-node img,.org-main .org-node .ge-avatar-fallback{{width:66px!important;height:66px!important;border-radius:50%;object-fit:cover;flex:0 0 66px;border:2px solid #ffd43d;box-shadow:0 0 0 4px rgba(255,212,61,.07)}}.org-main .org-node strong{{display:block;max-width:205px;margin-top:11px;font-size:13px;line-height:1.3;font-weight:900;color:#f4f5f4;text-transform:uppercase;text-align:center;white-space:normal}}.org-main .org-node small{{display:block;max-width:205px;margin-top:5px;font-size:10px;line-height:1.35;font-weight:800;color:#aeb7b2;text-transform:uppercase;text-align:center}}.org-main .org-children{{display:flex;justify-content:center;align-items:flex-start;gap:30px;position:relative;padding-top:34px;margin-top:0}}.org-main .org-children::before{{content:"";position:absolute;top:0;left:50%;height:17px;border-left:2px solid #4a5750}}.org-main .org-child{{position:relative;display:flex;flex-direction:column;align-items:center;min-width:238px;padding-top:17px}}.org-main .org-child::before{{content:"";position:absolute;top:0;left:50%;width:100%;border-top:2px solid #4a5750}}.org-main .org-child:first-child::before{{left:50%;width:50%}}.org-main .org-child:last-child::before{{left:0;width:50%}}.org-main .org-child:only-child::before{{display:none}}.org-main .org-child>.org-connector{{position:absolute;top:0;left:50%;height:17px;border-left:2px solid #4a5750}}.org-main .org-connector{{height:20px;border-left:2px solid #4a5750;margin:0 auto}}'''
+          if old_css not in s:
+              raise SystemExit('CSS antigo do organograma não encontrado.')
+          s = s.replace(old_css, new_css, 1)
+
+          old_cards = '''div[class*="st-key-card_colab_"] button{{height:238px!important;min-height:238px!important;border-radius:16px!important;border:1px solid #34413b!important;background-color:#101513!important;background-repeat:no-repeat!important;background-position:center 15px!important;background-size:88px 88px!important;padding:116px 10px 10px!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;text-align:center!important;white-space:pre-line!important;box-shadow:none!important;font-size:12px!important;font-weight:900!important;line-height:1.45!important;color:#f4f5f4!important}}div[class*="st-key-card_colab_"] button:hover{{border-color:#ffd43d!important}}div[class*="st-key-card_colab_"] button[kind="primary"]{{border:2px solid #ffd43d!important;background-color:#171b15!important}}div[class*="st-key-card_colab_"] button p{{white-space:pre-line!important;text-align:center!important;font-weight:900!important;width:100%!important}}'''
+          new_cards = '''.ge-colab-card{{background:linear-gradient(145deg,#111714,#0c100f);border:1px solid #35403b;border-radius:16px;padding:16px 14px 12px;min-height:278px;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.14)}}.ge-colab-card.selected{{border:2px solid #ffd43d;box-shadow:0 0 0 4px rgba(255,212,61,.08),0 10px 25px rgba(0,0,0,.22)}}.ge-colab-photo{{width:92px;height:92px;border-radius:50%;object-fit:cover;border:2px solid #ffd43d;box-shadow:0 0 0 5px rgba(255,212,61,.07);margin:2px auto 13px;display:block}}.ge-colab-photo-fallback{{width:92px;height:92px;border-radius:50%;border:2px solid #ffd43d;background:#26302b;color:#ffd43d;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:900;margin:2px auto 13px;box-shadow:0 0 0 5px rgba(255,212,61,.07)}}.ge-colab-name{{font-size:13px;font-weight:900;color:#f4f5f4;text-transform:uppercase;text-align:center;line-height:1.25;min-height:33px;display:flex;align-items:center;justify-content:center}}.ge-colab-role{{font-size:11px;font-weight:800;color:#ffd43d;text-transform:uppercase;text-align:center;line-height:1.3;min-height:30px;margin-top:5px;display:flex;align-items:center;justify-content:center}}.ge-colab-team{{font-size:10px;color:#a3ada8;text-transform:uppercase;text-align:center;line-height:1.3;min-height:28px;margin-top:4px;display:flex;align-items:center;justify-content:center}}.ge-colab-meta{{font-size:10px;color:#7f8b85;text-align:center;margin-top:5px;min-height:16px}}.ge-colab-select button{{height:34px!important;min-height:34px!important;border-radius:9px!important;margin-top:10px!important;font-size:10px!important;font-weight:900!important;text-transform:uppercase!important;padding:0 10px!important}}.ge-colab-select button[kind="primary"]{{box-shadow:0 0 0 2px rgba(255,212,61,.14)!important}}'''
+          if old_cards not in s:
+              raise SystemExit('CSS antigo dos cartões não encontrado.')
+          s = s.replace(old_cards, new_cards, 1)
+
+          start = s.find('        if filtrados:\n            selected_id=st.session_state.get("colab_selecionado")')
+          end = s.find('        escolhido=next((c for c in filtrados', start)
+          if start < 0 or end < 0:
+              raise SystemExit('Bloco de cartões dos colaboradores não encontrado.')
+          new_block = '''        if filtrados:
+            selected_id=st.session_state.get("colab_selecionado")
+            for base in range(0,len(filtrados),5):
+                cols=st.columns(5)
+                for col,c in zip(cols,filtrados[base:base+5]):
+                    cid=str(c.get("id"));selecionado=selected_id==cid
+                    nome=(c.get("nome") or "Sem nome").upper();func=(c.get("funcao") or "SEM FUNÇÃO").upper()
+                    equipe=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "SEM EQUIPE");status_txt="ATIVO" if c.get("ativo",True) else "INATIVO"
+                    matricula=str(c.get("matricula") or "SEM MATRÍCULA")
+                    with col:
+                        card_cls="ge-colab-card selected" if selecionado else "ge-colab-card"
+                        st.markdown(f'<div class="{card_cls}">',unsafe_allow_html=True)
+                        if c.get("foto_base64"):
+                            try:
+                                img=Image.open(BytesIO(base64.b64decode(c.get("foto_base64")))).convert("RGB")
+                                st.image(img,width=92)
+                            except Exception:
+                                iniciais="".join([p[:1] for p in nome.split()[:2]]) or "?"
+                                st.markdown(f'<div class="ge-colab-photo-fallback">{iniciais}</div>',unsafe_allow_html=True)
+                        else:
+                            iniciais="".join([p[:1] for p in nome.split()[:2]]) or "?"
+                            st.markdown(f'<div class="ge-colab-photo-fallback">{iniciais}</div>',unsafe_allow_html=True)
+                        st.markdown(f'<div class="ge-colab-name">{nome}</div><div class="ge-colab-role">{func}</div><div class="ge-colab-team">{equipe.upper()}</div><div class="ge-colab-meta">{status_txt} · {matricula}</div>',unsafe_allow_html=True)
+                        st.markdown('<div class="ge-colab-select">',unsafe_allow_html=True)
+                        if st.button("SELECIONAR" if not selecionado else "SELECIONADO",key=f"card_colab_{cid}",use_container_width=True,type="primary" if selecionado else "secondary"):
+                            st.session_state.colab_selecionado=cid;st.rerun()
+                        st.markdown('</div></div>',unsafe_allow_html=True)
+        else:st.info("Nenhum colaborador encontrado.")
+'''
+          s = s[:start] + new_block + s[end:]
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validar Python
+        run: python -m py_compile streamlit_app.py
+
+      - name: Publicar
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: recriar organograma e cartões de colaboradores [skip ci]'
+          git push
