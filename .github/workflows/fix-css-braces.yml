@@ -1,0 +1,62 @@
+name: Fix CSS f-string braces
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-css-braces.yml'
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix CSS braces and validate syntax
+        shell: python
+        run: |
+          from pathlib import Path
+          import ast
+          p = Path('streamlit_app.py')
+          s = p.read_text(encoding='utf-8')
+          replacements = {
+              '.ge-admissoes-grid{': '.ge-admissoes-grid{{',
+              'grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}.ge-admissao-card{': 'grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}}.ge-admissao-card{{',
+              'align-items:center;justify-content:flex-start}.ge-admissao-photo{': 'align-items:center;justify-content:flex-start}}.ge-admissao-photo{{',
+              'align-items:center;justify-content:center}.ge-admissao-name{': 'align-items:center;justify-content:center}}.ge-admissao-name{{',
+              'overflow:hidden;text-overflow:ellipsis}.ge-admissao-date{': 'overflow:hidden;text-overflow:ellipsis}}.ge-admissao-date{{',
+              'font-size:11px;color:#9aa39f}.ge-admissoes-panel{': 'font-size:11px;color:#9aa39f}}.ge-admissoes-panel{{',
+              'padding:16px 18px 14px}.ge-admissoes-panel .ge-panel-title{': 'padding:16px 18px 14px}}.ge-admissoes-panel .ge-panel-title{{',
+              'margin-bottom:8px}.org-focus-head{': 'margin-bottom:8px}}.org-focus-head{{',
+              'margin:4px 0 12px}.org-focus-title{': 'margin:4px 0 12px}}.org-focus-title{{',
+              'text-transform:uppercase}.org-focus-sub{': 'text-transform:uppercase}}.org-focus-sub{{',
+              'margin-top:4px}.org-main{': 'margin-top:4px}}.org-main{{',
+              'min-height:620px}.org-main .org-title{': 'min-height:620px}}.org-main .org-title{{',
+              'margin-bottom:34px}.org-main .org-node{': 'margin-bottom:34px}}.org-main .org-node{{',
+              'width:220px;padding:12px}.org-main .org-node strong{': 'width:220px;padding:12px}}.org-main .org-node strong{{',
+              'font-size:13px}.org-main .org-node small{': 'font-size:13px}}.org-main .org-node small{{',
+              'font-size:10px}.org-main .org-children{': 'font-size:10px}}.org-main .org-children{{',
+              'gap:36px}div[data-testid="stExpander"]{': 'gap:36px}}div[data-testid="stExpander"]{{',
+          }
+          # The first replacement is the essential one; then close the remaining declarations
+          # in this compact CSS block by converting only the known single-brace selectors.
+          for a,b in replacements.items():
+              s = s.replace(a,b)
+          # The CSS block is an f-string, so every literal selector brace must be doubled.
+          # Fix any remaining known selectors in the admissions/org focus block.
+          start = s.find('/* Cartão clicável */')
+          end = s.find('.ge-click-card{{', start)
+          if start >= 0 and end >= 0:
+              block = s[start:end]
+              import re
+              block = re.sub(r'(?<!\{)\{', '{{', block)
+              block = re.sub(r'(?<!\})\}', '}}', block)
+              s = s[:start] + block + s[end:]
+          p.write_text(s, encoding='utf-8')
+          ast.parse(s)
+      - name: Commit fix and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py .github/workflows/fix-css-braces.yml
+          git rm .github/workflows/fix-css-braces.yml
+          git commit -m 'fix: escape CSS braces in Streamlit f-string'
+          git push
