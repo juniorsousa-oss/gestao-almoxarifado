@@ -1,0 +1,47 @@
+name: Aplicar layout validado dos indicadores
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Integrar dashboard de indicadores
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('streamlit_app.py')
+          s=p.read_text(encoding='utf-8')
+          old='from supabase_client import get_client\n'
+          new='from supabase_client import get_client\nfrom indicadores_dashboard import render_indicadores\n'
+          if 'from indicadores_dashboard import render_indicadores' not in s:
+              if old not in s: raise SystemExit('import anchor não encontrado')
+              s=s.replace(old,new,1)
+          old_branch='''elif pagina=="indicadores":\n    st.markdown(f'<div class="notice">{txt("mensagem_indicadores")}</div>',unsafe_allow_html=True);st.dataframe(df(rows("almox_indicadores",order="competencia")),use_container_width=True,hide_index=True)'''
+          new_branch='''elif pagina=="indicadores":\n    indicadores=rows("almox_indicadores",order="competencia")\n    render_indicadores(indicadores)'''
+          if old_branch in s:
+              s=s.replace(old_branch,new_branch,1)
+          elif new_branch not in s:
+              raise SystemExit('bloco de indicadores não encontrado')
+          p.write_text(s,encoding='utf-8')
+      - name: Validar sintaxe
+        run: python -m py_compile streamlit_app.py indicadores_dashboard.py
+      - name: Commit e remover workflow temporário
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app.py indicadores_dashboard.py
+          git commit -m 'feat: aplicar layout validado dos indicadores' || true
+          git rm .github/workflows/apply-indicators-layout.yml
+          git commit -m 'chore: remover workflow temporário dos indicadores'
+          git push
