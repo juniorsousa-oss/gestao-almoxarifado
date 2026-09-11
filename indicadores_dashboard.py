@@ -86,59 +86,48 @@ def _chart(rows, title, chart_key):
         st.error("Não foi possível carregar o componente gráfico.")
         return None
 
-    ordered = rows
-    labels = [_month_label(r.get("competencia")) for r in ordered]
-    values = [float(r.get("valor") or 0) for r in ordered]
-    metas = [float(r.get("meta") or 0) for r in ordered]
+    labels = [_month_label(r.get("competencia")) for r in rows]
+    values = [float(r.get("valor") or 0) for r in rows]
+    metas = [float(r.get("meta") or 0) for r in rows]
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=list(range(len(ordered))),
+        x=list(range(len(rows))),
         y=values,
         name="Resultado",
         marker=dict(color="#ffd43d", line=dict(color="#ffd43d", width=0)),
         text=[_pct(v) for v in values],
         textposition="outside",
+        textfont=dict(color="#f4f5f4", size=10),
+        customdata=[[labels[i], metas[i]] for i in range(len(rows))],
         hovertemplate="%{customdata[0]}<br>Resultado: %{y:.2f}%<br>Meta: %{customdata[1]:.2f}%<extra>Clique para selecionar</extra>",
-        customdata=[[labels[i], metas[i]] for i in range(len(ordered))],
         cliponaxis=False,
+        selected=dict(marker=dict(opacity=1, line=dict(color="#ffffff", width=2))),
+        unselected=dict(marker=dict(opacity=.72)),
     ))
     fig.add_trace(go.Scatter(
-        x=list(range(len(ordered))),
-        y=metas,
-        name="Meta",
-        mode="lines+markers",
-        line=dict(color="#f4f5f4", width=3),
-        marker=dict(color="#f4f5f4", size=5),
+        x=list(range(len(rows))), y=metas, name="Meta", mode="lines+markers",
+        line=dict(color="#f4f5f4", width=3), marker=dict(color="#f4f5f4", size=5),
         hovertemplate="%{customdata[0]}<br>Meta: %{y:.2f}%<extra></extra>",
-        customdata=[[labels[i]] for i in range(len(ordered))],
+        customdata=[[labels[i]] for i in range(len(rows))],
     ))
     fig.update_layout(
         height=285,
         margin=dict(l=35, r=15, t=28, b=45),
-        paper_bgcolor="#0b100e",
-        plot_bgcolor="#0b100e",
+        paper_bgcolor="#0b100e", plot_bgcolor="#0b100e",
         font=dict(color="#b5bcb8", size=10),
         hoverlabel=dict(bgcolor="#111714", font_color="#f4f5f4"),
-        bargap=0.28,
-        showlegend=False,
-        clickmode="event+select",
-        xaxis=dict(
-            tickmode="array", tickvals=list(range(len(ordered))), ticktext=labels,
-            showgrid=False, zeroline=False, fixedrange=False, tickfont=dict(size=9),
-        ),
-        yaxis=dict(
-            range=[0, 105], tickmode="array", tickvals=[0,20,40,60,80,100],
-            ticksuffix="%", gridcolor="#25302b", zeroline=False, fixedrange=True,
-        ),
+        bargap=0.28, showlegend=False, clickmode="event+select",
+        xaxis=dict(tickmode="array", tickvals=list(range(len(rows))), ticktext=labels,
+                   showgrid=False, zeroline=False, fixedrange=True, tickfont=dict(size=9)),
+        yaxis=dict(range=[0, 105], tickmode="array", tickvals=[0,20,40,60,80,100],
+                   ticksuffix="%", gridcolor="#25302b", zeroline=False, fixedrange=True),
+        dragmode=False,
     )
     event = st.plotly_chart(
-        fig,
-        use_container_width=True,
-        key=chart_key,
-        on_select="rerun",
-        selection_mode="points",
-        config={"displayModeBar": False, "responsive": True},
+        fig, use_container_width=True, key=chart_key,
+        on_select="rerun", selection_mode="points",
+        config={"displayModeBar": False, "responsive": True, "scrollZoom": False, "doubleClick": False},
     )
     if event is not None:
         try:
@@ -163,36 +152,41 @@ def _render_indicator(name, rows, index):
     if not chart_rows:
         st.session_state[selected_key] = None
 
-    st.markdown(f'<section class="ind-section"><div class="ind-section-title">{index:02d} · {_safe(name)}</div></section>', unsafe_allow_html=True)
+    # Um único container Streamlit envolve título, controles, banners e gráfico.
+    # Assim os controles pertencem visualmente ao indicador e não ficam soltos no Dashboard.
+    with st.container(border=True):
+        st.markdown(f'<div class="ind-section-title">{index:02d} · {_safe(name)}</div>', unsafe_allow_html=True)
 
-    # Os controles pertencem ao próprio indicador.
-    c1, c2, c3 = st.columns([1.25, 1.25, 5], gap="small")
-    with c1:
-        if st.button("TOTAL DE LANÇAMENTOS", key=f"ind_all_{index}", use_container_width=True, type="primary" if view == "all" else "secondary"):
-            st.session_state[state_key] = "all"
+        c1, c2, c3 = st.columns([1.25, 1.25, 5], gap="small")
+        with c1:
+            if st.button("TOTAL DE LANÇAMENTOS", key=f"ind_all_{index}", use_container_width=True,
+                         type="primary" if view == "all" else "secondary"):
+                st.session_state[state_key] = "all"
+                st.session_state[selected_key] = None
+                st.rerun()
+        with c2:
+            if st.button("AGRUPADO MÊS A MÊS", key=f"ind_month_{index}", use_container_width=True,
+                         type="primary" if view == "month" else "secondary"):
+                st.session_state[state_key] = "month"
+                st.session_state[selected_key] = None
+                st.rerun()
+
+        selected_index = st.session_state.get(selected_key)
+        if selected_index is not None and selected_index >= len(chart_rows):
+            selected_index = None
             st.session_state[selected_key] = None
+
+        st.markdown(_kpis(chart_rows, selected_index), unsafe_allow_html=True)
+        st.markdown('''<div class="ind-chart-panel">
+          <div class="ind-chart-head"><div><div class="ind-chart-title">Comparativo histórico</div>
+          <div class="ind-legend"><span><i class="ind-dot result"></i>Resultado</span>
+          <span><i class="ind-dot target"></i>Meta</span></div></div></div>''', unsafe_allow_html=True)
+        clicked = _chart(chart_rows, name, f"ind_chart_{index}_{view}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if clicked is not None:
+            st.session_state[selected_key] = clicked
             st.rerun()
-    with c2:
-        if st.button("AGRUPADO MÊS A MÊS", key=f"ind_month_{index}", use_container_width=True, type="primary" if view == "month" else "secondary"):
-            st.session_state[state_key] = "month"
-            st.session_state[selected_key] = None
-            st.rerun()
-
-    selected_index = st.session_state.get(selected_key)
-    if selected_index is not None and selected_index >= len(chart_rows):
-        selected_index = None
-        st.session_state[selected_key] = None
-
-    st.markdown('<div class="ind-panel-open">', unsafe_allow_html=True)
-    st.markdown(_kpis(chart_rows, selected_index), unsafe_allow_html=True)
-    st.markdown('''<div class="ind-chart-panel">
-      <div class="ind-chart-head"><div><div class="ind-chart-title">Comparativo histórico</div><div class="ind-legend"><span><i class="ind-dot result"></i>Resultado</span><span><i class="ind-dot target"></i>Meta</span></div></div></div>''', unsafe_allow_html=True)
-    clicked = _chart(chart_rows, name, f"ind_chart_{index}_{view}")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-    if clicked is not None:
-        st.session_state[selected_key] = clicked
-        st.rerun()
 
 
 def render_indicadores(indicadores):
@@ -213,7 +207,6 @@ def render_indicadores(indicadores):
     st.markdown('''<style>
     .ind-page-title{font-size:22px;font-weight:900;color:#f4f5f4;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px}
     .ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:18px}
-    .ind-section{background:linear-gradient(145deg,#101513,#0b0f0e);border:1px solid #34413b;border-radius:16px;padding:10px 10px 0;margin:0 0 4px;overflow:hidden}
     .ind-section-title{font-size:16px;font-weight:900;color:#ffd43d;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px;padding:0 2px}
     .ind-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 9px}
     .ind-kpi{position:relative;min-height:78px;border:1px solid #304039;border-radius:11px;background:linear-gradient(145deg,#151b18,#0d1110);padding:12px 14px;box-sizing:border-box;overflow:hidden}
@@ -226,12 +219,12 @@ def render_indicadores(indicadores):
     .ind-status-arrow{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(34,197,94,.12);color:#4ade80;font-size:23px;font-weight:900;flex:0 0 38px}
     .ind-status.bad .ind-status-arrow{background:rgba(255,77,79,.12);color:#ff6668}.ind-status.neutral .ind-status-arrow{background:rgba(140,150,145,.12);color:#aab2ae}
     .ind-status-text{font-size:14px;font-weight:900;color:#4ade80;margin-top:4px}.ind-status.bad .ind-status-text{color:#ff6668}.ind-status.neutral .ind-status-text{color:#aab2ae}
-    .ind-chart-panel{border:1px solid #26342e;border-radius:11px;background:#0b100e;padding:12px 10px 7px;margin-bottom:14px}
-    .ind-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #202a26;padding:0 1px 9px;margin-bottom:5px}
+    .ind-chart-panel{border:1px solid #26342e;border-radius:11px;background:#0b100e;padding:12px 10px 7px;margin-bottom:0}
+    .ind-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #202a26;padding:0 1px 9px;margin-bottom:0}
     .ind-chart-title{font-size:13px;font-weight:900;color:#f4f5f4}.ind-legend{display:flex;gap:15px;margin-top:7px;font-size:9px;color:#9ba49f}.ind-legend span{display:flex;align-items:center;gap:5px}.ind-dot{display:inline-block;width:15px;height:4px;border-radius:4px}.ind-dot.result{background:#ffd43d}.ind-dot.target{background:#f4f5f4}
-    .ind-panel-open{margin-top:-1px}
-    .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:14px}
-    div[data-testid="stPlotlyChart"]{margin-top:-2px}
+    .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:0}
+    div[data-testid="stPlotlyChart"]{margin-top:-2px!important;margin-bottom:-4px!important}
+    div[data-testid="stVerticalBlockBorderWrapper"]{border-color:#34413b!important;background:linear-gradient(145deg,#101513,#0b0f0e)!important;border-radius:16px!important}
     @media(max-width:900px){.ind-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
     </style>''', unsafe_allow_html=True)
 
