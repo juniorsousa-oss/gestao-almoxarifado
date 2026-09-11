@@ -144,14 +144,26 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
     dem["Projeto_Código"] = dem["Projeto_norm"] + "_" + dem["Código normalizado"]
     dem["Data CM tratada"] = _to_date(dem[d_data_cm])
 
-    # A chave da demanda deve ser única; em caso de problema, interrompe para não duplicar a base.
+    # A chave Projeto_Código é usada para localizar Ação/Descrição sem duplicar o Relatório Geral.
     duplicadas = dem.loc[dem["Projeto_Código"].duplicated(keep=False) & dem["Projeto_Código"].ne("_")]
     if not duplicadas.empty:
         exemplos = ", ".join(duplicadas["Projeto_Código"].drop_duplicates().head(5).tolist())
         raise ValueError(f"Há chaves Projeto_Código duplicadas no Demanda_Projeto. Exemplos: {exemplos}")
 
-    dem_lookup = dem[["Projeto_Código", "Data CM tratada", d_acao, d_desc]].copy()
-    dem_lookup.columns = ["Projeto_Código", "Data CM", "Ação", "Descrição MRP"]
+    # DATA CM é informação do PROJETO, conforme a regra validada na planilha de conferência.
+    cm_validas = dem.loc[dem["Projeto_norm"].ne("") & dem["Data CM tratada"].notna(), ["Projeto_norm", "Data CM tratada"]].copy()
+    conflitos_cm = cm_validas.groupby("Projeto_norm")["Data CM tratada"].nunique()
+    conflitos_cm = conflitos_cm[conflitos_cm > 1]
+    if not conflitos_cm.empty:
+        exemplos = ", ".join(conflitos_cm.index.astype(str).tolist()[:5])
+        raise ValueError(f"Há projetos com mais de uma Data CM válida no Demanda_Projeto. Exemplos: {exemplos}")
+    cm_map = (
+        cm_validas.drop_duplicates("Projeto_norm", keep="first")
+        .set_index("Projeto_norm")["Data CM tratada"].to_dict()
+    )
+
+    dem_lookup = dem[["Projeto_Código", d_acao, d_desc]].copy()
+    dem_lookup.columns = ["Projeto_Código", "Ação", "Descrição MRP"]
 
     # TIPOS — primeira aba MRP_Geral
     g_codigo = _column(mrp_geral, "Código", "Codigo")
@@ -162,10 +174,12 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
     tipos = tipos[tipos["Código normalizado"] != ""].drop_duplicates("Código normalizado", keep="last")
     tipo_map = tipos.set_index("Código normalizado")["Tipo"].to_dict()
 
-    # FUSÃO — mantém todas as linhas do Relatório Geral e adiciona a informação do MRP pela chave.
+    # FUSÃO — mantém todas as linhas do Relatório Geral.
+    # Data CM vem do PROJETO; Ação e Descrição vêm de Projeto_Código para auditoria dos materiais.
     fundida = rel_base.merge(dem_lookup, on="Projeto_Código", how="left", validate="many_to_one")
+    fundida["Data CM"] = fundida["Projeto"].map(cm_map)
     fundida["Tipo"] = fundida["Código normalizado"].map(tipo_map).fillna("")
-    fundida["Chave encontrada no MRP"] = fundida["Data CM"].notna() | fundida["Ação"].notna()
+    fundida["Chave encontrada no MRP"] = fundida["Ação"].notna() | fundida["Descrição MRP"].notna()
 
     inicio_ts = pd.Timestamp(periodo_inicio)
     fim_ts = pd.Timestamp(periodo_fim)
@@ -179,12 +193,16 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
     base["Critério entrega"] = "ATRASADA"
     base["Entregue em dia"] = False
 
-    c1 = base["Data de Separação"].notna() & (base["Data de Separação"] <= base["Data CM"])
-    base.loc[c1, "Critério entrega"] = "DATA DE SEPARAÇÃO <= DATA CM"
+    separacao_dia = base["Data de Separação"].dt.normalize()
+    cm_dia = base["Data CM"].dt.normalize()
+    solicitacao_dia = base["Última Solicitação"].dt.normalize()
+
+    c1 = base["Data de Separação"].notna() & (separacao_dia <= cm_dia)
+    base.loc[c1, "Critério entrega"] = "DATA DE SEPARAÇÃO <= DATA CM (HORA IGNORADA)"
     base.loc[c1, "Entregue em dia"] = True
 
     pend = ~base["Entregue em dia"]
-    c2 = pend & base["Última Solicitação"].notna() & (base["Última Solicitação"] > base["Data CM"])
+    c2 = pend & base["Última Solicitação"].notna() & (solicitacao_dia > cm_dia)
     base.loc[c2, "Critério entrega"] = "SOLICITAÇÃO POSTERIOR À DATA CM"
     base.loc[c2, "Entregue em dia"] = True
 
@@ -203,52 +221,47 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
     atrasadas = int((~base["Entregue em dia"]).sum())
     projetos_programados = int(base["Projeto"].replace("", pd.NA).dropna().nunique())
 
-    # ATENDIDOS COMPLETAMENTE — usa a quantidade efetivamente dependente de fontes futuras indicada em Ação.
-    # Apenas projetos da base programada e linhas do Demanda_Projeto dentro do mesmo período.
-    projetos_base = set(base["Projeto"].dropna().astype(str))
-    dem_periodo = dem[
-        dem["Projeto_norm"].isin(projetos_base)
-        & dem["Data CM tratada"].between(inicio_ts, fim_ts, inclusive="both")
-    ].copy()
+    # ATENDIDOS COMPLETAMENTE — mesma lógica da aba OPS da planilha de conferência.
+    # SOLICITADO = COUNTIF(Relatório Geral, Projeto)
+    # PENDÊNCIAS = COUNTIF(Demanda_Projeto, Projeto)
+    # ATENDIDO = SOLICITADO - PENDÊNCIAS
+    projetos_base = sorted(set(base["Projeto"].replace("", pd.NA).dropna().astype(str)))
+    solic_por_proj = rel_base.groupby("Projeto").size().to_dict()
+    pend_por_proj = dem.groupby("Projeto_norm").size().to_dict()
 
-    registros_demanda = []
-    for idx, row in dem_periodo.iterrows():
-        q = _action_quantities(row[d_acao])
-        pendente = q["Pré Nota"] + q["P.C."] + q["Fabricação"] + q["S.C."]
-        registros_demanda.append({
-            "Projeto": row["Projeto_norm"],
-            "Código": row["Código normalizado"],
-            "Projeto_Código": row["Projeto_Código"],
-            "Descrição": row[d_desc],
-            "Data CM": row["Data CM tratada"],
-            "Ação": row[d_acao],
-            "Qtd Estoque na Ação": q["Estoque"],
-            "Qtd Pré Nota na Ação": q["Pré Nota"],
-            "Qtd P.C. na Ação": q["P.C."],
-            "Qtd Fabricação na Ação": q["Fabricação"],
-            "Qtd S.C. na Ação": q["S.C."],
-            "Quantidade pendente": pendente,
+    resumo_registros = []
+    for projeto in projetos_base:
+        solicitado = int(solic_por_proj.get(projeto, 0))
+        pendencias = int(pend_por_proj.get(projeto, 0))
+        atendido = max(solicitado - pendencias, 0)
+        pct = (atendido / solicitado * 100.0) if solicitado else 0.0
+        resumo_registros.append({
+            "Projeto": projeto,
+            "Solicitações": solicitado,
+            "Pendências no MRP": pendencias,
+            "Atendidas": atendido,
+            "Atendimento (%)": pct,
+            "Atendido completamente": "SIM" if solicitado > 0 and pendencias == 0 else "NÃO",
         })
-    demanda_auditoria = pd.DataFrame(registros_demanda)
+    resumo_projetos = pd.DataFrame(resumo_registros)
+    atendidos_completamente = int(
+        resumo_projetos["Atendido completamente"].eq("SIM").sum()
+    ) if not resumo_projetos.empty else 0
 
-    if demanda_auditoria.empty:
-        resumo_projetos = pd.DataFrame(columns=["Projeto", "Solicitações", "Linhas MRP", "Quantidade pendente", "Atendido completamente"])
-        atendidos_completamente = 0
+    # Detalhamento das pendências do Demanda_Projeto para auditoria.
+    dem_programados = dem[dem["Projeto_norm"].isin(projetos_base)].copy()
+    if dem_programados.empty:
+        demanda_auditoria = pd.DataFrame(columns=["Projeto", "Código", "Projeto_Código", "Descrição", "Data CM", "Ação", "Pendência"])
     else:
-        solic_por_proj = base.groupby("Projeto").size().rename("Solicitações")
-        resumo_projetos = demanda_auditoria.groupby("Projeto", as_index=False).agg(
-            **{
-                "Linhas MRP": ("Projeto_Código", "size"),
-                "Quantidade pendente": ("Quantidade pendente", "sum"),
-                "Linhas com pendência": ("Quantidade pendente", lambda s: int((s > 0).sum())),
-            }
-        )
-        resumo_projetos["Solicitações"] = resumo_projetos["Projeto"].map(solic_por_proj).fillna(0).astype(int)
-        resumo_projetos["Atendido completamente"] = resumo_projetos["Quantidade pendente"].le(0).map({True: "SIM", False: "NÃO"})
-        resumo_projetos = resumo_projetos[[
-            "Projeto", "Solicitações", "Linhas MRP", "Linhas com pendência", "Quantidade pendente", "Atendido completamente"
-        ]]
-        atendidos_completamente = int(resumo_projetos["Atendido completamente"].eq("SIM").sum())
+        demanda_auditoria = pd.DataFrame({
+            "Projeto": dem_programados["Projeto_norm"],
+            "Código": dem_programados["Código normalizado"],
+            "Projeto_Código": dem_programados["Projeto_Código"],
+            "Descrição": dem_programados[d_desc],
+            "Data CM": dem_programados["Data CM tratada"],
+            "Ação": dem_programados[d_acao],
+            "Pendência": 1,
+        })
 
     projetos_atendidos_pct = (atendidos_completamente / projetos_programados * 100.0) if projetos_programados else 0.0
     entregas_em_dia_pct = (entregues / solicitacoes * 100.0) if solicitacoes else 0.0
@@ -290,7 +303,7 @@ def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = 
         "solicitacao_tardia": int(c2.sum()),
         "tipo_ii": int(c3.sum()),
         "sem_separacao": int(sem_sep.sum()),
-        "quantidade_pendente_total": float(demanda_auditoria["Quantidade pendente"].sum()) if not demanda_auditoria.empty else 0.0,
+        "quantidade_pendente_total": int(resumo_projetos["Pendências no MRP"].sum()) if not resumo_projetos.empty else 0,
         "base_fundida": base.to_dict("records"),
         "atrasos": atrasos.to_dict("records"),
         "sem_separacao_detalhe": sem_separacao.to_dict("records"),
@@ -354,18 +367,18 @@ def _excel_auditoria(resultado, meta):
     ]
     metodologia = [
         ["ETAPA", "REGRA"],
-        ["Chave", "Projeto_Código = Projeto + '_' + Código normalizado."],
-        ["Fusão", "Relatório Geral recebe Data CM, Ação e Descrição do Demanda_Projeto pela chave Projeto_Código."],
+        ["Chave", "Projeto_Código = Projeto + '_' + Código normalizado; usada para Ação/Descrição."],
+        ["Fusão", "Data CM é buscada por Projeto. Ação e Descrição são buscadas por Projeto_Código."],
         ["Período", "Data CM entre o primeiro dia do mês atual e hoje - 1 dia, inclusive."],
         ["Solicitações", "Quantidade total de linhas do Relatório Geral após o filtro de Data CM."],
-        ["Entrega direta", "Data de Separação <= Data CM."],
+        ["Entrega direta", "Compara somente a data, ignorando a hora: Data de Separação <= Data CM."],
         ["Solicitação tardia", "Se ainda não entregue em dia e Última Solicitação > Data CM, considerar em dia."],
         ["Tipo II", "Se ainda não entregue em dia e Tipo do material na aba MRP_Geral = II, considerar em dia."],
         ["Atrasada", "Linha que permanece fora dos três critérios anteriores."],
         ["Sem separação", "A coluna Ação é mantida e classificada para evidenciar Estoque, P.C., S.C., Fabricação e/ou Pré Nota."],
         ["Projetos programados", "Quantidade distinta de projetos presentes na base usada para Entregas em Dia."],
-        ["Quantidade pendente", "Soma das quantidades da Ação vinculadas a Pré Nota + P.C. + Fabricação + S.C.; Estoque não é pendência."],
-        ["Atendido completamente", "Projeto cuja Quantidade pendente total no Demanda_Projeto do período é zero."],
+        ["Quantidade pendente", "Quantidade de linhas do projeto ainda existentes no Demanda_Projeto, igual ao COUNTIF da aba OPS."],
+        ["Atendido completamente", "Solicitado = linhas do projeto no Relatório Geral; Atendido = Solicitado - linhas do projeto no Demanda_Projeto; completo quando não resta nenhuma linha pendente."],
         ["Entregas em dia (%)", "Entregues em dia / Solicitações × 100."],
         ["Projetos atendidos (%)", "Atendidos completamente / Projetos programados × 100."],
         ["Resultado final", "Entregas em dia (%) × Projetos atendidos (%) / 100."],
