@@ -133,6 +133,40 @@ div[data-testid="stMetric"]{{background:linear-gradient(145deg,{PANEL},#0d1210);
 .meta-card{{background:#0d1210;border:1px solid #29332f;border-radius:12px;padding:14px;margin-top:10px}}.meta-head{{display:flex;justify-content:space-between;gap:10px;align-items:center}}.meta-name{{font-size:13px;font-weight:900;color:#f4f5f4;text-transform:uppercase}}.meta-value{{font-size:13px;font-weight:900;color:#ffd43d}}.meta-progress{{height:7px;background:#202925;border-radius:99px;overflow:hidden;margin-top:9px}}.meta-progress span{{display:block;height:100%;background:#ffd43d;border-radius:99px}}
 [data-testid="stTabs"] button{{font-size:14px!important;font-weight:800!important;padding:10px 16px!important}}
 @media(max-width:900px){{.ge-team-grid{{grid-template-columns:1fr}}.org-children{{gap:14px}}.org-children::before{{display:none}}}}
+
+/* FIX LAYOUT V2 */
+[data-testid="stVerticalBlockBorderWrapper"]{{min-height:0!important;height:auto!important;align-self:flex-start!important}}
+[data-testid="stVerticalBlockBorderWrapper"]>div{{min-height:0!important;height:auto!important}}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"]{{min-height:0!important;height:auto!important}}
+.ge-colab-card{{width:100%!important;min-height:0!important;height:auto!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}}
+.ge-colab-photo-wrap{{width:96px!important;height:96px!important;margin:0 auto 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;border:2px solid #ffd43d!important;border-radius:50%!important;background:#171d19!important;overflow:hidden!important;box-shadow:0 0 0 5px rgba(255,212,61,.07)!important}}
+.ge-colab-photo-wrap img,.ge-colab-photo-wrap .ge-avatar-img,.ge-colab-photo-wrap .ge-avatar-fallback{{width:92px!important;height:92px!important;min-width:92px!important;min-height:92px!important;border-radius:50%!important;object-fit:cover!important;display:block!important}}
+.ge-colab-name,.ge-colab-role,.ge-colab-team,.ge-colab-meta{{width:100%!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere!important;display:flex!important;align-items:center!important;justify-content:center!important}}
+.ge-colab-name{{min-height:36px!important;font-size:13px!important;line-height:1.25!important;font-weight:900!important;color:#f4f5f4!important;text-transform:uppercase!important}}
+.ge-colab-role{{min-height:30px!important;margin-top:4px!important;font-size:11px!important;line-height:1.3!important;font-weight:900!important;color:#ffd43d!important;text-transform:uppercase!important}}
+.ge-colab-team{{min-height:28px!important;margin-top:3px!important;font-size:10px!important;line-height:1.3!important;color:#a3ada8!important;text-transform:uppercase!important}}
+.ge-colab-meta{{min-height:16px!important;margin-top:4px!important;font-size:10px!important;line-height:1.3!important;color:#7f8b85!important}}
+.ge-colab-select{{width:100%!important;margin-top:9px!important}}.ge-colab-select button{{width:100%!important;height:34px!important;min-height:34px!important;border-radius:9px!important;font-size:10px!important;font-weight:900!important;text-transform:uppercase!important}}
+
+.org-wrap{{width:100%!important;box-sizing:border-box!important;background:linear-gradient(145deg,#111714,#0b0f0e)!important;border:1px solid #34413b!important;border-radius:18px!important;padding:22px!important;min-height:0!important;height:auto!important;box-shadow:0 14px 40px rgba(0,0,0,.18)!important;overflow:hidden!important}}
+.org-wrap .org-title{{font-size:18px!important;line-height:1.25!important;font-weight:900!important;color:#ffd43d!important;text-align:center!important;text-transform:uppercase!important;margin:0 0 10px!important}}
+.org-wrap .org-title-sub{{font-size:11px!important;line-height:1.35!important;color:#8f9994!important;text-align:center!important;margin:0 0 18px!important}}
+.org-tree{{display:flex!important;flex-direction:column!important;align-items:center!important;width:max-content!important;min-width:100%!important;padding:8px 24px 30px!important;box-sizing:border-box!important}}
+.org-node{{width:190px!important;min-width:190px!important;min-height:112px!important;box-sizing:border-box!important;padding:10px 9px 9px!important;border:1px solid #3b4741!important;border-radius:12px!important;background:#121816!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;position:relative!important;overflow:hidden!important}}
+.org-node.root{{border:2px solid #ffd43d!important;background:#18201c!important}}
+.org-node img,.org-node .ge-avatar-fallback,.org-node .fallback{{width:52px!important;height:52px!important;min-width:52px!important;min-height:52px!important;border-radius:50%!important;object-fit:cover!important;border:2px solid #ffd43d!important;display:block!important;margin:0 auto 6px!important}}
+.org-node strong{{display:block!important;width:100%!important;max-width:170px!important;margin:0!important;font-size:9px!important;line-height:1.22!important;font-weight:900!important;color:#f4f5f4!important;text-transform:uppercase!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere!important}}
+.org-node small{{display:block!important;width:100%!important;max-width:170px!important;margin:4px 0 0!important;font-size:8px!important;line-height:1.25!important;font-weight:800!important;color:#aeb7b2!important;text-transform:uppercase!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere!important}}
+.org-connector{{height:24px!important;width:2px!important;background:#4a5750!important;border:0!important;margin:0!important;flex:0 0 24px!important}}
+.org-children{{display:flex!important;flex-direction:row!important;align-items:flex-start!important;justify-content:center!important;gap:26px!important;width:max-content!important;min-width:0!important;position:relative!important;padding-top:30px!important;margin:0!important}}
+.org-children::before{{content:""!important;position:absolute!important;top:14px!important;left:95px!important;right:95px!important;height:2px!important;border:0!important;background:#4a5750!important}}
+.org-child{{width:190px!important;min-width:190px!important;position:relative!important;display:flex!important;flex-direction:column!important;align-items:center!important;padding-top:14px!important;box-sizing:border-box!important}}
+.org-child::before{{content:""!important;position:absolute!important;top:-16px!important;left:50%!important;width:2px!important;height:16px!important;background:#4a5750!important;border:0!important;transform:translateX(-50%)!important}}
+.org-child>.org-connector{{display:none!important}}
+.org-child>.org-children{{margin-top:0!important}}
+.org-children .org-child:only-child::before{{display:block!important}}
+@media(max-width:900px){{.org-children{{gap:12px!important}}.org-children::before{{left:95px!important;right:95px!important}}}}
+
 </style>
 """,unsafe_allow_html=True)
 
@@ -361,31 +395,23 @@ elif pagina=="equipes":
         if filtrados:
             selected_id=st.session_state.get("colab_selecionado")
             for base in range(0,len(filtrados),5):
-                cols=st.columns(5)
+                cols=st.columns(5,gap="medium")
                 for col,c in zip(cols,filtrados[base:base+5]):
                     cid=str(c.get("id"));selecionado=selected_id==cid
-                    nome=(c.get("nome") or "Sem nome").upper();func=(c.get("funcao") or "SEM FUNÇÃO").upper()
-                    equipe=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "SEM EQUIPE");status_txt="ATIVO" if c.get("ativo",True) else "INATIVO"
+                    nome=(c.get("nome") or "Sem nome").upper()
+                    func=(c.get("funcao") or "SEM FUNÇÃO").upper()
+                    equipe=nomes_eq.get(str(c.get("equipe_id")),c.get("equipe_atual") or "SEM EQUIPE")
+                    status_txt="ATIVO" if c.get("ativo",True) else "INATIVO"
                     matricula=str(c.get("matricula") or "SEM MATRÍCULA")
                     with col:
-                        card_cls="ge-colab-card selected" if selecionado else "ge-colab-card"
-                        st.markdown(f'<div class="{card_cls}">',unsafe_allow_html=True)
-                        if c.get("foto_base64"):
-                            try:
-                                img=Image.open(BytesIO(base64.b64decode(c.get("foto_base64")))).convert("RGB")
-                                st.image(img,width=92)
-                            except Exception:
-                                iniciais="".join([p[:1] for p in nome.split()[:2]]) or "?"
-                                st.markdown(f'<div class="ge-colab-photo-fallback">{iniciais}</div>',unsafe_allow_html=True)
-                        else:
-                            iniciais="".join([p[:1] for p in nome.split()[:2]]) or "?"
-                            st.markdown(f'<div class="ge-colab-photo-fallback">{iniciais}</div>',unsafe_allow_html=True)
-                        st.markdown(f'<div class="ge-colab-name">{nome}</div><div class="ge-colab-role">{func}</div><div class="ge-colab-team">{equipe.upper()}</div><div class="ge-colab-meta">{status_txt} · {matricula}</div>',unsafe_allow_html=True)
-                        st.markdown('<div class="ge-colab-select">',unsafe_allow_html=True)
-                        if st.button("SELECIONAR" if not selecionado else "SELECIONADO",key=f"card_colab_{cid}",use_container_width=True,type="primary" if selecionado else "secondary"):
-                            st.session_state.colab_selecionado=cid;st.rerun()
-                        st.markdown('</div></div>',unsafe_allow_html=True)
-        else:st.info("Nenhum colaborador encontrado.")
+                        with st.container(border=True):
+                            card_cls="ge-colab-card selected" if selecionado else "ge-colab-card"
+                            st.markdown(f'<div class="{card_cls}"><div class="ge-colab-photo-wrap">{foto_html(c,92)}</div><div class="ge-colab-name">{nome}</div><div class="ge-colab-role">{func}</div><div class="ge-colab-team">{equipe.upper()}</div><div class="ge-colab-meta">{status_txt} · {matricula}</div></div>',unsafe_allow_html=True)
+                            if st.button("SELECIONADO" if selecionado else "SELECIONAR",key=f"card_colab_{cid}",use_container_width=True,type="primary" if selecionado else "secondary"):
+                                st.session_state.colab_selecionado=cid
+                                st.rerun()
+        else:
+            st.info("Nenhum colaborador encontrado.")
         escolhido=next((c for c in filtrados if str(c.get("id"))==str(st.session_state.get("colab_selecionado"))),None)
         if escolhido:
             cid=str(escolhido.get("id"));a,b=st.columns(2)
@@ -419,35 +445,35 @@ elif pagina=="equipes":
         people=ativos_colaboradores
         ids=[str(c.get("id")) for c in people]
         byid={str(c.get("id")):c for c in people}
-        org=config.get("organograma",{})
-        saved_parents={str(k):str(v) for k,v in (org.get("pais") or {}).items()}
+        orgcfg=config.get("organograma",{})
+        saved_parents={str(k):str(v) for k,v in (orgcfg.get("pais") or {}).items()}
         saved_parents={k:v for k,v in saved_parents.items() if k in ids and v in ids and k!=v}
-        saved_root=str(org.get("raiz_id")) if str(org.get("raiz_id")) in ids else (ids[0] if ids else "")
+        saved_root=str(orgcfg.get("raiz_id")) if str(orgcfg.get("raiz_id")) in ids else (ids[0] if ids else "")
         if people:
             def org_node(c,isroot=False):
-                photo=foto_html(c,58)
-                return f'<div class="org-node {"root" if isroot else ""}">{photo}<strong>{c.get("nome","")}</strong><small>{c.get("funcao") or "Sem função"}</small></div>'
+                photo=foto_html(c,52)
+                cls=" root" if isroot else ""
+                return f'<div class="org-node{cls}">{photo}<strong>{c.get("nome","")}</strong><small>{c.get("funcao") or "Sem função"}</small></div>'
             def build_children(parents,root_id):
                 children=defaultdict(list)
                 for cid in ids:
-                    if cid==root_id:continue
+                    if cid==root_id: continue
                     pid=parents.get(cid,"")
-                    if pid and pid in ids and pid!=cid:children[pid].append(cid)
-                    else:children[root_id].append(cid)
+                    if pid and pid in ids and pid!=cid: children[pid].append(cid)
+                    else: children[root_id].append(cid)
+                for pid in children: children[pid].sort(key=lambda x:(byid[x].get("nome") or "").upper())
                 return children
             def render_children(pid,children):
                 kids=children.get(pid,[])
-                if not kids:return ""
-                inner=""
-                for kid in kids:
-                    inner+=f'<div class="org-child"><div class="org-connector"></div>{org_node(byid[kid])}{render_children(kid,children)}</div>'
-                return f'<div class="org-children">{inner}</div>'
+                if not kids: return ""
+                return '<div class="org-children">'+''.join(f'<div class="org-child">{org_node(byid[kid])}{render_children(kid,children)}</div>' for kid in kids)+'</div>'
             children=build_children(saved_parents,saved_root)
-            st.markdown(f'<div class="org-wrap org-main"><div class="org-title">{org.get("titulo") or "ORGANOGRAMA DO ALMOXARIFADO"}</div><div class="org-tree">{org_node(byid[saved_root],True)}<div class="org-connector"></div>{render_children(saved_root,children)}</div></div>',unsafe_allow_html=True)
+            tree_html=org_node(byid[saved_root],True)+'<div class="org-connector"></div>'+render_children(saved_root,children)
+            st.markdown(f'<div class="org-wrap org-main"><div class="org-title">{orgcfg.get("titulo") or "ORGANOGRAMA DO ALMOXARIFADO"}</div><div class="org-title-sub">Visualização hierárquica por níveis e subordinados.</div><div class="org-tree">{tree_html}</div></div>',unsafe_allow_html=True)
             with st.expander("⚙ AJUSTAR ORGANOGRAMA",expanded=False):
                 root_opts={f"{c.get('nome','')} — {(c.get('funcao') or 'Sem função').upper()}":str(c.get('id')) for c in people}
                 root_labels=list(root_opts.keys());root_index=list(root_opts.values()).index(saved_root) if saved_root in root_opts.values() else 0
-                titulo_org=st.text_input("Título",value=org.get("titulo") or "ORGANOGRAMA DO ALMOXARIFADO",key="org_titulo_ajuste")
+                titulo_org=st.text_input("Título",value=orgcfg.get("titulo") or "ORGANOGRAMA DO ALMOXARIFADO",key="org_titulo_ajuste")
                 root_label=st.selectbox("Responsável / raiz",root_labels,index=root_index,key="org_root_ajuste")
                 draft_root=str(root_opts[root_label]);st.caption("Defina o superior imediato de cada colaborador. A visualização principal mostra somente o organograma.")
                 novas_pais={}
@@ -466,14 +492,13 @@ elif pagina=="equipes":
                         seen.add(cur);cur=parents.get(cur,"")
                     return False
                 for cid in list(novas_pais):
-                    if cid!=draft_root and has_cycle(cid,novas_pais):novas_pais[cid]=""
-                    if cid==draft_root:novas_pais[cid]=""
+                    if cid==draft_root: novas_pais[cid]=""
+                    elif has_cycle(cid,novas_pais): novas_pais[cid]=""
                 if st.button("SALVAR ORGANOGRAMA",type="primary",use_container_width=True,key="salvar_org_ajuste"):
                     config["organograma"]={"titulo":titulo_org.strip() or "ORGANOGRAMA DO ALMOXARIFADO","raiz_id":draft_root,"pais":novas_pais}
-                    if save_global_config():registrar_historico("organograma_atualizado","Organograma atualizado",{"raiz_id":draft_root,"colaboradores":len(people)});st.rerun()
-                    else:st.error("Não foi possível salvar o organograma.")
-        else:st.info("Cadastre colaboradores ativos para montar o organograma.")
-
+                    if save_global_config(): registrar_historico("organograma_atualizado","Organograma atualizado",{"raiz_id":draft_root,"colaboradores":len(people)});st.rerun()
+                    else: st.error("Não foi possível salvar o organograma.")
+        else: st.info("Cadastre colaboradores ativos para montar o organograma.")
 elif pagina=="carreira":
     st.markdown(f'<div class="section">{txt("secao_plano")}</div>',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))
 elif pagina=="configuracoes":
