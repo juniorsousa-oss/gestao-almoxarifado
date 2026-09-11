@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import pandas as pd
 import streamlit as st
+from indicadores_pdf import gerar_pdf_indicadores
 
 
 def _pct(v):
@@ -150,20 +151,19 @@ def _render_indicator(name, rows, index):
     if not chart_rows:
         st.session_state[selected_key] = None
 
-    # Um único container Streamlit envolve título, controles, banners e gráfico.
-    # Assim os controles pertencem visualmente ao indicador e não ficam soltos no Dashboard.
     with st.container(border=True):
         st.markdown(f'<div class="ind-section-title">{index:02d} · {_safe(name)}</div>', unsafe_allow_html=True)
 
-        c1, c2, c3 = st.columns([1.25, 1.25, 5], gap="small")
+        # Alternância em formato de segmento: mesma largura, texto curto e sem truncamento.
+        c1, c2, c3 = st.columns([1, 1, 4.5], gap="small")
         with c1:
-            if st.button("TOTAL DE LANÇAMENTOS", key=f"ind_all_{index}", use_container_width=True,
+            if st.button("VISÃO TOTAL", key=f"ind_all_{index}", use_container_width=True,
                          type="primary" if view == "all" else "secondary"):
                 st.session_state[state_key] = "all"
                 st.session_state[selected_key] = None
                 st.rerun()
         with c2:
-            if st.button("AGRUPADO MÊS A MÊS", key=f"ind_month_{index}", use_container_width=True,
+            if st.button("POR MÊS", key=f"ind_month_{index}", use_container_width=True,
                          type="primary" if view == "month" else "secondary"):
                 st.session_state[state_key] = "month"
                 st.session_state[selected_key] = None
@@ -204,8 +204,8 @@ def render_indicadores(indicadores):
 
     st.markdown('''<style>
     .ind-page-title{font-size:22px;font-weight:900;color:#f4f5f4;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 3px}
-    .ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:18px}
-    .ind-section-title{font-size:16px;font-weight:900;color:#ffd43d;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px;padding:0 2px}
+    .ind-page-sub{font-size:12px;color:#9aa39f;margin-bottom:12px}
+    .ind-section-title{font-size:16px;font-weight:900;color:#ffd43d;text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;padding:0 2px}
     .ind-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 9px}
     .ind-kpi{position:relative;min-height:78px;border:1px solid #304039;border-radius:11px;background:linear-gradient(145deg,#151b18,#0d1110);padding:12px 14px;box-sizing:border-box;overflow:hidden}
     .ind-kpi:after{content:"";position:absolute;width:68px;height:68px;border-radius:50%;right:-25px;bottom:-34px;background:rgba(255,212,61,.06)}
@@ -221,11 +221,32 @@ def render_indicadores(indicadores):
     .ind-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #202a26;padding:0 1px 9px;margin-bottom:0}
     .ind-chart-title{font-size:13px;font-weight:900;color:#f4f5f4}.ind-legend{display:flex;gap:15px;margin-top:7px;font-size:9px;color:#9ba49f}.ind-legend span{display:flex;align-items:center;gap:5px}.ind-dot{display:inline-block;width:15px;height:4px;border-radius:4px}.ind-dot.result{background:#ffd43d}.ind-dot.target{background:#f4f5f4}
     .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:0}
+    .ind-export{display:flex;justify-content:flex-end;margin:0 0 14px}
+    .ind-export-label{font-size:10px;color:#8f9994;text-transform:uppercase;letter-spacing:.35px;margin:7px 0 4px;text-align:right}
     div[data-testid="stPlotlyChart"]{margin-top:-2px!important;margin-bottom:-4px!important}
     div[data-testid="stVerticalBlockBorderWrapper"]{border-color:#34413b!important;background:linear-gradient(145deg,#101513,#0b0f0e)!important;border-radius:16px!important}
     @media(max-width:900px){.ind-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:620px){.ind-section-title{font-size:14px}.ind-page-title{font-size:19px}}
     </style>''', unsafe_allow_html=True)
 
-    st.markdown('<div class="ind-page-title">INDICADORES OPERACIONAIS</div><div class="ind-page-sub">Acompanhamento dos principais indicadores do almoxarifado.</div>', unsafe_allow_html=True)
+    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
+    with head_left:
+        st.markdown('<div class="ind-page-title">INDICADORES OPERACIONAIS</div><div class="ind-page-sub">Acompanhamento dos principais indicadores do almoxarifado.</div>', unsafe_allow_html=True)
+    with head_right:
+        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
+        try:
+            pdf_bytes = gerar_pdf_indicadores(indicadores or [])
+            st.download_button(
+                "EXPORTAR PDF",
+                data=pdf_bytes,
+                file_name="indicadores_operacionais.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="secondary",
+                key="exportar_indicadores_pdf",
+            )
+        except Exception as exc:
+            st.error(f"Não foi possível gerar o PDF: {exc}")
+
     for i, (name, rows) in enumerate(groups.items(), 1):
         _render_indicator(name, rows, i)
