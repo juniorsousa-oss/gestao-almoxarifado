@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Ensure Plano de Carreira script is loaded
         shell: bash
@@ -23,8 +21,10 @@ jobs:
           set -e
           if grep -q 'plano-carreira-v2.js' index.html; then
             echo 'Plano de Carreira já está referenciado no index.html.'
-          else
-            python - <<'PY'
+            exit 0
+          fi
+
+          python - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
@@ -34,24 +34,9 @@ jobs:
               raise SystemExit('Não encontrei </body> no index.html')
           p.write_text(s.replace(marker, tag + marker, 1), encoding='utf-8')
           PY
-          fi
 
-      - name: Aplicar layout validado
-        shell: bash
-        run: |
-          set -e
-          python scripts/apply_layout_validated.py
-          python -m py_compile streamlit_app.py
-
-      - name: Publicar alterações
-        shell: bash
-        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html streamlit_app.py scripts/apply_layout_validated.py
-          if git diff --cached --quiet; then
-            echo 'Nenhuma alteração necessária.'
-            exit 0
-          fi
-          git commit -m 'fix: aplicar layout validado de equipes e organograma [skip ci]'
+          git add index.html
+          git commit -m 'fix: carrega modulo Plano de Carreira'
           git push
