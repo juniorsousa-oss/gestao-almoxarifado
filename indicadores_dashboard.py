@@ -229,6 +229,10 @@ def render_indicadores(indicadores):
     @media(max-width:620px){.ind-section-title{font-size:14px}.ind-page-title{font-size:19px}}
     </style>''', unsafe_allow_html=True)
 
+    for i, (name, rows) in enumerate(groups.items(), 1):
+        _render_indicator(name, rows, i)
+
+    # Divulgação/exportação fica depois de todos os indicadores.
     head_left, head_right = st.columns([5.5, 1.5], gap="medium")
     with head_left:
         st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
@@ -248,5 +252,3 @@ def render_indicadores(indicadores):
         except Exception as exc:
             st.error(f"Não foi possível gerar o PDF: {exc}")
 
-    for i, (name, rows) in enumerate(groups.items(), 1):
-        _render_indicator(name, rows, i)
