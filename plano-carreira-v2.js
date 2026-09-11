@@ -24,5 +24,12 @@
       editor.dataset.dashboardKpiEditor='1';
       document.head.appendChild(editor);
     }
+
+    /* Navegação: Plano de Carreira passa a ser a última aba de Gestão de Equipes. */
+    var tab=document.createElement('script');
+    tab.src='./equipes-carreira-tab.js';
+    tab.async=false;
+    tab.dataset.equipesCareerTab='1';
+    document.head.appendChild(tab);
   });
 })();
