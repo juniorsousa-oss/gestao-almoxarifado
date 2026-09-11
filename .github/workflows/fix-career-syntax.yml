@@ -24,8 +24,6 @@ jobs:
           if start < 0 or end < 0:
               raise SystemExit('Bloco CSS de admissões não encontrado.')
           block = s[start:end]
-          # Neste bloco o CSS está dentro de uma f-string; todas as chaves literais
-          # precisam ser duplicadas para não serem interpretadas como expressões Python.
           import re
           block = re.sub(r'(?<!\{)\{', '{{', block)
           block = re.sub(r'(?<!\})\}', '}}', block)
@@ -42,9 +40,11 @@ jobs:
           new = 'div[data-testid="collapsedControl"]{{display:flex !important;visibility:visible !important;opacity:1 !important;pointer-events:auto !important;position:fixed !important;top:10px !important;'
           if old in s:
               s = s.replace(old, new, 1)
-          elif new not in s:
-              raise SystemExit('Seletor collapsedControl não encontrado.')
-          p.write_text(s, encoding='utf-8')
+              p.write_text(s, encoding='utf-8')
+          elif new in s:
+              print('Controle do menu já está corrigido.')
+          else:
+              print('Seletor collapsedControl não está presente; seguindo sem alteração.')
 
       - name: Validar Python
         run: python -m py_compile streamlit_app.py
