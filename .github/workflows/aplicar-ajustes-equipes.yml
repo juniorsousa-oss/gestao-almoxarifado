@@ -13,6 +13,8 @@ jobs:
           fetch-depth: 0
       - name: Executar patch
         run: python tools/patch_equipes_layout.py
+      - name: Corrigir label gerado
+        run: python tools/fix_generated_label.py
       - name: Validar Python
         run: python -m py_compile streamlit_app.py
       - name: Publicar
@@ -28,6 +30,6 @@ jobs:
         run: |
           git fetch origin main
           git reset --hard origin/main
-          git rm .github/workflows/aplicar-ajustes-equipes.yml tools/patch_equipes_layout.py
+          git rm .github/workflows/aplicar-ajustes-equipes.yml tools/patch_equipes_layout.py tools/fix_generated_label.py tools/.equipes_patch_trigger
           git commit -m 'chore: remover patch temporario da aba equipes'
           git push origin HEAD:main
