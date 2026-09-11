@@ -1,0 +1,57 @@
+name: Remover textos antigos do cabeçalho
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  remove-texts:
+    if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remover somente os dois textos solicitados
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path("index.html")
+          text = path.read_text(encoding="utf-8")
+
+          patterns = [
+              r"\*{0,2}INDICADORES OPERACIONAIS\*{0,2}",
+              r"\*{0,2}Acompanhamento dos principais indicadores do almoxarifado\.\*{0,2}",
+          ]
+
+          new_text = text
+          for pattern in patterns:
+              new_text = re.sub(pattern, "", new_text, flags=re.IGNORECASE)
+
+          if new_text == text:
+              print("Os textos já não estão presentes no index.html.")
+          else:
+              path.write_text(new_text, encoding="utf-8")
+              print("Textos removidos com sucesso.")
+
+      - name: Publicar e remover workflow temporário
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/remove-legacy-header-text.yml
+          git add index.html .github/workflows/remove-legacy-header-text.yml
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração necessária."
+            exit 0
+          fi
+          git commit -m "fix: remover textos antigos do cabeçalho [skip ci]"
+          git push
