@@ -1,0 +1,69 @@
+name: Migrar Plano de Carreira
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mover-plano-carreira.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Mover Plano de Carreira para aba interna
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('streamlit_app.py')
+          s = path.read_text(encoding='utf-8')
+          original = s
+
+          old = 'paginas_ids=["dashboard","indicadores","historico","equipes","carreira","configuracoes"]'
+          new = 'paginas_ids=["dashboard","indicadores","historico","equipes","configuracoes"]\nif st.session_state.pagina=="carreira":st.session_state.pagina="equipes"'
+          if old not in s:
+              raise SystemExit('Não encontrei a lista paginas_ids esperada.')
+          s = s.replace(old, new, 1)
+
+          old = 'tab_geral,tab_organograma,tab_equipes,tab_colaboradores=st.tabs(["VISÃO GERAL","ORGANOGRAMA","EQUIPES","COLABORADORES"])'
+          new = 'tab_geral,tab_organograma,tab_equipes,tab_colaboradores,tab_carreira=st.tabs(["VISÃO GERAL","ORGANOGRAMA","EQUIPES","COLABORADORES",txt("titulo_carreira").upper()])'
+          if old not in s:
+              raise SystemExit('Não encontrei a definição das abas de Gestão de Equipes.')
+          s = s.replace(old, new, 1)
+
+          old = 'elif pagina=="carreira":\n    st.markdown(f\'<div class="section">{txt("secao_plano")}</div>\',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))\nelif pagina=="configuracoes":'
+          new = '    with tab_carreira:\n        st.markdown(f\'<div class="section">{txt("secao_plano")}</div>\',unsafe_allow_html=True);st.info(txt("mensagem_carreira"))\nelif pagina=="configuracoes":'
+          if old not in s:
+              raise SystemExit('Não encontrei o bloco antigo da página Plano de Carreira.')
+          s = s.replace(old, new, 1)
+
+          old = '[("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("carreira","Plano de Carreira"),("configuracoes","Configurações")]:novo_textos["menu_"+_id]'
+          new = '[("dashboard","Dashboard"),("indicadores","Alimentar Indicadores"),("historico","Histórico"),("equipes","Gestão de Equipes"),("configuracoes","Configurações")]:novo_textos["menu_"+_id]'
+          if old not in s:
+              raise SystemExit('Não encontrei a configuração dos textos do menu.')
+          s = s.replace(old, new, 1)
+
+          if s == original:
+              raise SystemExit('Nenhuma alteração aplicada.')
+          path.write_text(s, encoding='utf-8')
+          PY
+
+          python -m py_compile streamlit_app.py
+
+      - name: Commit da alteração e remoção do workflow temporário
+        shell: bash
+        run: |
+          rm -f .github/workflows/mover-plano-carreira.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py .github/workflows/mover-plano-carreira.yml
+          git commit -m "Move Plano de Carreira para Gestão de Equipes"
+          git push origin main
