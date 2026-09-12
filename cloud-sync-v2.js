@@ -1,16 +1,19 @@
 /* CLOUD SYNC V2 — persistência compartilhada do Gestão Almoxarifado
-   Fonte oficial: Supabase / almox_app_state / id=main
-   Estratégia: nuvem > local somente quando houver estado remoto válido;
-   estado local não vazio é preservado quando a nuvem estiver vazia.
+   Otimizado para reduzir egress do Supabase:
+   - estado completo é baixado somente no bootstrap ou quando há mudança remota;
+   - polling consulta apenas atualizado_em;
+   - alterações locais são enviadas somente quando o estado realmente mudou.
 */
 (function(){
   'use strict';
+  if(window.__cloudSyncOptimizedLoaded)return;
+  window.__cloudSyncOptimizedLoaded=true;
 
   const SUPABASE_URL='https://cuixazpxkvniqldmmnth.supabase.co';
   const SUPABASE_KEY='sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye';
   const STATE_ID='main';
-  const POLL_MS=3500;
-  const DEBOUNCE_MS=700;
+  const POLL_MS=30000;
+  const DEBOUNCE_MS=1500;
 
   let client=null;
   let remoteUpdatedAt='';
@@ -74,7 +77,7 @@
     );
   }
 
-  async function readRemote(){
+  async function readRemoteFull(){
     const {data,error}=await client.from('almox_app_state')
       .select('id,estado,atualizado_em')
       .eq('id',STATE_ID)
@@ -83,22 +86,30 @@
     return data||null;
   }
 
+  async function readRemoteMeta(){
+    const {data,error}=await client.from('almox_app_state')
+      .select('atualizado_em')
+      .eq('id',STATE_ID)
+      .maybeSingle();
+    if(error)throw error;
+    return data||null;
+  }
+
   function redraw(){
-    try{ if(typeof render==='function')render(); }catch(e){}
-    try{ if(typeof renderBrand==='function')renderBrand(); }catch(e){}
-    try{ if(typeof renderTeams==='function')renderTeams(); }catch(e){}
-    try{ if(typeof renderCollaborators==='function')renderCollaborators(); }catch(e){}
-    try{ if(typeof renderFreeOrg==='function')renderFreeOrg(); }catch(e){}
-    try{ if(document.getElementById('config')?.classList.contains('active') && typeof loadConfigForm==='function')loadConfigForm(); }catch(e){}
+    try{if(typeof render==='function')render();}catch(e){}
+    try{if(typeof renderBrand==='function')renderBrand();}catch(e){}
+    try{if(typeof renderTeams==='function')renderTeams();}catch(e){}
+    try{if(typeof renderCollaborators==='function')renderCollaborators();}catch(e){}
+    try{if(typeof renderFreeOrg==='function')renderFreeOrg();}catch(e){}
+    try{if(document.getElementById('config')?.classList.contains('active')&&typeof loadConfigForm==='function')loadConfigForm();}catch(e){}
   }
 
   async function writeRemote(reason){
-    if(!client || applyingRemote)return;
+    if(!client||applyingRemote)return;
     const s=snapshot();
     if(!s)return;
     const fp=fingerprint(s);
-    if(fp===lastLocalFingerprint && reason!=='force')return;
-
+    if(fp===lastLocalFingerprint&&reason!=='force')return;
     try{
       const now=new Date().toISOString();
       const {data,error}=await client.from('almox_app_state').upsert({
@@ -117,14 +128,14 @@
   }
 
   function markDirty(reason){
-    if(applyingRemote || !bootFinished)return;
-    dirtyUntil=Date.now()+2500;
+    if(applyingRemote||!bootFinished)return;
+    dirtyUntil=Date.now()+3000;
     clearTimeout(writeTimer);
     writeTimer=setTimeout(()=>writeRemote(reason||'event'),DEBOUNCE_MS);
   }
 
   async function applyRemote(remote){
-    if(!remote?.estado || typeof remote.estado!=='object')return;
+    if(!remote?.estado||typeof remote.estado!=='object')return;
     applyingRemote=true;
     try{
       state=remote.estado;
@@ -145,18 +156,13 @@
       }
       client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
       status('VERIFICANDO NUVEM...',false);
-
-      /* Espera a sincronização antiga terminar para evitar corrida de estado. */
-      await new Promise(r=>setTimeout(r,1800));
-      const remote=await readRemote();
+      const remote=await readRemoteFull();
       const local=snapshot();
       const remoteValid=hasMeaningfulData(remote?.estado);
       const localValid=hasMeaningfulData(local);
-
       if(remoteValid){
         await applyRemote(remote);
       }else if(localValid){
-        /* Primeiro navegador ainda possui os dados: migra-os para a nuvem. */
         lastLocalFingerprint='';
         await writeRemote('bootstrap-local');
       }else if(remote?.estado){
@@ -164,7 +170,6 @@
       }else if(local){
         await writeRemote('bootstrap-empty');
       }
-
       bootFinished=true;
       status('CLOUD ATIVO',false);
     }catch(e){
@@ -175,19 +180,20 @@
   }
 
   async function poll(){
-    if(!client || !bootFinished || applyingRemote)return;
+    if(!client||!bootFinished||applyingRemote||Date.now()<dirtyUntil)return;
     try{
-      const remote=await readRemote();
-      if(!remote?.estado || !remote.atualizado_em)return;
-      const rt=new Date(remote.atualizado_em).getTime();
+      const meta=await readRemoteMeta();
+      if(!meta?.atualizado_em)return;
+      const rt=new Date(meta.atualizado_em).getTime();
       const kt=remoteUpdatedAt?new Date(remoteUpdatedAt).getTime():0;
-      if(rt<=kt || Date.now()<dirtyUntil)return;
-
+      if(rt<=kt)return;
+      const remote=await readRemoteFull();
+      if(!remote?.estado)return;
       const current=snapshot();
       const remoteFp=fingerprint(remote.estado);
       const currentFp=fingerprint(current);
       if(remoteFp===currentFp){
-        remoteUpdatedAt=remote.atualizado_em;
+        remoteUpdatedAt=remote.atualizado_em||meta.atualizado_em;
         lastLocalFingerprint=currentFp;
         return;
       }
@@ -205,16 +211,8 @@
     writeTimer=setTimeout(()=>writeRemote('manual'),50);
   };
 
-  /* Captura as alterações feitas pela interface, inclusive quando alguma
-     função interna não chama save(). */
-  ['click','change','input','drop','dragend'].forEach(type=>{
-    document.addEventListener(type,function(e){
-      if(e.target?.closest?.('#cloudSyncStatus'))return;
-      markDirty(type);
-    },true);
-  });
-
-  /* Mantém compatibilidade com a função save() existente. */
+  /* A aplicação já chama save() nas alterações reais. Evitamos observar
+     todos os cliques/inputs, pois isso gerava sincronizações desnecessárias. */
   const oldSave=window.save;
   if(typeof oldSave==='function'){
     window.save=function(){
@@ -224,45 +222,37 @@
     };
   }
 
-  /* Se o aplicativo escrever no localStorage diretamente, também sincroniza. */
   try{
     const oldSetItem=Storage.prototype.setItem;
     Storage.prototype.setItem=function(key,value){
       const result=oldSetItem.apply(this,arguments);
-      if(!applyingRemote && bootFinished)markDirty('storage');
+      if(!applyingRemote&&bootFinished)markDirty('storage');
       return result;
     };
   }catch(e){console.warn('[CLOUD V2] storage hook:',e)}
 
   window.addEventListener('beforeunload',function(){
-    if(bootFinished && !applyingRemote)window.syncCloudNowV2();
+    if(bootFinished&&!applyingRemote)window.syncCloudNowV2();
   });
 
   bootstrap();
   setInterval(poll,POLL_MS);
 
-  /*
-     CARREGAMENTO EXPLÍCITO DO LAYOUT DO ORGANOGRAMA.
-     O arquivo de layout já existe no projeto, mas não estava sendo incluído
-     pelo index.html. Carregamos aqui para não alterar o restante do aplicativo.
-  */
+  /* Mantém o layout do organograma existente. */
   function loadOrgLayout(){
     if(document.getElementById('organograma-layout-v8-loader'))return;
     const s=document.createElement('script');
     s.id='organograma-layout-v8-loader';
     s.src='./organograma-layout-v7.js?v=8';
     s.async=false;
-    s.onload=function(){ console.info('[ORGANOGRAMA] layout V8 carregado'); };
-    s.onerror=function(){ console.error('[ORGANOGRAMA] não foi possível carregar o layout V8'); };
+    s.onload=function(){console.info('[ORGANOGRAMA] layout V8 carregado');};
+    s.onerror=function(){console.error('[ORGANOGRAMA] não foi possível carregar o layout V8');};
     document.body.appendChild(s);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadOrgLayout,{once:true});
   else loadOrgLayout();
 
-  /* =========================================================
-     EDITOR ISOLADO — CABEÇALHOS DO DASHBOARD
-     Não altera menu, Gestão de Equipes, organograma ou Plano de Carreira.
-     ========================================================= */
+  /* EDITOR ISOLADO — CABEÇALHOS DO DASHBOARD */
   (function dashboardHeaderEditor(){
     const STYLE_ID='dashboard-header-editor-style';
     const MODAL_ID='dashboardHeaderModal';
@@ -290,10 +280,7 @@
       modal.id=MODAL_ID;
       modal.innerHTML=`
         <div class="modal-box">
-          <div class="modal-head">
-            <h3>Editar cabeçalhos do Dashboard</h3>
-            <button class="close" type="button" data-dash-head-close>×</button>
-          </div>
+          <div class="modal-head"><h3>Editar cabeçalhos do Dashboard</h3><button class="close" type="button" data-dash-head-close>×</button></div>
           <div class="notice">Edite somente os títulos e rótulos exibidos no Dashboard. Os números dos indicadores não são alterados nesta tela.</div>
           <div class="dashboard-header-section">
             <h4>01 · ACURÁCIA DE ESTOQUE</h4>
@@ -325,10 +312,7 @@
               <div class="field"><label>BARRA 2</label><input id="dashHeadProg2"></div>
             </div>
           </div>
-          <div class="dashboard-header-actions">
-            <button class="btn" type="button" data-dash-head-cancel>CANCELAR</button>
-            <button class="btn btn-primary" type="button" data-dash-head-save>SALVAR CABEÇALHOS</button>
-          </div>
+          <div class="dashboard-header-actions"><button class="btn" type="button" data-dash-head-cancel>CANCELAR</button><button class="btn btn-primary" type="button" data-dash-head-save>SALVAR CABEÇALHOS</button></div>
         </div>`;
       document.body.appendChild(modal);
       modal.addEventListener('click',e=>{
@@ -342,41 +326,23 @@
     function setValue(id,v){const e=document.getElementById(id);if(e)e.value=v||'';}
 
     function openHeaders(){
-      ensureStyle();
       ensureModal();
       const t=state?.texts||{};
-      setValue('dashHeadAccSection',t.accSection);
-      setValue('dashHeadAccKpi1',t.accKpi1);
-      setValue('dashHeadAccKpi2',t.accKpi2);
-      setValue('dashHeadAccKpi3',t.accKpi3);
-      setValue('dashHeadDelSection',t.delSection);
-      setValue('dashHeadDelKpi1',t.delKpi1);
-      setValue('dashHeadDelKpi2',t.delKpi2);
-      setValue('dashHeadDelKpi3',t.delKpi3);
-      setValue('dashHeadDelKpi4',t.delKpi4);
-      setValue('dashHeadAccChart',t.accChart);
-      setValue('dashHeadDelChart',t.delChart);
-      setValue('dashHeadProg1',t.prog1);
-      setValue('dashHeadProg2',t.prog2);
+      setValue('dashHeadAccSection',t.accSection);setValue('dashHeadAccKpi1',t.accKpi1);setValue('dashHeadAccKpi2',t.accKpi2);setValue('dashHeadAccKpi3',t.accKpi3);
+      setValue('dashHeadDelSection',t.delSection);setValue('dashHeadDelKpi1',t.delKpi1);setValue('dashHeadDelKpi2',t.delKpi2);setValue('dashHeadDelKpi3',t.delKpi3);setValue('dashHeadDelKpi4',t.delKpi4);
+      setValue('dashHeadAccChart',t.accChart);setValue('dashHeadDelChart',t.delChart);setValue('dashHeadProg1',t.prog1);setValue('dashHeadProg2',t.prog2);
       document.getElementById(MODAL_ID).classList.add('open');
     }
 
     function saveHeaders(){
       if(!state)return;
       state.texts=state.texts||{};
-      const fields={
-        accSection:'dashHeadAccSection',accKpi1:'dashHeadAccKpi1',accKpi2:'dashHeadAccKpi2',accKpi3:'dashHeadAccKpi3',
-        delSection:'dashHeadDelSection',delKpi1:'dashHeadDelKpi1',delKpi2:'dashHeadDelKpi2',delKpi3:'dashHeadDelKpi3',delKpi4:'dashHeadDelKpi4',
-        accChart:'dashHeadAccChart',delChart:'dashHeadDelChart',prog1:'dashHeadProg1',prog2:'dashHeadProg2'
-      };
+      const fields={accSection:'dashHeadAccSection',accKpi1:'dashHeadAccKpi1',accKpi2:'dashHeadAccKpi2',accKpi3:'dashHeadAccKpi3',delSection:'dashHeadDelSection',delKpi1:'dashHeadDelKpi1',delKpi2:'dashHeadDelKpi2',delKpi3:'dashHeadDelKpi3',delKpi4:'dashHeadDelKpi4',accChart:'dashHeadAccChart',delChart:'dashHeadDelChart',prog1:'dashHeadProg1',prog2:'dashHeadProg2'};
       Object.entries(fields).forEach(([key,id])=>{const v=value(id);if(v)state.texts[key]=v;});
       try{
         if(typeof save==='function')save();
         else localStorage.setItem(KEY,JSON.stringify(state));
-      }catch(e){
-        alert('Não foi possível salvar os cabeçalhos.');
-        return;
-      }
+      }catch(e){alert('Não foi possível salvar os cabeçalhos.');return;}
       try{if(typeof render==='function')render();}catch(e){}
       document.getElementById(MODAL_ID)?.classList.remove('open');
       status('CABEÇALHOS SALVOS',false);
@@ -384,41 +350,24 @@
 
     function ensureButton(){
       const dashboard=document.getElementById('dashboard');
-      if(!dashboard || document.getElementById('dashboardHeaderEditBtn'))return;
+      if(!dashboard||document.getElementById('dashboardHeaderEditBtn'))return;
       const firstTitle=document.getElementById('accSectionTitle');
       if(!firstTitle)return;
       const wrap=document.createElement('div');
       wrap.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:12px;';
       firstTitle.style.marginBottom='0';
-      firstTitle.parentNode.insertBefore(wrap,firstTitle);
-      wrap.appendChild(firstTitle);
+      firstTitle.parentNode.insertBefore(wrap,firstTitle);wrap.appendChild(firstTitle);
       const btn=document.createElement('button');
-      btn.id='dashboardHeaderEditBtn';
-      btn.className='btn btn-small';
-      btn.type='button';
-      btn.textContent='EDITAR CABEÇALHOS';
-      btn.title='Editar títulos e rótulos do Dashboard';
-      btn.addEventListener('click',openHeaders);
-      wrap.appendChild(btn);
+      btn.id='dashboardHeaderEditBtn';btn.className='btn btn-small';btn.type='button';btn.textContent='EDITAR CABEÇALHOS';btn.title='Editar títulos e rótulos do Dashboard';
+      btn.addEventListener('click',openHeaders);wrap.appendChild(btn);
     }
 
-    function init(){
-      ensureStyle();
-      ensureModal();
-      ensureButton();
-    }
-
-    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
-    else init();
-
+    function init(){installStyle();ensureModal();ensureButton();}
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
     const oldShowView=window.showView;
     if(typeof oldShowView==='function'&&!window.__dashboardHeaderEditorPatched){
       window.__dashboardHeaderEditorPatched=true;
-      window.showView=function(id,b){
-        const result=oldShowView.apply(this,arguments);
-        if(id==='dashboard')setTimeout(ensureButton,0);
-        return result;
-      };
+      window.showView=function(id,b){const result=oldShowView.apply(this,arguments);if(id==='dashboard')setTimeout(ensureButton,0);return result;};
     }
   })();
 })();
