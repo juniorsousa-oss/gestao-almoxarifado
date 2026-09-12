@@ -74,8 +74,33 @@ def rotulo_mes(periodo):
         return str(periodo or "—")
 
 
+def _periodo_corte(indicadores, modo="ATUAL", periodo=None):
+    """Define o último mês que aparecerá na exportação."""
+    if str(modo).upper().startswith("MÊS") or str(modo).upper().startswith("MES"):
+        try:
+            return pd.Period(str(periodo), freq="M")
+        except Exception:
+            return None
+
+    df = _ordenar_lancamentos(indicadores)
+    if df.empty:
+        return None
+    return df["_competencia"].dt.to_period("M").max()
+
+
 def preparar_exportacao(indicadores, modo="ATUAL", periodo=None):
-    """Seleciona um único fechamento mensal por indicador para as imagens exportadas."""
+    """
+    Prepara a série mensal para exportação.
+
+    O mês escolhido é o mês de corte, e não o único mês mostrado:
+    - ATUAL: janeiro até o último mês disponível do ano mais recente;
+    - MÊS ESPECÍFICO: janeiro até o mês selecionado;
+    - em cada mês vale somente o último lançamento, nunca a média.
+    """
+    corte = _periodo_corte(indicadores, modo, periodo)
+    if corte is None:
+        return []
+
     grupos = {}
     for row in indicadores or []:
         nome = normalizar_indicador(row.get("indicador"))
@@ -88,17 +113,20 @@ def preparar_exportacao(indicadores, modo="ATUAL", periodo=None):
     saida = []
     for nome, rows in grupos.items():
         mensais = consolidar_ultimo_por_mes(rows)
-        if not mensais:
-            continue
-        if str(modo).upper().startswith("MÊS") or str(modo).upper().startswith("MES"):
-            alvo = str(periodo or "")
-            candidatos = []
-            for row in mensais:
-                dt = pd.to_datetime(row.get("competencia"), errors="coerce")
-                if pd.notna(dt) and str(dt.to_period("M")) == alvo:
-                    candidatos.append(row)
-            if candidatos:
-                saida.append(candidatos[-1])
-        else:
-            saida.append(mensais[-1])
+        for row in mensais:
+            dt = pd.to_datetime(row.get("competencia"), errors="coerce")
+            if pd.isna(dt):
+                continue
+            periodo_row = dt.to_period("M")
+            if periodo_row.year == corte.year and periodo_row <= corte:
+                item = dict(row)
+                item["indicador"] = nome
+                saida.append(item)
+
+    saida.sort(
+        key=lambda r: (
+            normalizar_indicador(r.get("indicador")),
+            pd.to_datetime(r.get("competencia"), errors="coerce"),
+        )
+    )
     return saida
