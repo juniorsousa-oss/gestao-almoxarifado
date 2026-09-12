@@ -13,7 +13,7 @@ from supabase_client import get_client
 
 INDICADOR = "ENTREGAS NO PRAZO"
 TZ_APP = ZoneInfo("America/Sao_Paulo")
-LOGIC_VERSION = "2026-09-11-otif-almox-funil-v4"
+LOGIC_VERSION = "2026-09-11-otif-almox-funil-v5"
 TOL = 1e-9
 
 
@@ -98,7 +98,10 @@ def _parse_action(action):
     for label, pattern in patterns:
         for m in re.finditer(pattern, text, flags=re.IGNORECASE):
             out[label] += _num(m.group(1))
-    out["Compra"] = out["Pré Nota"] + out["P.C."]
+    # Pré Nota é subconjunto do P.C.; nunca somar os dois.
+    # MAX preserva a classificação quando a Ação detalha apenas um dos estágios,
+    # sem inflar a quantidade de compra quando ambos aparecem.
+    out["Compra"] = max(out["Pré Nota"], out["P.C."])
     out["Externo"] = out["Compra"] + out["Fabricação"] + out["S.C."]
     return out
 
@@ -467,7 +470,7 @@ def calcular_entregas_v2(relatorio_file, for022_file, cadastro_file, mrp_file, d
         ["Fora do indicador · Tipo II", tipo_ii_qtd],
         ["Global · base após Tipo II", global_base],
         ["Fora On Time Almox · solicitação no dia/após CM ou sem data", late_qtd],
-        ["Fora On Time Almox · Compra (Pré Nota + P.C.)", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Compra"].sum())],
+        ["Fora On Time Almox · Compra (P.C.; Pré Nota já contida)", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Compra"].sum())],
         ["Fora On Time Almox · Fabricação", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Fabricação"].sum())],
         ["Fora On Time Almox · S.C.", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída S.C."].sum())],
         ["Base elegível On Time Almox", almox_base],
@@ -637,7 +640,7 @@ def _excel_auditoria(resultado, meta):
         ["On Time oficial", "Usa Data de Separação, comparando somente a data, sem hora."],
         ["On Time simulado", "Usa Data de Conferência apenas como leitura paralela para futura migração."],
         ["Causa raiz", "MRP, 3ª aba Demanda_Projeto. A coluna Ação define a parcela pendente prevista por Estoque, Compra, Fabricação ou S.C."],
-        ["Pré Nota", "Mesma família de P.C.; ambos são classificados como COMPRA e não representam estoque disponível."],
+        ["Pré Nota", "É subconjunto do P.C. e não é somada a ele. Para a causa COMPRA, usa-se uma única quantidade: o maior valor identificado entre P.C. e Pré Nota na Ação, evitando dupla contagem."],
         ["Elegibilidade On Time Almox", "Não Tipo II + solicitação anterior à CM. Da pendência atual, retira a parcela explicitamente coberta por Compra, Fabricação ou S.C. no MRP."],
         ["Perda Almox", "Quantidade elegível que não foi separada até a Data CM. Pendência em estoque permanece responsabilidade do Almox."],
         ["On Time Almox", "Quantidade elegível atendida até a Data CM / quantidade elegível total."],
@@ -732,7 +735,7 @@ def _salvar(resultado, meta):
         "valor": round(float(resultado["otif_almox_pct"]), 2),
         "meta": round(float(meta), 2),
         "unidade": "%",
-        "observacao": json.dumps({"origem": "otif_almox_funil_v4", **audit}, ensure_ascii=False, separators=(",", ":")),
+        "observacao": json.dumps({"origem": "otif_almox_funil_v5", **audit}, ensure_ascii=False, separators=(",", ":")),
         "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     existente = (
