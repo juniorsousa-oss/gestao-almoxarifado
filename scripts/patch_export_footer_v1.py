@@ -1,4 +1,5 @@
 from pathlib import Path
+# trigger final
 p=Path('indicadores_pdf.py')
 t=p.read_text(encoding='utf-8')
 old='''    _text(d, (left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)'''
