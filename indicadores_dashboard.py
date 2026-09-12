@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import streamlit as st
 from indicadores_pdf import gerar_pdf_indicadores
+from indicadores_regras import consolidar_ultimo_por_mes, meses_disponiveis, preparar_exportacao, rotulo_mes
 from indicadores_entregas_v2 import render_alimentacao_entregas_v2
 from indicadores_historico import render_historico_otif
 
@@ -45,19 +46,9 @@ def _prepare_rows(rows, view):
     ordered = sorted(rows, key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
     if view != "month" or not ordered:
         return ordered
-    df = pd.DataFrame(ordered)
-    df["_date"] = pd.to_datetime(df["competencia"], errors="coerce")
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
-    df["meta"] = pd.to_numeric(df["meta"], errors="coerce")
-    df = df.dropna(subset=["_date"])
-    if df.empty:
-        return ordered
-    df["_periodo"] = df["_date"].dt.to_period("M")
-    grouped = df.groupby("_periodo", sort=True).agg(valor=("valor", "mean"), meta=("meta", "mean")).reset_index()
-    return [
-        {"competencia": row["_periodo"].to_timestamp(), "valor": row["valor"], "meta": row["meta"]}
-        for _, row in grouped.iterrows()
-    ]
+    # Fechamento mensal: o resultado do mês é sempre o último lançamento,
+    # nunca média das medições realizadas ao longo do mês.
+    return consolidar_ultimo_por_mes(ordered)
 
 
 def _kpis(rows, selected_index=None):
@@ -254,24 +245,48 @@ def render_indicadores(indicadores):
     for i, (name, rows) in enumerate(groups.items(), 1):
         _render_indicator(name, rows, i)
 
-    # Divulgação/exportação fica depois de todos os indicadores.
-    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
-    with head_left:
-        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
-    with head_right:
-        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
-        try:
-            payload_pdf = json.dumps(indicadores or [],ensure_ascii=False,sort_keys=True,default=str)
-            pdf_bytes = _pdf_indicadores_cache(payload_pdf)
+    # Divulgação/exportação: usa a mesma regra de fechamento da visão POR MÊS.
+    st.markdown('<div class="ind-export-label">DIVULGAÇÃO · FECHAMENTO MENSAL</div>', unsafe_allow_html=True)
+    meses = meses_disponiveis(indicadores or [])
+    exp_modo_col, exp_mes_col, exp_btn_col = st.columns([1.6, 1.8, 1.4], gap="small")
+    with exp_modo_col:
+        modo_exportacao = st.selectbox(
+            "PERÍODO DE EXPORTAÇÃO",
+            ["ATUAL", "MÊS ESPECÍFICO"],
+            key="indicadores_export_modo",
+        )
+    with exp_mes_col:
+        mes_exportacao = None
+        if modo_exportacao == "MÊS ESPECÍFICO":
+            if meses:
+                mes_exportacao = st.selectbox(
+                    "MÊS",
+                    meses,
+                    format_func=rotulo_mes,
+                    key="indicadores_export_mes",
+                )
+            else:
+                st.text_input("MÊS", value="Sem histórico", disabled=True, key="indicadores_export_mes_vazio")
+        else:
+            st.text_input("REFERÊNCIA", value="Último fechamento disponível", disabled=True, key="indicadores_export_atual")
+
+    try:
+        dados_exportacao = preparar_exportacao(indicadores or [], modo_exportacao, mes_exportacao)
+        payload_pdf = json.dumps(dados_exportacao, ensure_ascii=False, sort_keys=True, default=str)
+        imagens_zip = _pdf_indicadores_cache(payload_pdf)
+        sufixo = mes_exportacao if modo_exportacao == "MÊS ESPECÍFICO" and mes_exportacao else "atual"
+        with exp_btn_col:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
             st.download_button(
-                "EXPORTAR PDF",
-                data=pdf_bytes,
-                file_name="indicadores_operacionais.pdf",
-                mime="application/pdf",
+                "EXPORTAR IMAGENS",
+                data=imagens_zip,
+                file_name=f"indicadores_{sufixo}.zip",
+                mime="application/zip",
                 use_container_width=True,
                 type="secondary",
-                key="exportar_indicadores_pdf",
+                key="exportar_indicadores_imagens",
+                disabled=(modo_exportacao == "MÊS ESPECÍFICO" and not mes_exportacao),
             )
-        except Exception as exc:
-            st.error(f"Não foi possível gerar o PDF: {exc}")
+    except Exception as exc:
+        st.error(f"Não foi possível gerar as imagens: {exc}")
 

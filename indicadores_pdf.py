@@ -57,11 +57,15 @@ def _month(value):
 
 
 def _groups(indicadores):
+    # Os três indicadores atuais permanecem sempre presentes; novos indicadores
+    # encontrados no banco entram automaticamente como novas imagens.
     groups = {name: [] for name in GROUPS}
     for row in indicadores or []:
-        key = ALIASES.get(str(row.get("indicador") or "").strip().upper())
-        if key in groups:
-            groups[key].append(row)
+        raw = str(row.get("indicador") or "").strip()
+        key = ALIASES.get(raw.upper(), raw.upper())
+        if not key:
+            continue
+        groups.setdefault(key, []).append(row)
     for name in groups:
         groups[name].sort(key=lambda r: str(r.get("competencia") or ""))
     return groups
@@ -104,7 +108,7 @@ def gerar_imagem_indicador(nome, rows, indice):
 
     _rounded(d, (24, 20, W-24, H-20), PANEL, BORDER, 20, 1)
     d.text((44, 43), f"{indice:02d} · {nome}", font=f_title, fill=YELLOW)
-    d.text((44, 84), "Acompanhamento histórico do indicador operacional", font=f_sub, fill=MUTED)
+    d.text((44, 84), "Fechamento mensal · último lançamento válido do período", font=f_sub, fill=MUTED)
 
     rows = rows or []
     latest = rows[-1] if rows else None
@@ -181,8 +185,8 @@ def gerar_imagens_zip(indicadores):
     groups = _groups(indicadores)
     buffer = BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
-        for idx, name in enumerate(GROUPS, 1):
-            img = gerar_imagem_indicador(name, groups[name], idx)
+        for idx, (name, rows) in enumerate(groups.items(), 1):
+            img = gerar_imagem_indicador(name, rows, idx)
             png = BytesIO()
             img.save(png, format="PNG", optimize=True)
             safe = (name.lower().replace(" ", "_").replace("á", "a").replace("ã", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")).replace("ç", "c")
