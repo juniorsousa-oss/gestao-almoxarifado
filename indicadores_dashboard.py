@@ -194,11 +194,14 @@ def _render_indicator(name, rows, index):
             st.session_state[selected_key] = clicked
             st.rerun()
 
+        # Ações específicas ficam dentro do próprio indicador.
+        if name == "ENTREGAS NO PRAZO":
+            st.markdown('<div class="ind-actions-title">AÇÕES DO INDICADOR</div>', unsafe_allow_html=True)
+            render_alimentacao_entregas_v2(rows)
+            render_historico_otif()
+
 
 def render_indicadores(indicadores):
-    render_alimentacao_entregas_v2(indicadores)
-    render_historico_otif()
-
     groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
     aliases = {
         "ACURACIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
@@ -231,6 +234,7 @@ def render_indicadores(indicadores):
     .ind-chart-panel{border:1px solid #26342e;border-radius:11px;background:#0b100e;padding:12px 10px 7px;margin-bottom:0}
     .ind-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #202a26;padding:0 1px 9px;margin-bottom:0}
     .ind-chart-title{font-size:13px;font-weight:900;color:#f4f5f4}.ind-legend{display:flex;gap:15px;margin-top:7px;font-size:9px;color:#9ba49f}.ind-legend span{display:flex;align-items:center;gap:5px}.ind-dot{display:inline-block;width:15px;height:4px;border-radius:4px}.ind-dot.result{background:#ffd43d}.ind-dot.target{background:#f4f5f4}
+    .ind-actions-title{font-size:10px;font-weight:900;color:#a8b0ac;letter-spacing:.65px;text-transform:uppercase;margin:14px 2px 7px;padding-top:11px;border-top:1px solid #26342e}
     .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:0}
     .ind-export{display:flex;justify-content:flex-end;margin:0 0 14px}
     .ind-export-label{font-size:10px;color:#8f9994;text-transform:uppercase;letter-spacing:.35px;margin:7px 0 4px;text-align:right}
