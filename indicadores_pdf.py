@@ -20,16 +20,20 @@ ALIASES = {
 LAST_INDICADORES = []
 _ORIGINAL_DOWNLOAD_BUTTON = st.download_button
 
-BG = "#080d0b"
-PANEL = "#101614"
-CARD = "#121916"
-BORDER = "#304039"
-GRID = "#25302b"
-WHITE = "#f4f5f4"
-MUTED = "#8c9691"
-YELLOW = "#ffd43d"
-GREEN = "#4ade80"
-RED = "#ff6668"
+# Tema de exportação pensado para impressão: fundo branco e alto contraste.
+BG = "#FFFFFF"
+PANEL = "#FFFFFF"
+CARD = "#FFFFFF"
+BORDER = "#1F2937"
+GRID = "#E5E7EB"
+TEXT = "#111827"
+MUTED = "#5B6470"
+YELLOW = "#F4C430"
+GREEN = "#15803D"
+RED = "#B91C1C"
+STATUS_NEUTRAL_BG = "#F3F4F6"
+STATUS_OK_BG = "#DCFCE7"
+STATUS_BAD_BG = "#FEE2E2"
 
 
 def _font(size, bold=False):
@@ -106,24 +110,33 @@ def gerar_imagem_indicador(nome, rows, indice):
     f_axis = _font(12)
     f_axis_bold = _font(12, True)
 
-    _rounded(d, (24, 20, W-24, H-20), PANEL, BORDER, 20, 1)
-    d.text((44, 43), f"{indice:02d} · {nome}", font=f_title, fill=YELLOW)
-    d.text((44, 84), "Fechamento mensal · último lançamento válido do período", font=f_sub, fill=MUTED)
+    _rounded(d, (24, 20, W-24, H-20), PANEL, BORDER, 20, 2)
+    d.rounded_rectangle((44, 43, 52, 77), radius=4, fill=YELLOW)
+    d.text((64, 43), f"{indice:02d} · {nome}", font=f_title, fill=TEXT)
 
     rows = rows or []
     latest = rows[-1] if rows else None
+    first = rows[0] if rows else None
+    periodo_txt = (
+        f"Período exibido: {_month(first.get('competencia'))} até {_month(latest.get('competencia'))} · "
+        "último lançamento válido de cada mês"
+        if first and latest
+        else "Fechamento mensal · último lançamento válido de cada mês"
+    )
+    d.text((64, 84), periodo_txt, font=f_sub, fill=MUTED)
+
     value, meta, diff = _value_meta_diff(latest) if latest else (None, None, None)
     if diff is None:
-        status, status_color = "SEM HISTÓRICO", MUTED
+        status, status_color, status_bg = "SEM HISTÓRICO", MUTED, STATUS_NEUTRAL_BG
     elif diff >= 0:
-        status, status_color = "ACIMA DA META", GREEN
+        status, status_color, status_bg = "ACIMA DA META", GREEN, STATUS_OK_BG
     else:
-        status, status_color = "ABAIXO DA META", RED
+        status, status_color, status_bg = "ABAIXO DA META", RED, STATUS_BAD_BG
 
     kpis = [
-        ("RESULTADO SELECIONADO", _pct(value), _month(latest.get("competencia")) if latest else "Nenhum lançamento", WHITE),
-        ("META", _pct(meta), "Referência do lançamento", WHITE),
-        ("DIFERENÇA", _pct(diff), "Resultado − meta", WHITE),
+        ("RESULTADO SELECIONADO", _pct(value), _month(latest.get("competencia")) if latest else "Nenhum lançamento", TEXT),
+        ("META", _pct(meta), "Referência do lançamento", TEXT),
+        ("DIFERENÇA", _pct(diff), "Resultado − meta", TEXT),
         ("STATUS", status, _month(latest.get("competencia")) if latest else "Nenhum lançamento", status_color),
     ]
     gap, x0 = 12, 44
@@ -131,19 +144,25 @@ def gerar_imagem_indicador(nome, rows, indice):
     for i, (label, val, sub, color) in enumerate(kpis):
         x = x0 + i*(cw+gap)
         _rounded(d, (x, 120, x+cw, 238), CARD, BORDER, 13, 1)
-        d.text((x+18, 140), label, font=f_label, fill="#a8b0ac")
+        d.text((x+18, 140), label, font=f_label, fill="#374151")
         d.text((x+18, 174), val, font=f_value, fill=color)
         d.text((x+18, 215), sub, font=f_sub, fill=MUTED)
         if i == 3:
-            d.ellipse((x+cw-78, 145, x+cw-24, 199), fill="#1c2521" if diff is None else ("#1e3528" if diff >= 0 else "#3a2224"))
-            _center(d, "↑" if diff is not None and diff >= 0 else ("↓" if diff is not None else "—"), (x+cw-78,145,x+cw-24,199), _font(28, True), color)
+            d.ellipse((x+cw-78, 145, x+cw-24, 199), fill=status_bg, outline="#CBD5E1", width=1)
+            _center(
+                d,
+                "↑" if diff is not None and diff >= 0 else ("↓" if diff is not None else "—"),
+                (x+cw-78,145,x+cw-24,199),
+                _font(28, True),
+                color,
+            )
 
     cx1, cy1, cx2, cy2 = 44, 260, W-44, 900
-    _rounded(d, (cx1, cy1, cx2, cy2), "#0b100e", BORDER, 14, 1)
-    d.text((cx1+18, cy1+18), "Comparativo histórico", font=f_chart_title, fill=WHITE)
+    _rounded(d, (cx1, cy1, cx2, cy2), "#FFFFFF", BORDER, 14, 1)
+    d.text((cx1+18, cy1+18), "Comparativo histórico", font=f_chart_title, fill=TEXT)
     d.rounded_rectangle((cx1+18, cy1+58, cx1+38, cy1+63), radius=3, fill=YELLOW)
     d.text((cx1+46, cy1+53), "Resultado", font=f_axis, fill=MUTED)
-    d.rounded_rectangle((cx1+125, cy1+58, cx1+145, cy1+63), radius=3, fill=WHITE)
+    d.rounded_rectangle((cx1+125, cy1+58, cx1+145, cy1+63), radius=3, fill=TEXT)
     d.text((cx1+153, cy1+53), "Meta", font=f_axis, fill=MUTED)
 
     plot_l, plot_r = cx1+58, cx2-28
@@ -153,31 +172,36 @@ def gerar_imagem_indicador(nome, rows, indice):
     for tick in (0,20,40,60,80,100):
         y = plot_b - plot_h*tick/100
         d.line((plot_l, y, plot_r, y), fill=GRID, width=1)
-        d.text((plot_l-45, y-8), f"{tick}%", font=f_axis, fill="#68736d")
+        d.text((plot_l-45, y-8), f"{tick}%", font=f_axis, fill="#6B7280")
 
     if not rows:
         _center(d, "Nenhum lançamento histórico.", (plot_l, plot_t, plot_r, plot_b), f_sub, MUTED)
     else:
         n = len(rows)
         step = plot_w / max(n, 1)
-        bw = min(48, max(12, step*0.48))
+        bw = min(52, max(16, step*0.46))
         for i, row in enumerate(rows):
             val, met, _ = _value_meta_diff(row)
             val = max(0, min(100, val or 0))
             met = max(0, min(100, met or 0))
             x = plot_l + i*step + (step-bw)/2
             top = plot_b - plot_h*val/100
-            d.rounded_rectangle((x, top, x+bw, plot_b), radius=5, fill=YELLOW)
+            d.rounded_rectangle((x, top, x+bw, plot_b), radius=5, fill=YELLOW, outline="#B88900", width=1)
             my = plot_b - plot_h*met/100
-            d.rounded_rectangle((x-7, my-3, x+bw+7, my+3), radius=3, fill=WHITE)
+            d.rounded_rectangle((x-7, my-3, x+bw+7, my+3), radius=3, fill=TEXT)
             txt = _pct(val)
             bb = d.textbbox((0,0), txt, font=f_axis_bold)
-            d.text((x+bw/2-(bb[2]-bb[0])/2, max(plot_t, top-22)), txt, font=f_axis_bold, fill=WHITE)
+            d.text((x+bw/2-(bb[2]-bb[0])/2, max(plot_t, top-22)), txt, font=f_axis_bold, fill=TEXT)
             lab = _month(row.get("competencia"))
             bb = d.textbbox((0,0), lab, font=f_axis_bold)
-            d.text((x+bw/2-(bb[2]-bb[0])/2, plot_b+18), lab, font=f_axis_bold, fill="#aeb7b2")
+            d.text((x+bw/2-(bb[2]-bb[0])/2, plot_b+18), lab, font=f_axis_bold, fill="#374151")
 
-    d.text((44, 923), f"GESTÃO OPERACIONAL  ·  {datetime.now().strftime('%d/%m/%Y %H:%M')}", font=f_axis, fill="#65716b")
+    d.text(
+        (44, 923),
+        f"GESTÃO OPERACIONAL  ·  Exportado em {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        font=f_axis,
+        fill="#6B7280",
+    )
     return im
 
 
