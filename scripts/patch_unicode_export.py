@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# trigger workflow
 path = Path("indicadores_pdf.py")
 text = path.read_text(encoding="utf-8")
 
