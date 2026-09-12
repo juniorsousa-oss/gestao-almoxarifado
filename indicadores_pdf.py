@@ -19,7 +19,7 @@ ALIASES = {
 }
 
 # Sempre que o desenho da imagem mudar, altere esta versão para invalidar o cache.
-EXPORT_LAYOUT_VERSION = "print-approved-v4-typography"
+EXPORT_LAYOUT_VERSION = "print-clean-a4-v5-300dpi"
 
 LAST_INDICADORES = []
 _ORIGINAL_DOWNLOAD_BUTTON = st.download_button
@@ -71,12 +71,20 @@ def _font(size, bold=False):
         except Exception:
             continue
 
+    try:
+        from pathlib import Path
+        import reportlab
+        bundled = Path(reportlab.__file__).parent / "fonts" / ("VeraBd.ttf" if bold else "Vera.ttf")
+        return ImageFont.truetype(str(bundled), size=size)
+    except (ImportError, OSError):
+        pass
+
     # Pillow recente permite escalar a fonte padrão. Isso evita voltar ao
     # bitmap minúsculo mesmo em ambientes sem fontes de sistema conhecidas.
     try:
         return ImageFont.load_default(size=size)
-    except TypeError:
-        return ImageFont.load_default()
+    except TypeError as exc:
+        raise RuntimeError("Fonte escalável indisponível. Verifique a instalação do ReportLab.") from exc
 
 
 def _pct(v):
@@ -179,14 +187,14 @@ def _load_logo(logo_base64=None, logo_mime=None):
         return None
 
 
-def _draw_logo(canvas, logo_base64=None, logo_mime=None):
+def _draw_logo(canvas, logo_base64=None, logo_mime=None, box=None):
     """Desenha a logo real no canto superior direito preservando proporção."""
     logo = _load_logo(logo_base64, logo_mime)
     if logo is None:
         return False
 
     # Caixa reservada conforme esboço aprovado.
-    box = (1325, 38, 1692, 132)
+    box = box or (1325, 38, 1692, 132)
     x1, y1, x2, y2 = box
     max_w, max_h = x2 - x1, y2 - y1
     lw, lh = logo.size
@@ -202,175 +210,140 @@ def _draw_logo(canvas, logo_base64=None, logo_mime=None):
     return True
 
 
+def _fit_font(draw, text, size, max_width, bold=False):
+    """Ajusta pelo tamanho real dos glifos, inclusive para novos indicadores."""
+    font = _font(size, bold)
+    while size > 24 and draw.textbbox((0, 0), text, font=font)[2] > max_width:
+        size -= 2
+        font = _font(size, bold)
+    return font
+
+
 def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None):
-    # A4 paisagem aproximado a 150 dpi.
-    W, H = 1754, 1240
+    """Arte A4 paisagem, renderizada nativamente a 300 dpi."""
+    from math import ceil, isfinite
+    from zoneinfo import ZoneInfo
+
+    W, H = 3508, 2480
     im = Image.new("RGB", (W, H), BG)
+    im.info["dpi"] = (300, 300)
     d = ImageDraw.Draw(im)
-
-    # Hierarquia tipográfica do esboço aprovado.
-    # Escala visual equivalente ao esboço aprovado para leitura em mural/A4.
-    f_title = _font(50, True)
-    f_subtitle = _font(22)
-    f_label = _font(20, True)
-    f_value = _font(62, True)
-    f_small = _font(18)
-    f_chart_title = _font(31, True)
-    f_axis = _font(18)
-    f_axis_bold = _font(20, True)
-    f_bar_label = _font(20, True)
-    f_status = _font(25, True)
-
-    rows = rows or []
+    left, right = 140, W - 140  # Margem de aproximadamente 12 mm.
+    rows = list(rows or [])
     latest = rows[-1] if rows else None
-    first = rows[0] if rows else None
     value, meta, diff = _value_meta_diff(latest)
-    status, status_color, status_bg = _status(diff)
+    status, status_color, _ = _status(diff)
+    if value is not None and meta is None:
+        status = "SEM META"
+    elif diff == 0:
+        status = "NA META"
+    selected_month = _month(latest.get("competencia")) if latest else "Sem lançamento"
 
-    # Cabeçalho limpo, sem moldura geral pesada.
-    d.rounded_rectangle((38, 45, 52, 132), radius=7, fill=YELLOW)
-    d.text((78, 47), f"{indice:02d} · {nome}", font=f_title, fill=TEXT)
-
-    if first and latest:
-        periodo_txt = (
-            f"Fechamento mensal | {_month(first.get('competencia'))} até "
-            f"{_month(latest.get('competencia'))} | último lançamento válido de cada mês"
-        )
+    # Cabeçalho com área independente para a marca.
+    d.rounded_rectangle((left, 122, left + 12, 278), radius=6, fill=YELLOW)
+    d.text((left + 42, 116), "GESTÃO OPERACIONAL  /  INDICADORES", font=_font(32, True), fill=MUTED)
+    title = f"{indice:02d} · {nome}"
+    title_font = _fit_font(d, title, 88, 2420, True)
+    d.text((left + 42, 170), title, font=title_font, fill=TEXT)
+    if rows:
+        period = f"JAN/{str(latest.get('competencia'))[:4]} até {selected_month}"
     else:
-        periodo_txt = "Fechamento mensal | último lançamento válido de cada mês"
-    d.text((80, 112), periodo_txt, font=f_subtitle, fill=MUTED)
+        period = "Sem histórico no período selecionado"
+    d.text((left + 42, 278), f"Fechamento mensal  •  {period}", font=_font(38), fill=MUTED)
+    _draw_logo(im, logo_base64, logo_mime, box=(2790, 120, right, 300))
+    d.line((left, 360, right, 360), fill=BORDER, width=2)
 
-    # Usa exatamente a logo cadastrada no app.
-    _draw_logo(im, logo_base64, logo_mime)
-
-    # Quatro KPIs grandes e legíveis.
+    # Os números são o foco; as quatro caixas têm a mesma malha e respiro.
+    gap = 28
+    card_width = (right - left - 3 * gap) / 4
+    top, bottom = 416, 788
+    difference = f"{diff:+.2f}".replace(".", ",") if diff is not None else "—"
     cards = [
-        ("RESULTADO FINAL", _pct(value), _month(latest.get("competencia")) if latest else "Sem lançamento", TEXT),
+        ("RESULTADO FINAL", _pct(value), selected_month, TEXT),
         ("META DO PERÍODO", _pct(meta), "Referência do fechamento", TEXT),
-        ("DIFERENÇA", _pct_signed(diff), "Resultado em relação à meta", status_color if diff is not None else TEXT),
-        ("STATUS", status, _month(latest.get("competencia")) if latest else "Sem lançamento", status_color),
+        ("DIFERENÇA", difference, "Pontos percentuais • resultado − meta", status_color),
+        ("STATUS", status, selected_month, status_color),
     ]
-
-    cards_y1, cards_y2 = 176, 405
-    margin_x, gap = 38, 18
-    card_w = (W - (margin_x * 2) - (gap * 3)) // 4
-
-    for i, (label, val, sub, color) in enumerate(cards):
-        x1 = margin_x + i * (card_w + gap)
-        x2 = x1 + card_w
-        _rounded(d, (x1, cards_y1, x2, cards_y2), CARD, outline=BORDER, radius=18, width=2)
-        d.text((x1 + 28, cards_y1 + 28), label, font=f_label, fill="#475569")
-
-        if i < 3:
-            d.text((x1 + 28, cards_y1 + 76), val, font=f_value, fill=color)
+    for i, (label, main, sub, color) in enumerate(cards):
+        x = left + i * (card_width + gap)
+        end = x + card_width
+        _rounded(d, (x, top, end, bottom), BG, radius=20, width=2)
+        d.text((x + 38, top + 36), label, font=_font(34, True), fill=MUTED)
+        if i == 3:
+            words = main.split(" ", 1)
+            f = _font(54, True)
+            for j, line in enumerate(words):
+                d.text((x + 38, top + 115 + j * 64), line, font=f, fill=color)
         else:
-            # Status vira badge central, como no esboço aprovado.
-            badge_box = (x1 + 34, cards_y1 + 82, x2 - 34, cards_y1 + 164)
-            _rounded(d, badge_box, status_bg, outline=None, radius=27, width=0)
-            _center(d, val, badge_box, f_status, status_color)
+            f = _fit_font(d, main, 116, card_width - 76, True)
+            d.text((x + 38, top + 112), main, font=f, fill=color)
+        sub_font = _fit_font(d, sub, 32, card_width - 76)
+        d.text((x + 38, bottom - 72), sub, font=sub_font, fill=MUTED)
 
-        d.text((x1 + 28, cards_y2 - 50), sub, font=f_small, fill=MUTED)
+    # Gráfico amplo; legenda na mesma linha do título.
+    d.text((left, 865), "Evolução mensal", font=_font(54, True), fill=TEXT)
+    d.text((left, 940), "Último lançamento de cada mês", font=_font(36), fill=MUTED)
+    d.rectangle((right - 640, 898, right - 592, 924), fill=YELLOW)
+    d.text((right - 570, 886), "Resultado", font=_font(36), fill=TEXT)
+    d.line((right - 300, 910, right - 220, 910), fill=META, width=6)
+    d.ellipse((right - 268, 902, right - 252, 918), fill=BG, outline=META, width=4)
+    d.text((right - 192, 886), "Meta", font=_font(36), fill=TEXT)
 
-    # Painel principal do gráfico.
-    cx1, cy1, cx2, cy2 = 38, 440, W - 38, H - 92
-    _rounded(d, (cx1, cy1, cx2, cy2), PANEL, outline=BORDER, radius=18, width=2)
-    d.text((cx1 + 34, cy1 + 28), "Evolução mensal do indicador", font=f_chart_title, fill=TEXT)
-
-    # Legenda ampla e clara.
-    legend_y = cy1 + 100
-    d.rounded_rectangle((cx1 + 34, legend_y, cx1 + 96, legend_y + 22), radius=5, fill=YELLOW)
-    d.text((cx1 + 114, legend_y - 2), "Resultado", font=f_axis, fill=MUTED)
-    d.line((cx1 + 260, legend_y + 11, cx1 + 326, legend_y + 11), fill=META, width=5)
-    d.ellipse((cx1 + 288, legend_y + 2, cx1 + 306, legend_y + 20), fill="#FFFFFF", outline=META, width=4)
-    d.text((cx1 + 342, legend_y - 2), "Meta", font=f_axis, fill=MUTED)
-
-    plot_l, plot_r = cx1 + 105, cx2 - 38
-    plot_t, plot_b = cy1 + 178, cy2 - 90
-    plot_h = plot_b - plot_t
-    plot_w = plot_r - plot_l
-
-    # 112% deixa respiro para rótulos de barras próximas de 100%.
-    scale_max = 112.0
-    for tick in (0, 20, 40, 60, 80, 100):
-        y = plot_b - plot_h * (tick / scale_max)
-        d.line((plot_l, y, plot_r, y), fill=GRID, width=1)
-        tick_txt = f"{tick}%"
-        bb = d.textbbox((0, 0), tick_txt, font=f_axis)
-        d.text((plot_l - 22 - (bb[2] - bb[0]), y - 10), tick_txt, font=f_axis, fill=MUTED)
-
-    d.line((plot_l, plot_b, plot_r, plot_b), fill="#CBD5E1", width=2)
+    plot_l, plot_r = left + 145, right - 22
+    plot_t, plot_b = 1100, 2100
+    plot_h, plot_w = plot_b - plot_t, plot_r - plot_l
+    parsed = [_value_meta_diff(row) for row in rows]
+    finite_values = [v for pair in parsed for v in pair[:2] if v is not None and isfinite(v)]
+    high = max([100.0] + finite_values)
+    tick_step = max(20, ceil(high / 100) * 20)
+    tick_max = ceil(high / tick_step) * tick_step
+    scale_max = tick_max * 1.12
+    def ypos(v):
+        return plot_b - plot_h * max(0, v) / scale_max
+    for tick in range(0, int(tick_max) + 1, tick_step):
+        y = ypos(tick)
+        d.line((plot_l, y, plot_r, y), fill=GRID, width=2)
+        d.text((plot_l - 28, y), f"{tick}%", anchor="rm", font=_font(34), fill=MUTED)
 
     if not rows:
-        _center(
-            d,
-            "Nenhum lançamento histórico para o período selecionado.",
-            (plot_l, plot_t, plot_r, plot_b),
-            f_subtitle,
-            MUTED,
-        )
+        _center(d, "Nenhum lançamento no período selecionado", (plot_l, plot_t, plot_r, plot_b), _font(44), MUTED)
     else:
-        n = len(rows)
-        step = plot_w / max(n, 1)
-        bar_w = min(92, max(46, step * 0.48))
-        meta_points = []
+        step = plot_w / len(rows)
+        bar_width = min(156, step * .52)
+        points, labels = [], []
+        for i, (row, (val, met, _)) in enumerate(zip(rows, parsed)):
+            x = plot_l + (i + .5) * step
+            if val is not None and isfinite(val):
+                top_y = ypos(val)
+                if val > 0:
+                    d.rectangle((x - bar_width / 2, top_y, x + bar_width / 2, plot_b), fill=YELLOW)
+                labels.append((x, top_y, _pct(val)))
+            else:
+                labels.append((x, plot_b, "—"))
+            points.append((x, ypos(met)) if met is not None and isfinite(met) else None)
+            label = _month(row.get("competencia"))
+            month, _, year = label.partition("/")
+            d.text((x, plot_b + 52), month, anchor="mt", font=_font(40, True), fill=TEXT)
+            d.text((x, plot_b + 108), year, anchor="mt", font=_font(30), fill=MUTED)
+        # Ausência de meta interrompe a linha, em vez de inventar uma meta zero.
+        for a, b in zip(points, points[1:]):
+            if a is not None and b is not None:
+                d.line((a, b), fill=META, width=6)
+        for point in points:
+            if point:
+                x, y = point
+                d.ellipse((x - 9, y - 9, x + 9, y + 9), fill=BG, outline=META, width=5)
+        # Rótulos sobre fundo branco permanecem legíveis perto da linha de meta.
+        for x, y, label in labels:
+            f = _fit_font(d, label, 42, step - 12, True)
+            box = d.textbbox((x, y - 24), label, font=f, anchor="mb")
+            d.rectangle((box[0] - 8, box[1] - 5, box[2] + 8, box[3] + 5), fill=BG)
+            d.text((x, y - 24), label, font=f, fill=TEXT, anchor="mb")
 
-        for i, row in enumerate(rows):
-            val, met, _ = _value_meta_diff(row)
-            val = max(0.0, min(100.0, val or 0.0))
-            met = max(0.0, min(100.0, met or 0.0))
-
-            center_x = plot_l + (i + 0.5) * step
-            x1 = center_x - bar_w / 2
-            x2 = center_x + bar_w / 2
-            top = plot_b - plot_h * (val / scale_max)
-
-            d.rounded_rectangle(
-                (x1, top, x2, plot_b),
-                radius=7,
-                fill=YELLOW,
-                outline=YELLOW_DARK,
-                width=1,
-            )
-
-            result_txt = _pct(val)
-            bb = d.textbbox((0, 0), result_txt, font=f_bar_label)
-            d.text(
-                (center_x - (bb[2] - bb[0]) / 2, max(plot_t + 4, top - 36)),
-                result_txt,
-                font=f_bar_label,
-                fill=TEXT,
-            )
-
-            month_txt = _month(row.get("competencia"))
-            bbm = d.textbbox((0, 0), month_txt, font=f_axis_bold)
-            d.text(
-                (center_x - (bbm[2] - bbm[0]) / 2, plot_b + 27),
-                month_txt,
-                font=f_axis_bold,
-                fill="#475569",
-            )
-
-            my = plot_b - plot_h * (met / scale_max)
-            meta_points.append((center_x, my))
-
-        if len(meta_points) >= 2:
-            d.line(meta_points, fill=META, width=5, joint="curve")
-        for mx, my in meta_points:
-            d.ellipse((mx - 8, my - 8, mx + 8, my + 8), fill="#FFFFFF", outline=META, width=4)
-
-    # Rodapé do modelo aprovado.
-    divider_y = H - 64
-    d.line((38, divider_y, W - 38, divider_y), fill="#E2E8F0", width=2)
-    d.text(
-        (40, H - 47),
-        f"GESTÃO OPERACIONAL · Exportado em {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-        font=f_small,
-        fill="#94A3B8",
-    )
-    footer = "Formato otimizado para impressão"
-    bb = d.textbbox((0, 0), footer, font=f_small)
-    d.text((W - 40 - (bb[2] - bb[0]), H - 47), footer, font=f_small, fill="#94A3B8")
-
+    d.line((left, 2300, right, 2300), fill=BORDER, width=2)
+    now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    d.text((left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)
+    d.text((right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(30, True), fill=MUTED)
     return im
 
 
@@ -390,7 +363,7 @@ def gerar_imagens_zip(indicadores, logo_base64=None, logo_mime=None):
                 logo_mime=logo_mime,
             )
             png = BytesIO()
-            img.save(png, format="PNG", optimize=True)
+            img.save(png, format="PNG", optimize=True, dpi=(300, 300))
             safe = (
                 name.lower()
                 .replace(" ", "_")
@@ -429,3 +402,4 @@ def _patched_download_button(label, data=None, file_name=None, mime=None, **kwar
 
 
 st.download_button = _patched_download_button
+
