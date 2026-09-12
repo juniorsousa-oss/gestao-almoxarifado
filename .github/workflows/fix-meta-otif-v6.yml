@@ -1,0 +1,79 @@
+name: Automatizar Meta OTIF v6
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-meta-otif-v6.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Aplicar meta mensal fixa
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('indicadores_entregas_v2.py')
+          s = p.read_text(encoding='utf-8')
+
+          s = s.replace(
+              'LOGIC_VERSION = "2026-09-11-otif-almox-funil-v5"',
+              'LOGIC_VERSION = "2026-09-11-otif-almox-funil-v6"'
+          )
+
+          old = '''def _ultima_meta(indicadores):
+    rows = [r for r in (indicadores or []) if str(r.get("indicador") or "").strip().upper() == INDICADOR and r.get("meta") is not None]
+    if not rows:
+        return 0.0
+    rows.sort(key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
+    try:
+        return float(rows[-1]["meta"])
+    except Exception:
+        return 0.0
+'''
+          new = '''def _meta_mensal(data_ref: date) -> float:
+    """Meta mensal oficial do OTIF Almox.
+
+    Janeiro = 25,60% e a meta cresce 2,60 pontos percentuais por mês.
+    """
+    return round(25.60 + (int(data_ref.month) - 1) * 2.60, 2)
+'''
+          if old not in s:
+              raise SystemExit('Função _ultima_meta não encontrada')
+          s = s.replace(old, new, 1)
+
+          old = '''        with m2:
+            meta = st.number_input("Meta OTIF Almox (%)", 0.0, 100.0, float(_ultima_meta(indicadores)), 0.1, key="otif_meta")
+'''
+          new = '''        with m2:
+            meta = _meta_mensal(hoje)
+            st.number_input(
+                "Meta OTIF Almox (%)", min_value=0.0, max_value=100.0, value=float(meta),
+                step=0.1, disabled=True, key="otif_meta"
+            )
+            st.caption(f"Meta automática do mês: {meta:.2f}% · evolução mensal de +2,60 p.p.")
+'''
+          if old not in s:
+              raise SystemExit('Bloco da meta na interface não encontrado')
+          s = s.replace(old, new, 1)
+
+          s = s.replace('"origem": "otif_almox_funil_v5"', '"origem": "otif_almox_funil_v6"')
+
+          # Documenta a regra no relatório de auditoria.
+          marker = '        ["OTIF Almox", "ON TIME ALMOX (%) × IN FULL ALMOX (%) / 100."],\n'
+          add = marker + '        ["Meta mensal", "Janeiro = 25,60%; acréscimo fixo de 2,60 pontos percentuais a cada mês. A meta é automática e não editável na alimentação."],\n'
+          if marker in s:
+              s = s.replace(marker, add, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          python -m py_compile indicadores_entregas_v2.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add indicadores_entregas_v2.py
+          git commit -m 'Define meta mensal automatica do OTIF Almox'
+          git push origin main
