@@ -4,14 +4,17 @@ import html
 import json
 import pandas as pd
 import streamlit as st
-from indicadores_pdf import gerar_pdf_indicadores
+from indicadores_pdf import EXPORT_LAYOUT_VERSION, gerar_pdf_indicadores
 from indicadores_regras import consolidar_ultimo_por_mes, meses_disponiveis, preparar_exportacao, rotulo_mes
 from indicadores_entregas_v2 import render_alimentacao_entregas_v2
 from indicadores_historico import render_historico_otif
 
 
 @st.cache_data(ttl=300,show_spinner=False,max_entries=10)
-def _pdf_indicadores_cache(payload):
+def _pdf_indicadores_cache(payload, layout_version):
+    # layout_version faz parte da chave do cache para que alterações no
+    # gerador de impressão nunca reutilizem imagens de layouts anteriores.
+    _ = layout_version
     return gerar_pdf_indicadores(json.loads(payload))
 
 
@@ -153,7 +156,6 @@ def _render_indicator(name, rows, index):
     with st.container(border=True):
         st.markdown(f'<div class="ind-section-title">{index:02d} · {_safe(name)}</div>', unsafe_allow_html=True)
 
-        # Alternância em formato de segmento: mesma largura, texto curto e sem truncamento.
         c1, c2, c3 = st.columns([1, 1, 4.5], gap="small")
         with c1:
             if st.button("VISÃO TOTAL", key=f"ind_all_{index}", use_container_width=True,
@@ -185,7 +187,6 @@ def _render_indicator(name, rows, index):
             st.session_state[selected_key] = clicked
             st.rerun()
 
-        # Área de ações padronizada para todos os indicadores.
         st.markdown('<div class="ind-actions-title">AÇÕES DO INDICADOR</div>', unsafe_allow_html=True)
         if name == "ENTREGAS NO PRAZO":
             render_alimentacao_entregas_v2(rows)
@@ -245,7 +246,6 @@ def render_indicadores(indicadores):
     for i, (name, rows) in enumerate(groups.items(), 1):
         _render_indicator(name, rows, i)
 
-    # Divulgação/exportação: usa a mesma regra de fechamento da visão POR MÊS.
     st.markdown('<div class="ind-export-label">DIVULGAÇÃO · FECHAMENTO MENSAL</div>', unsafe_allow_html=True)
     meses = meses_disponiveis(indicadores or [])
     exp_modo_col, exp_mes_col, exp_btn_col = st.columns([1.6, 1.8, 1.4], gap="small")
@@ -273,7 +273,7 @@ def render_indicadores(indicadores):
     try:
         dados_exportacao = preparar_exportacao(indicadores or [], modo_exportacao, mes_exportacao)
         payload_pdf = json.dumps(dados_exportacao, ensure_ascii=False, sort_keys=True, default=str)
-        imagens_zip = _pdf_indicadores_cache(payload_pdf)
+        imagens_zip = _pdf_indicadores_cache(payload_pdf, EXPORT_LAYOUT_VERSION)
         sufixo = mes_exportacao if modo_exportacao == "MÊS ESPECÍFICO" and mes_exportacao else "atual"
         with exp_btn_col:
             st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
@@ -289,4 +289,3 @@ def render_indicadores(indicadores):
             )
     except Exception as exc:
         st.error(f"Não foi possível gerar as imagens: {exc}")
-
