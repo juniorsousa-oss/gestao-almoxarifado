@@ -358,7 +358,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
 
     d.line((left, 2300, right, 2300), fill=BORDER, width=2)
     now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    _text(d, (left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)
+    _text(d, (left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(32), fill="#334155")
     _text(d, (right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(32, True), fill="#334155")
     return im
 
