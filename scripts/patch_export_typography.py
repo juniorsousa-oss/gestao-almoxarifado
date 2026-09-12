@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Disparo temporário do workflow de aplicação/validação.
 path = Path('indicadores_pdf.py')
 text = path.read_text(encoding='utf-8')
 
