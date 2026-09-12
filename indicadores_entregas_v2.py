@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 from supabase_client import get_client
+from indicadores_historico import salvar_snapshot_otif
 
 INDICADOR = "ENTREGAS NO PRAZO"
 TZ_APP = ZoneInfo("America/Sao_Paulo")
@@ -750,7 +751,8 @@ def _salvar(resultado, meta):
         }).execute()
     except Exception:
         pass
-    return acao
+    snapshot_versao = salvar_snapshot_otif(resultado, meta)
+    return acao, snapshot_versao
 
 
 @st.fragment
@@ -844,11 +846,11 @@ def render_alimentacao_entregas_v2(indicadores):
         with x2:
             if st.button(f"REGISTRAR OTIF ALMOX · {hoje.strftime('%d/%m/%Y')}", type="primary", use_container_width=True, key="otif_salvar"):
                 try:
-                    acao = _salvar(resultado, meta)
+                    acao, snapshot_versao = _salvar(resultado, meta)
                     st.session_state["otif_registrado"] = True
                     st.cache_data.clear()
-                    st.success(f"Resultado {acao}: OTIF Almox {resultado['otif_almox_pct']:.2f}%.")
+                    st.success(f"Resultado {acao}: OTIF Almox {resultado['otif_almox_pct']:.2f}% · snapshot detalhado v{snapshot_versao} salvo.")
                 except Exception as exc:
                     st.error(f"Não foi possível registrar no Supabase: {exc}")
         if st.session_state.get("otif_registrado"):
-            st.info("O registro principal armazena apenas o OTIF Almox. A visão Global permanece como diagnóstico separado.")
+            st.info("Resultado e memória de cálculo detalhada foram persistidos. O histórico pode ser consultado sem reenviar as planilhas.")

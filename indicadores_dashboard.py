@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from indicadores_pdf import gerar_pdf_indicadores
 from indicadores_entregas_v2 import render_alimentacao_entregas_v2
+from indicadores_historico import render_historico_otif
 
 
 @st.cache_data(ttl=300,show_spinner=False,max_entries=10)
@@ -196,6 +197,7 @@ def _render_indicator(name, rows, index):
 
 def render_indicadores(indicadores):
     render_alimentacao_entregas_v2(indicadores)
+    render_historico_otif()
 
     groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
     aliases = {
