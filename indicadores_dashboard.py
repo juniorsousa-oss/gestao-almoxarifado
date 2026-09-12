@@ -11,11 +11,11 @@ from indicadores_historico import render_historico_otif
 
 
 @st.cache_data(ttl=300,show_spinner=False,max_entries=10)
-def _pdf_indicadores_cache(payload, layout_version):
+def _pdf_indicadores_cache(payload, layout_version, logo_base64=None, logo_mime=None):
     # layout_version faz parte da chave do cache para que alterações no
     # gerador de impressão nunca reutilizem imagens de layouts anteriores.
     _ = layout_version
-    return gerar_pdf_indicadores(json.loads(payload))
+    return gerar_pdf_indicadores(json.loads(payload), logo_base64=logo_base64, logo_mime=logo_mime)
 
 
 def _pct(v):
@@ -273,7 +273,11 @@ def render_indicadores(indicadores):
     try:
         dados_exportacao = preparar_exportacao(indicadores or [], modo_exportacao, mes_exportacao)
         payload_pdf = json.dumps(dados_exportacao, ensure_ascii=False, sort_keys=True, default=str)
-        imagens_zip = _pdf_indicadores_cache(payload_pdf, EXPORT_LAYOUT_VERSION)
+        config = st.session_state.get("config") or {}
+        imagens_zip = _pdf_indicadores_cache(
+            payload_pdf, EXPORT_LAYOUT_VERSION,
+            config.get("logo_base64"), config.get("logo_mime"),
+        )
         sufixo = mes_exportacao if modo_exportacao == "MÊS ESPECÍFICO" and mes_exportacao else "atual"
         with exp_btn_col:
             st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
@@ -289,3 +293,4 @@ def render_indicadores(indicadores):
             )
     except Exception as exc:
         st.error(f"Não foi possível gerar as imagens: {exc}")
+
