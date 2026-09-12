@@ -1,0 +1,34 @@
+name: Corrige CSS acoes indicadores
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-indicator-actions-css.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Corrigir CSS
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('indicadores_dashboard.py')
+          s = p.read_text(encoding='utf-8')
+          s2 = s.replace('border-top:1px solid #26342e}\\n    div[data-testid="stExpander"]{margin-top:6px!important;margin-bottom:6px!important}\\n    div[data-testid="stExpander"] details summary{min-height:46px!important;display:flex!important;align-items:center!important}', 'border-top:1px solid #26342e}\n    div[data-testid="stExpander"]{margin-top:6px!important;margin-bottom:6px!important}\n    div[data-testid="stExpander"] details summary{min-height:46px!important;display:flex!important;align-items:center!important}')
+          if s2 == s:
+              raise SystemExit('Trecho CSS literal não encontrado')
+          p.write_text(s2, encoding='utf-8')
+          PY
+          python -m py_compile indicadores_dashboard.py indicadores_entregas_v2.py indicadores_historico.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add indicadores_dashboard.py
+          git commit -m 'Corrige CSS das acoes dos indicadores'
+          git rm .github/workflows/fix-indicator-actions-css.yml
+          git commit -m 'Remove workflow temporario CSS indicadores'
+          git push origin main
