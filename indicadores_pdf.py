@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import unicodedata
 from datetime import datetime
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -19,7 +20,7 @@ ALIASES = {
 }
 
 # Sempre que o desenho da imagem mudar, altere esta versão para invalidar o cache.
-EXPORT_LAYOUT_VERSION = "print-clean-a4-v5-300dpi"
+EXPORT_LAYOUT_VERSION = "print-clean-a4-v6-unicode"
 
 LAST_INDICADORES = []
 _ORIGINAL_DOWNLOAD_BUTTON = st.download_button
@@ -31,7 +32,7 @@ CARD = "#FFFFFF"
 BORDER = "#CBD5E1"
 GRID = "#E2E8F0"
 TEXT = "#0F172A"
-MUTED = "#64748B"
+MUTED = "#475569"
 YELLOW = "#FFC21C"
 YELLOW_DARK = "#D89E00"
 META = "#1E293B"
@@ -85,6 +86,17 @@ def _font(size, bold=False):
         return ImageFont.load_default(size=size)
     except TypeError as exc:
         raise RuntimeError("Fonte escalável indisponível. Verifique a instalação do ReportLab.") from exc
+
+
+def _norm_text(value):
+    """Normaliza strings para NFC antes da renderização pelo Pillow."""
+    if value is None:
+        return ""
+    return unicodedata.normalize("NFC", str(value))
+
+
+def _text(draw, xy, value, *args, **kwargs):
+    return draw.text(xy, _norm_text(value), *args, **kwargs)
 
 
 def _pct(v):
@@ -141,11 +153,12 @@ def _rounded(draw, box, fill, outline=BORDER, radius=18, width=2):
 
 
 def _center(draw, text, box, font, fill):
+    text = _norm_text(text)
     x1, y1, x2, y2 = box
     bb = draw.textbbox((0, 0), text, font=font)
     tw = bb[2] - bb[0]
     th = bb[3] - bb[1]
-    draw.text(
+    _text(draw, 
         ((x1 + x2 - tw) / 2, (y1 + y2 - th) / 2 - 2),
         text,
         font=font,
@@ -212,6 +225,7 @@ def _draw_logo(canvas, logo_base64=None, logo_mime=None, box=None):
 
 def _fit_font(draw, text, size, max_width, bold=False):
     """Ajusta pelo tamanho real dos glifos, inclusive para novos indicadores."""
+    text = _norm_text(text)
     font = _font(size, bold)
     while size > 24 and draw.textbbox((0, 0), text, font=font)[2] > max_width:
         size -= 2
@@ -241,15 +255,15 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
 
     # Cabeçalho com área independente para a marca.
     d.rounded_rectangle((left, 122, left + 12, 278), radius=6, fill=YELLOW)
-    d.text((left + 42, 116), "GESTÃO OPERACIONAL  /  INDICADORES", font=_font(32, True), fill=MUTED)
+    _text(d, (left + 42, 116), "GESTÃO OPERACIONAL  /  INDICADORES", font=_font(32, True), fill=MUTED)
     title = f"{indice:02d} · {nome}"
     title_font = _fit_font(d, title, 88, 2420, True)
-    d.text((left + 42, 170), title, font=title_font, fill=TEXT)
+    _text(d, (left + 42, 170), title, font=title_font, fill=TEXT)
     if rows:
         period = f"JAN/{str(latest.get('competencia'))[:4]} até {selected_month}"
     else:
         period = "Sem histórico no período selecionado"
-    d.text((left + 42, 278), f"Fechamento mensal  •  {period}", font=_font(38), fill=MUTED)
+    _text(d, (left + 42, 278), f"Fechamento mensal  •  {period}", font=_font(42), fill=MUTED)
     _draw_logo(im, logo_base64, logo_mime, box=(2790, 120, right, 300))
     d.line((left, 360, right, 360), fill=BORDER, width=2)
 
@@ -268,26 +282,26 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
         x = left + i * (card_width + gap)
         end = x + card_width
         _rounded(d, (x, top, end, bottom), BG, radius=20, width=2)
-        d.text((x + 38, top + 36), label, font=_font(34, True), fill=MUTED)
+        _text(d, (x + 38, top + 36), label, font=_font(34, True), fill=MUTED)
         if i == 3:
             words = main.split(" ", 1)
             f = _font(54, True)
             for j, line in enumerate(words):
-                d.text((x + 38, top + 115 + j * 64), line, font=f, fill=color)
+                _text(d, (x + 38, top + 115 + j * 64), line, font=f, fill=color)
         else:
             f = _fit_font(d, main, 116, card_width - 76, True)
-            d.text((x + 38, top + 112), main, font=f, fill=color)
+            _text(d, (x + 38, top + 112), main, font=f, fill=color)
         sub_font = _fit_font(d, sub, 32, card_width - 76)
-        d.text((x + 38, bottom - 72), sub, font=sub_font, fill=MUTED)
+        _text(d, (x + 38, bottom - 72), sub, font=sub_font, fill=MUTED)
 
     # Gráfico amplo; legenda na mesma linha do título.
-    d.text((left, 865), "Evolução mensal", font=_font(54, True), fill=TEXT)
-    d.text((left, 940), "Último lançamento de cada mês", font=_font(36), fill=MUTED)
+    _text(d, (left, 865), "Evolução mensal do indicador", font=_font(58, True), fill=TEXT)
+    _text(d, (left, 940), "Último lançamento válido de cada mês", font=_font(38), fill=MUTED)
     d.rectangle((right - 640, 898, right - 592, 924), fill=YELLOW)
-    d.text((right - 570, 886), "Resultado", font=_font(36), fill=TEXT)
+    _text(d, (right - 570, 886), "Resultado", font=_font(36), fill=TEXT)
     d.line((right - 300, 910, right - 220, 910), fill=META, width=6)
     d.ellipse((right - 268, 902, right - 252, 918), fill=BG, outline=META, width=4)
-    d.text((right - 192, 886), "Meta", font=_font(36), fill=TEXT)
+    _text(d, (right - 192, 886), "Meta", font=_font(36), fill=TEXT)
 
     plot_l, plot_r = left + 145, right - 22
     plot_t, plot_b = 1100, 2100
@@ -303,7 +317,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
     for tick in range(0, int(tick_max) + 1, tick_step):
         y = ypos(tick)
         d.line((plot_l, y, plot_r, y), fill=GRID, width=2)
-        d.text((plot_l - 28, y), f"{tick}%", anchor="rm", font=_font(34), fill=MUTED)
+        _text(d, (plot_l - 28, y), f"{tick}%", anchor="rm", font=_font(34), fill=MUTED)
 
     if not rows:
         _center(d, "Nenhum lançamento no período selecionado", (plot_l, plot_t, plot_r, plot_b), _font(44), MUTED)
@@ -323,8 +337,8 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
             points.append((x, ypos(met)) if met is not None and isfinite(met) else None)
             label = _month(row.get("competencia"))
             month, _, year = label.partition("/")
-            d.text((x, plot_b + 52), month, anchor="mt", font=_font(40, True), fill=TEXT)
-            d.text((x, plot_b + 108), year, anchor="mt", font=_font(30), fill=MUTED)
+            _text(d, (x, plot_b + 52), month, anchor="mt", font=_font(40, True), fill=TEXT)
+            _text(d, (x, plot_b + 108), year, anchor="mt", font=_font(30), fill=MUTED)
         # Ausência de meta interrompe a linha, em vez de inventar uma meta zero.
         for a, b in zip(points, points[1:]):
             if a is not None and b is not None:
@@ -338,12 +352,12 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
             f = _fit_font(d, label, 42, step - 12, True)
             box = d.textbbox((x, y - 24), label, font=f, anchor="mb")
             d.rectangle((box[0] - 8, box[1] - 5, box[2] + 8, box[3] + 5), fill=BG)
-            d.text((x, y - 24), label, font=f, fill=TEXT, anchor="mb")
+            _text(d, (x, y - 24), label, font=f, fill=TEXT, anchor="mb")
 
     d.line((left, 2300, right, 2300), fill=BORDER, width=2)
     now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    d.text((left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)
-    d.text((right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(30, True), fill=MUTED)
+    _text(d, (left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)
+    _text(d, (right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(30, True), fill=MUTED)
     return im
 
 
