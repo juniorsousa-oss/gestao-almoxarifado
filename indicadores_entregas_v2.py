@@ -13,7 +13,7 @@ from supabase_client import get_client
 
 INDICADOR = "ENTREGAS NO PRAZO"
 TZ_APP = ZoneInfo("America/Sao_Paulo")
-LOGIC_VERSION = "2026-09-11-otif-almox-funil-v5"
+LOGIC_VERSION = "2026-09-11-otif-almox-funil-v6"
 TOL = 1e-9
 
 
@@ -565,16 +565,9 @@ def calcular_entregas_v2(relatorio_file, for022_file, cadastro_file, mrp_file, d
     }
 
 
-def _ultima_meta(indicadores):
-    rows = [r for r in (indicadores or []) if str(r.get("indicador") or "").strip().upper() == INDICADOR and r.get("meta") is not None]
-    if not rows:
-        return 0.0
-    rows.sort(key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
-    try:
-        return float(rows[-1]["meta"])
-    except Exception:
-        return 0.0
-
+def _meta_mensal(data_ref: date) -> float:
+    """Meta mensal oficial do OTIF Almox. Janeiro = 25,60% e +2,60 p.p. por mês."""
+    return round(25.60 + (int(data_ref.month) - 1) * 2.60, 2)
 
 def _excel_safe(df):
     out = df.copy()
@@ -647,6 +640,7 @@ def _excel_auditoria(resultado, meta):
         ["In Full Global", "Projeto com 100% da quantidade entregável (não Tipo II) atendida, independentemente da data."],
         ["In Full Almox", "Projeto completo em toda a quantidade sob responsabilidade do Almox; pendências externas de Compra, Fabricação e S.C. são retiradas da base Almox."],
         ["OTIF Almox", "ON TIME ALMOX (%) × IN FULL ALMOX (%) / 100."],
+        ["Meta mensal", "Janeiro = 25,60%; acréscimo fixo de 2,60 pontos percentuais a cada mês. A meta é automática e não editável na alimentação."],
         ["Visão Global", "Diagnóstico separado. Não altera o indicador principal do Almox; serve para explicar as perdas do processo."],
     ]
 
@@ -735,7 +729,7 @@ def _salvar(resultado, meta):
         "valor": round(float(resultado["otif_almox_pct"]), 2),
         "meta": round(float(meta), 2),
         "unidade": "%",
-        "observacao": json.dumps({"origem": "otif_almox_funil_v5", **audit}, ensure_ascii=False, separators=(",", ":")),
+        "observacao": json.dumps({"origem": "otif_almox_funil_v6", **audit}, ensure_ascii=False, separators=(",", ":")),
         "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     existente = (
@@ -779,7 +773,9 @@ def render_alimentacao_entregas_v2(indicadores):
         with m1:
             st.text_input("Data do registro", value=hoje.strftime("%d/%m/%Y"), disabled=True, key="otif_data")
         with m2:
-            meta = st.number_input("Meta OTIF Almox (%)", 0.0, 100.0, float(_ultima_meta(indicadores)), 0.1, key="otif_meta")
+            meta = _meta_mensal(hoje)
+            st.number_input("Meta OTIF Almox (%)", min_value=0.0, max_value=100.0, value=float(meta), step=0.1, disabled=True, key="otif_meta")
+            st.caption(f"Meta automática do mês: {meta:.2f}% · evolução mensal de +2,60 p.p.")
 
         if any(x is None for x in (relatorio, for022, cadastro, mrp)):
             st.info("Envie as quatro bases para gerar a apuração em camadas.")
