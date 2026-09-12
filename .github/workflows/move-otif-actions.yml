@@ -1,0 +1,71 @@
+name: Mover acoes OTIF para o indicador
+on:
+  push:
+    paths:
+      - '.github/workflows/move-otif-actions.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Reorganizar layout dos indicadores
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('indicadores_dashboard.py')
+          s = p.read_text(encoding='utf-8')
+
+          old_top = '''def render_indicadores(indicadores):
+    render_alimentacao_entregas_v2(indicadores)
+    render_historico_otif()
+
+    groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
+'''
+          new_top = '''def render_indicadores(indicadores):
+    groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
+'''
+          if old_top in s:
+              s = s.replace(old_top, new_top, 1)
+          elif 'render_alimentacao_entregas_v2(indicadores)' in s.split('def render_indicadores(indicadores):',1)[1].split('groups =',1)[0]:
+              raise SystemExit('Bloco inicial de render_indicadores mudou; revisão manual necessária')
+
+          old_click = '''        if clicked is not None:
+            st.session_state[selected_key] = clicked
+            st.rerun()
+'''
+          new_click = '''        if clicked is not None:
+            st.session_state[selected_key] = clicked
+            st.rerun()
+
+        # Ações específicas ficam dentro do próprio indicador.
+        if name == "ENTREGAS NO PRAZO":
+            st.markdown('<div class="ind-actions-title">AÇÕES DO INDICADOR</div>', unsafe_allow_html=True)
+            render_alimentacao_entregas_v2(rows)
+            render_historico_otif()
+'''
+          if 'if name == "ENTREGAS NO PRAZO":' not in s:
+              if old_click not in s:
+                  raise SystemExit('Bloco pós-gráfico não encontrado')
+              s = s.replace(old_click, new_click, 1)
+
+          css_anchor = '    .ind-empty{height:150px;display:flex;align-items:center;justify-content:center;color:#7f8a85;font-size:11px;border:1px solid #26342e;border-radius:11px;background:#0b100e;margin-bottom:0}\n'
+          css_new = '    .ind-actions-title{font-size:10px;font-weight:900;color:#a8b0ac;letter-spacing:.65px;text-transform:uppercase;margin:14px 2px 7px;padding-top:11px;border-top:1px solid #26342e}\n' + css_anchor
+          if '.ind-actions-title{' not in s:
+              if css_anchor not in s:
+                  raise SystemExit('Âncora CSS não encontrada')
+              s = s.replace(css_anchor, css_new, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          python -m py_compile indicadores_dashboard.py indicadores_entregas_v2.py indicadores_historico.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add indicadores_dashboard.py
+          git commit -m 'Move ações do OTIF para dentro do indicador'
+          git push origin main
