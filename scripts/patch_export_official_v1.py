@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# trigger: aplicar padrão oficial A4 executivo v1
 path = Path("indicadores_pdf.py")
 text = path.read_text(encoding="utf-8")
 
