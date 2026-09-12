@@ -1,0 +1,291 @@
+from pathlib import Path
+
+REGRAS = '''from __future__ import annotations
+
+import pandas as pd
+
+ALIASES = {
+    "ACURACIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
+    "ACURÁCIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
+    "ACURÁCIA DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
+    "ACURACIA DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
+    "ENTREGAS NO PRAZO": "ENTREGAS NO PRAZO",
+    "5S": "5S",
+}
+
+MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
+
+
+def normalizar_indicador(value):
+    nome = str(value or "").strip()
+    return ALIASES.get(nome.upper(), nome.upper())
+
+
+def _ordenar_lancamentos(rows):
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame([dict(r) for r in rows])
+    if "competencia" not in df.columns:
+        return pd.DataFrame()
+    df["_competencia"] = pd.to_datetime(df["competencia"], errors="coerce")
+    df = df.dropna(subset=["_competencia"]).copy()
+    if df.empty:
+        return df
+    if "created_at" in df.columns:
+        df["_created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
+    elif "updated_at" in df.columns:
+        df["_created_at"] = pd.to_datetime(df["updated_at"], errors="coerce", utc=True)
+    else:
+        df["_created_at"] = pd.NaT
+    if "id" in df.columns:
+        df["_id_ord"] = pd.to_numeric(df["id"], errors="coerce")
+    else:
+        df["_id_ord"] = pd.NA
+    df["_seq"] = range(len(df))
+    return df.sort_values(
+        ["_competencia", "_created_at", "_id_ord", "_seq"],
+        kind="stable",
+        na_position="first",
+    )
+
+
+def consolidar_ultimo_por_mes(rows):
+    """Retorna exatamente o último lançamento de cada mês, sem média."""
+    df = _ordenar_lancamentos(rows)
+    if df.empty:
+        return []
+    df["_periodo"] = df["_competencia"].dt.to_period("M")
+    df = df.groupby("_periodo", sort=True, group_keys=False).tail(1)
+    helpers = ["_competencia", "_created_at", "_id_ord", "_seq", "_periodo"]
+    return df.drop(columns=[c for c in helpers if c in df.columns]).to_dict("records")
+
+
+def meses_disponiveis(indicadores):
+    df = _ordenar_lancamentos(indicadores)
+    if df.empty:
+        return []
+    periodos = sorted(df["_competencia"].dt.to_period("M").unique(), reverse=True)
+    return [str(p) for p in periodos]
+
+
+def rotulo_mes(periodo):
+    try:
+        p = pd.Period(str(periodo), freq="M")
+        return f"{MESES[p.month-1]}/{p.year}"
+    except Exception:
+        return str(periodo or "—")
+
+
+def preparar_exportacao(indicadores, modo="ATUAL", periodo=None):
+    """Seleciona um único fechamento mensal por indicador para as imagens exportadas."""
+    grupos = {}
+    for row in indicadores or []:
+        nome = normalizar_indicador(row.get("indicador"))
+        if not nome:
+            continue
+        item = dict(row)
+        item["indicador"] = nome
+        grupos.setdefault(nome, []).append(item)
+
+    saida = []
+    for nome, rows in grupos.items():
+        mensais = consolidar_ultimo_por_mes(rows)
+        if not mensais:
+            continue
+        if str(modo).upper().startswith("MÊS") or str(modo).upper().startswith("MES"):
+            alvo = str(periodo or "")
+            candidatos = []
+            for row in mensais:
+                dt = pd.to_datetime(row.get("competencia"), errors="coerce")
+                if pd.notna(dt) and str(dt.to_period("M")) == alvo:
+                    candidatos.append(row)
+            if candidatos:
+                saida.append(candidatos[-1])
+        else:
+            saida.append(mensais[-1])
+    return saida
+'''
+
+Path("indicadores_regras.py").write_text(REGRAS, encoding="utf-8")
+
+dash_path = Path("indicadores_dashboard.py")
+dash = dash_path.read_text(encoding="utf-8")
+
+import_line = "from indicadores_pdf import gerar_pdf_indicadores\n"
+new_import_line = import_line + "from indicadores_regras import consolidar_ultimo_por_mes, meses_disponiveis, preparar_exportacao, rotulo_mes\n"
+if "from indicadores_regras import" not in dash:
+    if import_line not in dash:
+        raise SystemExit("Import de indicadores_pdf não encontrado")
+    dash = dash.replace(import_line, new_import_line, 1)
+
+old_prepare = '''def _prepare_rows(rows, view):
+    ordered = sorted(rows, key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
+    if view != "month" or not ordered:
+        return ordered
+    df = pd.DataFrame(ordered)
+    df["_date"] = pd.to_datetime(df["competencia"], errors="coerce")
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
+    df["meta"] = pd.to_numeric(df["meta"], errors="coerce")
+    df = df.dropna(subset=["_date"])
+    if df.empty:
+        return ordered
+    df["_periodo"] = df["_date"].dt.to_period("M")
+    grouped = df.groupby("_periodo", sort=True).agg(valor=("valor", "mean"), meta=("meta", "mean")).reset_index()
+    return [
+        {"competencia": row["_periodo"].to_timestamp(), "valor": row["valor"], "meta": row["meta"]}
+        for _, row in grouped.iterrows()
+    ]
+'''
+new_prepare = '''def _prepare_rows(rows, view):
+    ordered = sorted(rows, key=lambda r: pd.to_datetime(r.get("competencia"), errors="coerce"))
+    if view != "month" or not ordered:
+        return ordered
+    # Fechamento mensal: o resultado do mês é sempre o último lançamento,
+    # nunca média das medições realizadas ao longo do mês.
+    return consolidar_ultimo_por_mes(ordered)
+'''
+if old_prepare in dash:
+    dash = dash.replace(old_prepare, new_prepare, 1)
+elif new_prepare not in dash:
+    raise SystemExit("Bloco _prepare_rows esperado não encontrado")
+
+old_export = '''    # Divulgação/exportação fica depois de todos os indicadores.
+    head_left, head_right = st.columns([5.5, 1.5], gap="medium")
+    with head_left:
+        st.markdown('<div class="ind-page-spacer"></div>', unsafe_allow_html=True)
+    with head_right:
+        st.markdown('<div class="ind-export-label">DIVULGAÇÃO</div>', unsafe_allow_html=True)
+        try:
+            payload_pdf = json.dumps(indicadores or [],ensure_ascii=False,sort_keys=True,default=str)
+            pdf_bytes = _pdf_indicadores_cache(payload_pdf)
+            st.download_button(
+                "EXPORTAR PDF",
+                data=pdf_bytes,
+                file_name="indicadores_operacionais.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="secondary",
+                key="exportar_indicadores_pdf",
+            )
+        except Exception as exc:
+            st.error(f"Não foi possível gerar o PDF: {exc}")
+'''
+new_export = '''    # Divulgação/exportação: usa a mesma regra de fechamento da visão POR MÊS.
+    st.markdown('<div class="ind-export-label">DIVULGAÇÃO · FECHAMENTO MENSAL</div>', unsafe_allow_html=True)
+    meses = meses_disponiveis(indicadores or [])
+    exp_modo_col, exp_mes_col, exp_btn_col = st.columns([1.6, 1.8, 1.4], gap="small")
+    with exp_modo_col:
+        modo_exportacao = st.selectbox(
+            "PERÍODO DE EXPORTAÇÃO",
+            ["ATUAL", "MÊS ESPECÍFICO"],
+            key="indicadores_export_modo",
+        )
+    with exp_mes_col:
+        mes_exportacao = None
+        if modo_exportacao == "MÊS ESPECÍFICO":
+            if meses:
+                mes_exportacao = st.selectbox(
+                    "MÊS",
+                    meses,
+                    format_func=rotulo_mes,
+                    key="indicadores_export_mes",
+                )
+            else:
+                st.text_input("MÊS", value="Sem histórico", disabled=True, key="indicadores_export_mes_vazio")
+        else:
+            st.text_input("REFERÊNCIA", value="Último fechamento disponível", disabled=True, key="indicadores_export_atual")
+
+    try:
+        dados_exportacao = preparar_exportacao(indicadores or [], modo_exportacao, mes_exportacao)
+        payload_pdf = json.dumps(dados_exportacao, ensure_ascii=False, sort_keys=True, default=str)
+        imagens_zip = _pdf_indicadores_cache(payload_pdf)
+        sufixo = mes_exportacao if modo_exportacao == "MÊS ESPECÍFICO" and mes_exportacao else "atual"
+        with exp_btn_col:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            st.download_button(
+                "EXPORTAR IMAGENS",
+                data=imagens_zip,
+                file_name=f"indicadores_{sufixo}.zip",
+                mime="application/zip",
+                use_container_width=True,
+                type="secondary",
+                key="exportar_indicadores_imagens",
+                disabled=(modo_exportacao == "MÊS ESPECÍFICO" and not mes_exportacao),
+            )
+    except Exception as exc:
+        st.error(f"Não foi possível gerar as imagens: {exc}")
+'''
+if old_export in dash:
+    dash = dash.replace(old_export, new_export, 1)
+elif new_export not in dash:
+    raise SystemExit("Bloco de exportação esperado não encontrado")
+
+dash_path.write_text(dash, encoding="utf-8")
+
+pdf_path = Path("indicadores_pdf.py")
+pdf = pdf_path.read_text(encoding="utf-8")
+
+old_groups = '''def _groups(indicadores):
+    groups = {name: [] for name in GROUPS}
+    for row in indicadores or []:
+        key = ALIASES.get(str(row.get("indicador") or "").strip().upper())
+        if key in groups:
+            groups[key].append(row)
+    for name in groups:
+        groups[name].sort(key=lambda r: str(r.get("competencia") or ""))
+    return groups
+'''
+new_groups = '''def _groups(indicadores):
+    # Os três indicadores atuais permanecem sempre presentes; novos indicadores
+    # encontrados no banco entram automaticamente como novas imagens.
+    groups = {name: [] for name in GROUPS}
+    for row in indicadores or []:
+        raw = str(row.get("indicador") or "").strip()
+        key = ALIASES.get(raw.upper(), raw.upper())
+        if not key:
+            continue
+        groups.setdefault(key, []).append(row)
+    for name in groups:
+        groups[name].sort(key=lambda r: str(r.get("competencia") or ""))
+    return groups
+'''
+if old_groups in pdf:
+    pdf = pdf.replace(old_groups, new_groups, 1)
+elif new_groups not in pdf:
+    raise SystemExit("Bloco _groups esperado não encontrado")
+
+old_zip = '''def gerar_imagens_zip(indicadores):
+    groups = _groups(indicadores)
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
+        for idx, name in enumerate(GROUPS, 1):
+            img = gerar_imagem_indicador(name, groups[name], idx)
+            png = BytesIO()
+            img.save(png, format="PNG", optimize=True)
+            safe = (name.lower().replace(" ", "_").replace("á", "a").replace("ã", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")).replace("ç", "c")
+            zf.writestr(f"{idx:02d}_{safe}.png", png.getvalue())
+    return buffer.getvalue()
+'''
+new_zip = '''def gerar_imagens_zip(indicadores):
+    groups = _groups(indicadores)
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
+        for idx, (name, rows) in enumerate(groups.items(), 1):
+            img = gerar_imagem_indicador(name, rows, idx)
+            png = BytesIO()
+            img.save(png, format="PNG", optimize=True)
+            safe = (name.lower().replace(" ", "_").replace("á", "a").replace("ã", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")).replace("ç", "c")
+            zf.writestr(f"{idx:02d}_{safe}.png", png.getvalue())
+    return buffer.getvalue()
+'''
+if old_zip in pdf:
+    pdf = pdf.replace(old_zip, new_zip, 1)
+elif new_zip not in pdf:
+    raise SystemExit("Bloco gerar_imagens_zip esperado não encontrado")
+
+pdf = pdf.replace(
+    'd.text((44, 84), "Acompanhamento histórico do indicador operacional", font=f_sub, fill=MUTED)',
+    'd.text((44, 84), "Fechamento mensal · último lançamento válido do período", font=f_sub, fill=MUTED)',
+    1,
+)
+pdf_path.write_text(pdf, encoding="utf-8")
