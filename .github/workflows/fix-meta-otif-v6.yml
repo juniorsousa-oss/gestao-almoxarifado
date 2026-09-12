@@ -63,7 +63,6 @@ jobs:
 
           s = s.replace('"origem": "otif_almox_funil_v5"', '"origem": "otif_almox_funil_v6"')
 
-          # Documenta a regra no relatório de auditoria.
           marker = '        ["OTIF Almox", "ON TIME ALMOX (%) × IN FULL ALMOX (%) / 100."],\n'
           add = marker + '        ["Meta mensal", "Janeiro = 25,60%; acréscimo fixo de 2,60 pontos percentuais a cada mês. A meta é automática e não editável na alimentação."],\n'
           if marker in s:
@@ -77,3 +76,4 @@ jobs:
           git add indicadores_entregas_v2.py
           git commit -m 'Define meta mensal automatica do OTIF Almox'
           git push origin main
+# trigger
