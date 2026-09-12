@@ -13,7 +13,8 @@ from supabase_client import get_client
 
 INDICADOR = "ENTREGAS NO PRAZO"
 TZ_APP = ZoneInfo("America/Sao_Paulo")
-LOGIC_VERSION = "2026-09-11-projeto-cm-ops-v3"
+LOGIC_VERSION = "2026-09-11-otif-almox-funil-v4"
+TOL = 1e-9
 
 
 def _agora_local():
@@ -28,46 +29,38 @@ def _norm_code(value):
         return ""
     if s.endswith(".0"):
         s = s[:-2]
+    s = re.sub(r"[^A-Za-z0-9]", "", s).upper()
     if s.isdigit():
-        return str(int(s))
-    return s.upper()
+        try:
+            return str(int(s))
+        except Exception:
+            pass
+    return s
 
 
 def _norm_project(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
     s = str(value).strip()
+    if not s or s.lower() == "nan":
+        return ""
     if s.endswith(".0"):
         s = s[:-2]
-    return s
+    return re.sub(r"\s+", "", s)
 
 
-def _column(df, *aliases):
-    import unicodedata
-
-    def key(value):
-        s = unicodedata.normalize("NFKD", str(value))
-        s = "".join(ch for ch in s if not unicodedata.combining(ch))
-        return " ".join(s.strip().upper().split())
-
-    lookup = {key(c): c for c in df.columns}
-    for alias in aliases:
-        if key(alias) in lookup:
-            return lookup[key(alias)]
-    raise ValueError(f"Coluna não encontrada: {aliases[0]}")
+def _to_dates(series):
+    try:
+        return pd.to_datetime(series, dayfirst=True, errors="coerce", format="mixed")
+    except TypeError:
+        return pd.to_datetime(series, dayfirst=True, errors="coerce")
 
 
-def _excel(uploaded, sheet_name):
-    return pd.read_excel(BytesIO(uploaded.getvalue()), sheet_name=sheet_name, dtype=str, engine="openpyxl")
-
-
-def _to_date(series):
-    return pd.to_datetime(series, dayfirst=True, errors="coerce")
-
-
-def _to_num(value):
+def _num(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
     s = str(value).strip().replace(" ", "")
     if not s or s.lower() == "nan":
         return 0.0
@@ -79,9 +72,22 @@ def _to_num(value):
         return 0.0
 
 
-def _action_quantities(action):
-    text = "" if action is None else str(action)
-    result = {"Estoque": 0.0, "Pré Nota": 0.0, "P.C.": 0.0, "Fabricação": 0.0, "S.C.": 0.0}
+def _num_series(series):
+    return series.map(_num).clip(lower=0)
+
+
+def _file_hash(uploaded):
+    data = uploaded.getvalue()
+    return hashlib.sha256(data).hexdigest(), len(data)
+
+
+def _read_excel(uploaded, **kwargs):
+    return pd.read_excel(BytesIO(uploaded.getvalue()), engine="openpyxl", **kwargs)
+
+
+def _parse_action(action):
+    text = "" if action is None or (isinstance(action, float) and pd.isna(action)) else str(action)
+    out = {"Estoque": 0.0, "Pré Nota": 0.0, "P.C.": 0.0, "Fabricação": 0.0, "S.C.": 0.0}
     patterns = [
         ("Estoque", r"Estoque\s+([\d.,]+)"),
         ("Pré Nota", r"Pr[eé]\s*Nota\s+([\d.,]+)"),
@@ -90,233 +96,469 @@ def _action_quantities(action):
         ("S.C.", r"S\.C\.\s+([\d.,]+)"),
     ]
     for label, pattern in patterns:
-        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
-            result[label] += _to_num(match.group(1))
-    return result
+        for m in re.finditer(pattern, text, flags=re.IGNORECASE):
+            out[label] += _num(m.group(1))
+    out["Compra"] = out["Pré Nota"] + out["P.C."]
+    out["Externo"] = out["Compra"] + out["Fabricação"] + out["S.C."]
+    return out
 
 
-def _action_category(action):
-    q = _action_quantities(action)
-    active = [k for k, v in q.items() if v > 0]
-    return " + ".join(active) if active else "SEM AÇÃO"
+def _fmt_date(value):
+    ts = pd.to_datetime(value, errors="coerce")
+    return "" if pd.isna(ts) else ts.strftime("%d/%m/%Y")
 
 
-def _file_hash(uploaded):
-    data = uploaded.getvalue()
-    return hashlib.sha256(data).hexdigest(), len(data)
+def _build_mrp(mrp_file):
+    # Terceira aba: Demanda_Projeto. A e B formam a chave Projeto_Código.
+    raw = _read_excel(mrp_file, sheet_name=2, usecols="A,B,G,H,I,J,K,L,M,N", dtype=str)
+    raw.columns = [
+        "Projeto", "Código", "Semana Atendimento", "Necessidade MRP", "Estoque atual MRP",
+        "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação MRP",
+    ]
+    raw["Projeto"] = raw["Projeto"].map(_norm_project)
+    raw["Código normalizado"] = raw["Código"].map(_norm_code)
+    raw["Projeto_Código"] = raw["Projeto"] + "_" + raw["Código normalizado"]
+    for col in ["Necessidade MRP", "Estoque atual MRP", "Pré Nota", "P.C.", "Fabricação", "S.C."]:
+        raw[col] = _num_series(raw[col])
+
+    parsed = raw["Ação MRP"].map(_parse_action)
+    raw["Ação Estoque"] = parsed.map(lambda x: x["Estoque"])
+    raw["Ação Pré Nota"] = parsed.map(lambda x: x["Pré Nota"])
+    raw["Ação P.C."] = parsed.map(lambda x: x["P.C."])
+    raw["Ação Compra"] = parsed.map(lambda x: x["Compra"])
+    raw["Ação Fabricação"] = parsed.map(lambda x: x["Fabricação"])
+    raw["Ação S.C."] = parsed.map(lambda x: x["S.C."])
+    raw["Ação Externa"] = parsed.map(lambda x: x["Externo"])
+
+    def join_unique(s):
+        vals = []
+        for v in s:
+            txt = "" if pd.isna(v) else str(v).strip()
+            if txt and txt not in vals:
+                vals.append(txt)
+        return " | ".join(vals)
+
+    mrp = raw.groupby("Projeto_Código", as_index=False).agg({
+        "Projeto": "first",
+        "Código normalizado": "first",
+        "Semana Atendimento": join_unique,
+        "Necessidade MRP": "sum",
+        "Estoque atual MRP": "max",
+        "Pré Nota": "sum",
+        "P.C.": "sum",
+        "Fabricação": "sum",
+        "S.C.": "sum",
+        "Ação MRP": join_unique,
+        "Ação Estoque": "sum",
+        "Ação Pré Nota": "sum",
+        "Ação P.C.": "sum",
+        "Ação Compra": "sum",
+        "Ação Fabricação": "sum",
+        "Ação S.C.": "sum",
+        "Ação Externa": "sum",
+    })
+    return raw, mrp
 
 
-def calcular_entregas_v2(relatorio_file, mrp_file, data_registro: date | None = None):
+def _allocate_external_to_requests(solicitacoes, mrp_lookup):
+    """Distribui apenas a parcela pendente classificada como externa no MRP.
+
+    O atendimento é naturalmente FIFO: o que tende a permanecer pendente é a demanda mais nova.
+    Por isso, a alocação de causa externa percorre solicitações pendentes da mais nova para a mais antiga.
+    Solicitações já inelegíveis por data absorvem a causa externa primeiro, evitando dupla exclusão no On Time Almox.
+    """
+    df = solicitacoes.copy()
+    for col in ["Qtd Excluída Compra", "Qtd Excluída Fabricação", "Qtd Excluída S.C."]:
+        df[col] = 0.0
+
+    for key, idxs in df.groupby("Projeto_Código").groups.items():
+        if key not in mrp_lookup.index:
+            continue
+        mr = mrp_lookup.loc[key]
+        pools = {
+            "Qtd Excluída Compra": max(_num(mr.get("Ação Compra", 0)), 0.0),
+            "Qtd Excluída Fabricação": max(_num(mr.get("Ação Fabricação", 0)), 0.0),
+            "Qtd Excluída S.C.": max(_num(mr.get("Ação S.C.", 0)), 0.0),
+        }
+        total_pool = sum(pools.values())
+        if total_pool <= TOL:
+            continue
+
+        part = df.loc[list(idxs)].copy()
+        part = part[~part["Tipo II"] & (part["Qtd Pendente Atual"] > TOL)]
+        if part.empty:
+            continue
+        part["_prioridade"] = part["Elegível Inicial OnTime Almox"].map({False: 0, True: 1})
+        # Dentro de cada faixa, a pendência mais nova é tratada primeiro.
+        part = part.sort_values(["_prioridade", "Data Solicitação"], ascending=[True, False], na_position="first")
+
+        for ridx, row in part.iterrows():
+            falta = float(row["Qtd Pendente Atual"])
+            if falta <= TOL:
+                continue
+            pool_total = sum(pools.values())
+            if pool_total <= TOL:
+                break
+            alocar = min(falta, pool_total)
+            # Preserva o mix de causas do Ação ao repartir uma parcela menor que o pool.
+            snapshot = pools.copy()
+            snap_total = sum(snapshot.values())
+            remaining = alocar
+            keys = list(snapshot)
+            for pos, cat in enumerate(keys):
+                if pos == len(keys) - 1:
+                    q = remaining
+                else:
+                    q = alocar * snapshot[cat] / snap_total if snap_total > TOL else 0.0
+                    q = min(q, remaining)
+                q = min(q, pools[cat])
+                df.at[ridx, cat] += q
+                pools[cat] -= q
+                remaining -= q
+            if remaining > 1e-6:
+                # Ajuste residual por arredondamento.
+                for cat in keys:
+                    if pools[cat] > TOL:
+                        q = min(remaining, pools[cat])
+                        df.at[ridx, cat] += q
+                        pools[cat] -= q
+                        remaining -= q
+                        if remaining <= TOL:
+                            break
+
+    df["Qtd Excluída Causa Externa"] = (
+        df["Qtd Excluída Compra"] + df["Qtd Excluída Fabricação"] + df["Qtd Excluída S.C."]
+    )
+    return df
+
+
+def calcular_entregas_v2(relatorio_file, for022_file, cadastro_file, mrp_file, data_registro: date | None = None):
     data_registro = data_registro or _agora_local().date()
     periodo_inicio = date(data_registro.year, data_registro.month, 1)
     periodo_fim = data_registro - timedelta(days=1)
     if periodo_fim < periodo_inicio:
         raise ValueError("Ainda não há período fechado no mês atual: hoje é o primeiro dia do mês.")
-
-    rel = _excel(relatorio_file, "Geral")
-    demanda = _excel(mrp_file, "Demanda_Projeto")
-    mrp_geral = _excel(mrp_file, "MRP_Geral")
-
-    # RELATÓRIO GERAL
-    r_projeto = _column(rel, "Projeto")
-    r_codigo = _column(rel, "Código", "Codigo")
-    r_ultima = _column(rel, "Última solicitação", "Ultima solicitacao")
-    r_separacao = _column(rel, "Data de separação", "Data de separacao")
-
-    rel_base = rel[[r_projeto, r_codigo, r_ultima, r_separacao]].copy()
-    rel_base.columns = ["Projeto", "Código", "Última Solicitação", "Data de Separação"]
-    rel_base.insert(0, "Linha Relatório Geral", range(2, len(rel_base) + 2))
-    rel_base["Projeto"] = rel_base["Projeto"].map(_norm_project)
-    rel_base["Código normalizado"] = rel_base["Código"].map(_norm_code)
-    rel_base["Projeto_Código"] = rel_base["Projeto"] + "_" + rel_base["Código normalizado"]
-    rel_base["Última Solicitação"] = _to_date(rel_base["Última Solicitação"])
-    rel_base["Data de Separação"] = _to_date(rel_base["Data de Separação"])
-
-    # DEMANDA PROJETO
-    d_projeto = _column(demanda, "Projeto")
-    d_produto = _column(demanda, "Produto")
-    d_desc = _column(demanda, "Descrição", "Descricao")
-    d_data_cm = _column(demanda, "Data CM")
-    d_acao = _column(demanda, "Ação", "Acao")
-
-    dem = demanda.copy()
-    dem["Projeto_norm"] = dem[d_projeto].map(_norm_project)
-    dem["Código normalizado"] = dem[d_produto].map(_norm_code)
-    dem["Projeto_Código"] = dem["Projeto_norm"] + "_" + dem["Código normalizado"]
-    dem["Data CM tratada"] = _to_date(dem[d_data_cm])
-
-    # A chave Projeto_Código é usada para localizar Ação/Descrição sem duplicar o Relatório Geral.
-    duplicadas = dem.loc[dem["Projeto_Código"].duplicated(keep=False) & dem["Projeto_Código"].ne("_")]
-    if not duplicadas.empty:
-        exemplos = ", ".join(duplicadas["Projeto_Código"].drop_duplicates().head(5).tolist())
-        raise ValueError(f"Há chaves Projeto_Código duplicadas no Demanda_Projeto. Exemplos: {exemplos}")
-
-    # DATA CM é informação do PROJETO, conforme a regra validada na planilha de conferência.
-    cm_validas = dem.loc[dem["Projeto_norm"].ne("") & dem["Data CM tratada"].notna(), ["Projeto_norm", "Data CM tratada"]].copy()
-    conflitos_cm = cm_validas.groupby("Projeto_norm")["Data CM tratada"].nunique()
-    conflitos_cm = conflitos_cm[conflitos_cm > 1]
-    if not conflitos_cm.empty:
-        exemplos = ", ".join(conflitos_cm.index.astype(str).tolist()[:5])
-        raise ValueError(f"Há projetos com mais de uma Data CM válida no Demanda_Projeto. Exemplos: {exemplos}")
-    cm_map = (
-        cm_validas.drop_duplicates("Projeto_norm", keep="first")
-        .set_index("Projeto_norm")["Data CM tratada"].to_dict()
-    )
-
-    dem_lookup = dem[["Projeto_Código", d_acao, d_desc]].copy()
-    dem_lookup.columns = ["Projeto_Código", "Ação", "Descrição MRP"]
-
-    # TIPOS — primeira aba MRP_Geral
-    g_codigo = _column(mrp_geral, "Código", "Codigo")
-    g_tipo = _column(mrp_geral, "Tipo")
-    tipos = mrp_geral[[g_codigo, g_tipo]].copy()
-    tipos["Código normalizado"] = tipos[g_codigo].map(_norm_code)
-    tipos["Tipo"] = tipos[g_tipo].fillna("").astype(str).str.strip().str.upper()
-    tipos = tipos[tipos["Código normalizado"] != ""].drop_duplicates("Código normalizado", keep="last")
-    tipo_map = tipos.set_index("Código normalizado")["Tipo"].to_dict()
-
-    # FUSÃO — mantém todas as linhas do Relatório Geral.
-    # Data CM vem do PROJETO; Ação e Descrição vêm de Projeto_Código para auditoria dos materiais.
-    fundida = rel_base.merge(dem_lookup, on="Projeto_Código", how="left", validate="many_to_one")
-    fundida["Data CM"] = fundida["Projeto"].map(cm_map)
-    fundida["Tipo"] = fundida["Código normalizado"].map(tipo_map).fillna("")
-    fundida["Chave encontrada no MRP"] = fundida["Ação"].notna() | fundida["Descrição MRP"].notna()
-
     inicio_ts = pd.Timestamp(periodo_inicio)
     fim_ts = pd.Timestamp(periodo_fim)
-    base = fundida[fundida["Data CM"].between(inicio_ts, fim_ts, inclusive="both")].copy()
-    if base.empty:
+
+    # 1) DATA CM — FOR-022, primeira aba. Se a OP repetir, usa a MAIOR data dentro do período analisado.
+    cron = _read_excel(for022_file, sheet_name=0, usecols="A,V", dtype=str)
+    cron.columns = ["Projeto", "Data CM"]
+    cron["Projeto"] = cron["Projeto"].map(_norm_project)
+    cron["Data CM"] = _to_dates(cron["Data CM"]).dt.normalize()
+    cron_periodo = cron[
+        cron["Projeto"].ne("") & cron["Data CM"].between(inicio_ts, fim_ts, inclusive="both")
+    ].copy()
+    datas_projeto = (
+        cron_periodo.groupby("Projeto", as_index=False)["Data CM"].max()
+        .sort_values(["Data CM", "Projeto"])
+    )
+    if datas_projeto.empty:
         raise ValueError(
-            f"Nenhuma solicitação com Data CM entre {periodo_inicio.strftime('%d/%m/%Y')} e {periodo_fim.strftime('%d/%m/%Y')}."
+            f"Nenhuma OP com Data CM entre {periodo_inicio.strftime('%d/%m/%Y')} e {periodo_fim.strftime('%d/%m/%Y')} na FOR-022."
         )
+    cm_map = datas_projeto.set_index("Projeto")["Data CM"].to_dict()
 
-    # ENTREGA EM DIA — critérios sequenciais.
-    base["Critério entrega"] = "ATRASADA"
-    base["Entregue em dia"] = False
+    # 2) CADASTRO — cabeçalho na linha 2; Tipo II é totalmente desconsiderado dos indicadores.
+    cad = _read_excel(cadastro_file, sheet_name=0, header=1, usecols="B,D", dtype=str)
+    cad.columns = ["Código", "Tipo"]
+    cad["Código normalizado"] = cad["Código"].map(_norm_code)
+    cad["Tipo"] = cad["Tipo"].fillna("").astype(str).str.strip().str.upper()
+    cad = cad[cad["Código normalizado"].ne("")].drop_duplicates("Código normalizado", keep="last")
+    tipo_map = cad.set_index("Código normalizado")["Tipo"].to_dict()
 
-    separacao_dia = base["Data de Separação"].dt.normalize()
-    cm_dia = base["Data CM"].dt.normalize()
-    solicitacao_dia = base["Última Solicitação"].dt.normalize()
+    # 3) MRP — terceira aba, usada para causa raiz da pendência. Pré Nota e P.C. são a mesma família: COMPRA.
+    mrp_raw, mrp = _build_mrp(mrp_file)
+    mrp_lookup = mrp.set_index("Projeto_Código")
 
-    c1 = base["Data de Separação"].notna() & (separacao_dia <= cm_dia)
-    base.loc[c1, "Critério entrega"] = "DATA DE SEPARAÇÃO <= DATA CM (HORA IGNORADA)"
-    base.loc[c1, "Entregue em dia"] = True
+    # 4) RELATÓRIO GERAL — fonte mestre. Preserva todas as colunas para a auditoria.
+    rel_raw = _read_excel(relatorio_file, sheet_name="Geral")
+    if rel_raw.shape[1] < 16:
+        raise ValueError("O Relatório Geral não possui as colunas esperadas até P.")
+    rel = pd.DataFrame({
+        "Projeto": rel_raw.iloc[:, 0],
+        "Código": rel_raw.iloc[:, 3],
+        "Data Solicitação": rel_raw.iloc[:, 6],
+        "Qtd Necessária": rel_raw.iloc[:, 8],
+        "Qtd Atendida": rel_raw.iloc[:, 9],
+        "Data Separação": rel_raw.iloc[:, 13],
+        "Data Conferência": rel_raw.iloc[:, 15],
+    })
+    rel.insert(0, "Linha Relatório Geral", range(2, len(rel) + 2))
+    rel["Projeto"] = rel["Projeto"].map(_norm_project)
+    rel["Código normalizado"] = rel["Código"].map(_norm_code)
+    rel["Projeto_Código"] = rel["Projeto"] + "_" + rel["Código normalizado"]
+    rel["Qtd Necessária"] = _num_series(rel["Qtd Necessária"])
+    rel["Qtd Atendida"] = _num_series(rel["Qtd Atendida"])
+    rel["Qtd Atendida Efetiva"] = rel[["Qtd Necessária", "Qtd Atendida"]].min(axis=1)
+    rel["Data Solicitação"] = _to_dates(rel["Data Solicitação"]).dt.normalize()
+    rel["Data Separação"] = _to_dates(rel["Data Separação"]).dt.normalize()
+    rel["Data Conferência"] = _to_dates(rel["Data Conferência"]).dt.normalize()
+    rel["Data CM"] = rel["Projeto"].map(cm_map)
+    rel["Tipo"] = rel["Código normalizado"].map(tipo_map).fillna("")
+    rel["Tipo II"] = rel["Tipo"].eq("II")
 
-    pend = ~base["Entregue em dia"]
-    c2 = pend & base["Última Solicitação"].notna() & (solicitacao_dia > cm_dia)
-    base.loc[c2, "Critério entrega"] = "SOLICITAÇÃO POSTERIOR À DATA CM"
-    base.loc[c2, "Entregue em dia"] = True
+    # Macro: todas as linhas ligadas às OPs cuja maior Data CM válida está dentro do período.
+    macro = rel[rel["Data CM"].notna()].copy()
+    if macro.empty:
+        raise ValueError("Nenhuma solicitação do Relatório Geral foi vinculada às OPs programadas no período.")
 
-    pend = ~base["Entregue em dia"]
-    c3 = pend & base["Tipo"].eq("II")
-    base.loc[c3, "Critério entrega"] = "MATERIAL TIPO II"
-    base.loc[c3, "Entregue em dia"] = True
+    # Anexa diagnóstico atual do MRP à linha original sem usá-lo como fonte mestre.
+    mrp_cols = [
+        "Projeto_Código", "Necessidade MRP", "Estoque atual MRP", "Pré Nota", "P.C.", "Fabricação", "S.C.",
+        "Ação MRP", "Ação Estoque", "Ação Compra", "Ação Fabricação", "Ação S.C.", "Ação Externa",
+    ]
+    macro = macro.merge(mrp[mrp_cols], on="Projeto_Código", how="left", validate="many_to_one")
+    for c in ["Necessidade MRP", "Estoque atual MRP", "Pré Nota", "P.C.", "Fabricação", "S.C.",
+              "Ação Estoque", "Ação Compra", "Ação Fabricação", "Ação S.C.", "Ação Externa"]:
+        macro[c] = pd.to_numeric(macro[c], errors="coerce").fillna(0.0)
+    macro["Ação MRP"] = macro["Ação MRP"].fillna("")
 
-    base["Categoria Ação"] = base["Ação"].map(_action_category)
-    sem_sep = base["Data de Separação"].isna()
-    base["Diagnóstico sem separação"] = ""
-    base.loc[sem_sep, "Diagnóstico sem separação"] = base.loc[sem_sep, "Categoria Ação"]
-
-    solicitacoes = int(len(base))
-    entregues = int(base["Entregue em dia"].sum())
-    atrasadas = int((~base["Entregue em dia"]).sum())
-    projetos_programados = int(base["Projeto"].replace("", pd.NA).dropna().nunique())
-
-    # ATENDIDOS COMPLETAMENTE — mesma lógica da aba OPS da planilha de conferência.
-    # SOLICITADO = COUNTIF(Relatório Geral, Projeto)
-    # PENDÊNCIAS = COUNTIF(Demanda_Projeto, Projeto)
-    # ATENDIDO = SOLICITADO - PENDÊNCIAS
-    projetos_base = sorted(set(base["Projeto"].replace("", pd.NA).dropna().astype(str)))
-    solic_por_proj = rel_base.groupby("Projeto").size().to_dict()
-    pend_por_proj = dem.groupby("Projeto_norm").size().to_dict()
-
-    resumo_registros = []
-    for projeto in projetos_base:
-        solicitado = int(solic_por_proj.get(projeto, 0))
-        pendencias = int(pend_por_proj.get(projeto, 0))
-        atendido = max(solicitado - pendencias, 0)
-        pct = (atendido / solicitado * 100.0) if solicitado else 0.0
-        resumo_registros.append({
-            "Projeto": projeto,
-            "Solicitações": solicitado,
-            "Pendências no MRP": pendencias,
-            "Atendidas": atendido,
-            "Atendimento (%)": pct,
-            "Atendido completamente": "SIM" if solicitado > 0 and pendencias == 0 else "NÃO",
-        })
-    resumo_projetos = pd.DataFrame(resumo_registros)
-    atendidos_completamente = int(
-        resumo_projetos["Atendido completamente"].eq("SIM").sum()
-    ) if not resumo_projetos.empty else 0
-
-    # Detalhamento das pendências do Demanda_Projeto para auditoria.
-    dem_programados = dem[dem["Projeto_norm"].isin(projetos_base)].copy()
-    if dem_programados.empty:
-        demanda_auditoria = pd.DataFrame(columns=["Projeto", "Código", "Projeto_Código", "Descrição", "Data CM", "Ação", "Pendência"])
-    else:
-        demanda_auditoria = pd.DataFrame({
-            "Projeto": dem_programados["Projeto_norm"],
-            "Código": dem_programados["Código normalizado"],
-            "Projeto_Código": dem_programados["Projeto_Código"],
-            "Descrição": dem_programados[d_desc],
-            "Data CM": dem_programados["Data CM tratada"],
-            "Ação": dem_programados[d_acao],
-            "Pendência": 1,
-        })
-
-    projetos_atendidos_pct = (atendidos_completamente / projetos_programados * 100.0) if projetos_programados else 0.0
-    entregas_em_dia_pct = (entregues / solicitacoes * 100.0) if solicitacoes else 0.0
-    resultado_final = projetos_atendidos_pct * entregas_em_dia_pct / 100.0
-
-    # Auditoria das linhas atrasadas/sem separação por origem da Ação.
-    atrasos = base[~base["Entregue em dia"]].copy()
-    sem_separacao = base[base["Data de Separação"].isna()].copy()
-    acao_resumo = (
-        sem_separacao.groupby("Categoria Ação", dropna=False).size().reset_index(name="Quantidade")
-        .sort_values("Quantidade", ascending=False)
+    # Solicitação: mesmo Projeto + Código + Data de Solicitação é uma única solicitação; quantidades são somadas.
+    date_key = macro["Data Solicitação"].dt.strftime("%Y-%m-%d").fillna("")
+    macro["Grupo Solicitação"] = macro["Projeto_Código"] + "_" + date_key
+    sem_data = macro["Data Solicitação"].isna()
+    macro.loc[sem_data, "Grupo Solicitação"] = (
+        macro.loc[sem_data, "Projeto_Código"] + "_SEM_DATA_LINHA_" + macro.loc[sem_data, "Linha Relatório Geral"].astype(str)
     )
 
-    rel_hash, rel_size = _file_hash(relatorio_file)
-    mrp_hash, mrp_size = _file_hash(mrp_file)
+    macro["Solicitada antes da CM"] = macro["Data Solicitação"].notna() & (macro["Data Solicitação"] < macro["Data CM"])
+    macro["Separada no prazo"] = macro["Data Separação"].notna() & (macro["Data Separação"] <= macro["Data CM"])
+    macro["Conferida no prazo"] = macro["Data Conferência"].notna() & (macro["Data Conferência"] <= macro["Data CM"])
+    macro["Qtd OnTime Separação Linha"] = macro["Qtd Atendida Efetiva"].where(
+        (~macro["Tipo II"]) & macro["Solicitada antes da CM"] & macro["Separada no prazo"], 0.0
+    )
+    macro["Qtd OnTime Conferência Linha"] = macro["Qtd Atendida Efetiva"].where(
+        (~macro["Tipo II"]) & macro["Solicitada antes da CM"] & macro["Conferida no prazo"], 0.0
+    )
 
-    # Formatação amigável para exportação/tela.
-    for df in (base, atrasos, sem_separacao):
-        df["Data CM"] = pd.to_datetime(df["Data CM"], errors="coerce")
-        df["Última Solicitação"] = pd.to_datetime(df["Última Solicitação"], errors="coerce")
-        df["Data de Separação"] = pd.to_datetime(df["Data de Separação"], errors="coerce")
-        df["Entregue em dia"] = df["Entregue em dia"].map({True: "SIM", False: "NÃO"})
-        df["Chave encontrada no MRP"] = df["Chave encontrada no MRP"].map({True: "SIM", False: "NÃO"})
+    def join_lines(s):
+        return ", ".join(str(int(x)) for x in s if pd.notna(x))
+
+    solicit = macro.groupby("Grupo Solicitação", as_index=False).agg({
+        "Projeto": "first",
+        "Código normalizado": "first",
+        "Projeto_Código": "first",
+        "Data Solicitação": "first",
+        "Data CM": "first",
+        "Tipo": "first",
+        "Tipo II": "first",
+        "Qtd Necessária": "sum",
+        "Qtd Atendida Efetiva": "sum",
+        "Qtd OnTime Separação Linha": "sum",
+        "Qtd OnTime Conferência Linha": "sum",
+        "Data Separação": ["min", "max"],
+        "Data Conferência": ["min", "max"],
+        "Linha Relatório Geral": join_lines,
+        "Necessidade MRP": "first",
+        "Estoque atual MRP": "first",
+        "Ação MRP": "first",
+        "Ação Estoque": "first",
+        "Ação Compra": "first",
+        "Ação Fabricação": "first",
+        "Ação S.C.": "first",
+        "Ação Externa": "first",
+    })
+    solicit.columns = [
+        "Grupo Solicitação", "Projeto", "Código", "Projeto_Código", "Data Solicitação", "Data CM", "Tipo", "Tipo II",
+        "Qtd Necessária", "Qtd Atendida", "Qtd OnTime Separação", "Qtd OnTime Conferência",
+        "Separação mais cedo", "Separação mais tarde", "Conferência mais cedo", "Conferência mais tarde",
+        "Linhas Origem", "Necessidade MRP", "Estoque atual MRP", "Ação MRP", "Ação Estoque", "Ação Compra",
+        "Ação Fabricação", "Ação S.C.", "Ação Externa",
+    ]
+    solicit["Qtd Atendida"] = solicit[["Qtd Necessária", "Qtd Atendida"]].min(axis=1)
+    solicit["Qtd OnTime Separação"] = solicit[["Qtd Necessária", "Qtd OnTime Separação"]].min(axis=1)
+    solicit["Qtd OnTime Conferência"] = solicit[["Qtd Necessária", "Qtd OnTime Conferência"]].min(axis=1)
+    solicit["Qtd Pendente Atual"] = (solicit["Qtd Necessária"] - solicit["Qtd Atendida"]).clip(lower=0)
+    solicit["Solicitada antes da CM"] = solicit["Data Solicitação"].notna() & (solicit["Data Solicitação"] < solicit["Data CM"])
+    solicit["Elegível Inicial OnTime Almox"] = (~solicit["Tipo II"]) & solicit["Solicitada antes da CM"]
+
+    # Causa externa atual (compra = Pré Nota + P.C.; além de Fabricação e S.C.) é aplicada apenas à pendência.
+    solicit = _allocate_external_to_requests(solicit, mrp_lookup)
+    solicit["Qtd Elegível OnTime Almox"] = (
+        solicit["Qtd Necessária"].where(solicit["Elegível Inicial OnTime Almox"], 0.0)
+        - solicit["Qtd Excluída Causa Externa"].where(solicit["Elegível Inicial OnTime Almox"], 0.0)
+    ).clip(lower=0)
+    solicit["Qtd OnTime Almox"] = solicit[["Qtd OnTime Separação", "Qtd Elegível OnTime Almox"]].min(axis=1)
+    solicit["Qtd OnTime Almox Simulado Entrega"] = solicit[["Qtd OnTime Conferência", "Qtd Elegível OnTime Almox"]].min(axis=1)
+
+    # Global: somente Tipo II sai totalmente. Solicitação tardia e causa externa continuam explicando perdas do processo.
+    solicit["Qtd Base Global"] = solicit["Qtd Necessária"].where(~solicit["Tipo II"], 0.0)
+    solicit["Qtd OnTime Global"] = solicit["Qtd OnTime Separação"].where(~solicit["Tipo II"], 0.0)
+    solicit["Qtd OnTime Global Simulado Entrega"] = solicit["Qtd OnTime Conferência"].where(~solicit["Tipo II"], 0.0)
+
+    def status_row(r):
+        if r["Tipo II"]:
+            return "FORA DO INDICADOR · TIPO II"
+        if pd.isna(r["Data Solicitação"]):
+            return "FORA DO ON TIME ALMOX · SEM DATA DE SOLICITAÇÃO"
+        if not r["Solicitada antes da CM"]:
+            return "FORA DO ON TIME ALMOX · SOLICITAÇÃO NO DIA/APÓS CM"
+        ext = r["Qtd Excluída Causa Externa"]
+        eleg = r["Qtd Elegível OnTime Almox"]
+        if ext > TOL and eleg <= TOL:
+            return "FORA DO ON TIME ALMOX · CAUSA EXTERNA"
+        if r["Qtd OnTime Almox"] + TOL >= eleg:
+            return "ON TIME ALMOX"
+        if r["Qtd Atendida"] > r["Qtd OnTime Separação"] + TOL:
+            return "PERDA ALMOX · SEPARAÇÃO APÓS CM"
+        if r["Qtd Pendente Atual"] > TOL and r["Ação Estoque"] > TOL:
+            return "PERDA ALMOX · PENDENTE COM ESTOQUE"
+        if r["Qtd Pendente Atual"] > TOL:
+            return "PERDA ALMOX · PENDENTE SEM CAUSA EXTERNA"
+        return "PERDA ALMOX · NÃO ATENDIDA NO PRAZO"
+
+    solicit["Classificação OnTime"] = solicit.apply(status_row, axis=1)
+
+    # IN FULL — independentemente da data. Tipo II sai de tudo. Causas externas pendentes saem apenas do In Full Almox.
+    proj_rows = []
+    for projeto, g in solicit.groupby("Projeto"):
+        non_ii = g[~g["Tipo II"]]
+        global_req = float(non_ii["Qtd Necessária"].sum())
+        global_att = float(non_ii["Qtd Atendida"].sum())
+        global_pend = max(global_req - global_att, 0.0)
+        ext = float(non_ii["Qtd Excluída Causa Externa"].sum())
+        almox_req = max(global_req - ext, 0.0)
+        almox_att = min(global_att, almox_req)
+        almox_pend = max(almox_req - almox_att, 0.0)
+        proj_rows.append({
+            "Projeto": projeto,
+            "Data CM": g["Data CM"].max(),
+            "Qtd Global": global_req,
+            "Qtd Atendida Global": global_att,
+            "Qtd Pendente Global": global_pend,
+            "Completo Global": "SIM" if global_req > TOL and global_pend <= TOL else "NÃO",
+            "Qtd Excluída Externa In Full Almox": ext,
+            "Qtd Elegível In Full Almox": almox_req,
+            "Qtd Atendida In Full Almox": almox_att,
+            "Qtd Pendente In Full Almox": almox_pend,
+            "Projeto Elegível In Full Almox": "SIM" if almox_req > TOL else "NÃO",
+            "Completo Almox": "SIM" if almox_req > TOL and almox_pend <= TOL else "NÃO",
+        })
+    projetos = pd.DataFrame(proj_rows)
+
+    # Métricas principais.
+    global_base = float(solicit["Qtd Base Global"].sum())
+    global_ontime = float(solicit["Qtd OnTime Global"].sum())
+    global_ontime_sim = float(solicit["Qtd OnTime Global Simulado Entrega"].sum())
+    almox_base = float(solicit["Qtd Elegível OnTime Almox"].sum())
+    almox_ontime = float(solicit["Qtd OnTime Almox"].sum())
+    almox_ontime_sim = float(solicit["Qtd OnTime Almox Simulado Entrega"].sum())
+
+    ontime_global_pct = global_ontime / global_base * 100.0 if global_base > TOL else 0.0
+    ontime_global_sim_pct = global_ontime_sim / global_base * 100.0 if global_base > TOL else 0.0
+    ontime_almox_pct = almox_ontime / almox_base * 100.0 if almox_base > TOL else 0.0
+    ontime_almox_sim_pct = almox_ontime_sim / almox_base * 100.0 if almox_base > TOL else 0.0
+
+    glob_proj = projetos[projetos["Qtd Global"] > TOL]
+    alm_proj = projetos[projetos["Projeto Elegível In Full Almox"].eq("SIM")]
+    infull_global_pct = (glob_proj["Completo Global"].eq("SIM").mean() * 100.0) if not glob_proj.empty else 0.0
+    infull_almox_pct = (alm_proj["Completo Almox"].eq("SIM").mean() * 100.0) if not alm_proj.empty else 0.0
+    otif_global_pct = ontime_global_pct * infull_global_pct / 100.0
+    otif_almox_pct = ontime_almox_pct * infull_almox_pct / 100.0
+
+    # Funil e causas — quantidades, sem esconder o macro.
+    macro_qtd = float(macro["Qtd Necessária"].sum())
+    tipo_ii_qtd = float(solicit.loc[solicit["Tipo II"], "Qtd Necessária"].sum())
+    late_qtd = float(solicit.loc[(~solicit["Tipo II"]) & (~solicit["Solicitada antes da CM"]), "Qtd Necessária"].sum())
+    ext_early = float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Causa Externa"].sum())
+    causas = pd.DataFrame([
+        ["Macro do período", macro_qtd],
+        ["Fora do indicador · Tipo II", tipo_ii_qtd],
+        ["Global · base após Tipo II", global_base],
+        ["Fora On Time Almox · solicitação no dia/após CM ou sem data", late_qtd],
+        ["Fora On Time Almox · Compra (Pré Nota + P.C.)", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Compra"].sum())],
+        ["Fora On Time Almox · Fabricação", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Fabricação"].sum())],
+        ["Fora On Time Almox · S.C.", float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída S.C."].sum())],
+        ["Base elegível On Time Almox", almox_base],
+        ["Atendida no prazo Almox", almox_ontime],
+        ["Perda On Time Almox", max(almox_base - almox_ontime, 0.0)],
+    ], columns=["Etapa / Causa", "Quantidade"])
+
+    # Material — visão consolidada para confrontar Relatório Geral x MRP.
+    materiais = solicit.groupby(["Projeto", "Código", "Projeto_Código"], as_index=False).agg({
+        "Qtd Necessária": "sum", "Qtd Atendida": "sum", "Qtd Pendente Atual": "sum",
+        "Qtd Excluída Compra": "sum", "Qtd Excluída Fabricação": "sum", "Qtd Excluída S.C.": "sum",
+        "Qtd Elegível OnTime Almox": "sum", "Qtd OnTime Almox": "sum",
+        "Necessidade MRP": "first", "Estoque atual MRP": "first", "Ação MRP": "first",
+        "Ação Estoque": "first", "Ação Compra": "first", "Ação Fabricação": "first", "Ação S.C.": "first",
+    })
+    materiais["Diferença Pendência Relatório x Necessidade MRP"] = materiais["Qtd Pendente Atual"] - materiais["Necessidade MRP"]
+
+    # Volta a classificação consolidada para cada linha original da auditoria.
+    append_cols = [
+        "Grupo Solicitação", "Qtd Excluída Compra", "Qtd Excluída Fabricação", "Qtd Excluída S.C.",
+        "Qtd Excluída Causa Externa", "Qtd Elegível OnTime Almox", "Qtd OnTime Almox",
+        "Qtd OnTime Almox Simulado Entrega", "Classificação OnTime",
+    ]
+    macro = macro.merge(solicit[append_cols], on="Grupo Solicitação", how="left", validate="many_to_one")
+    macro["AUD_Camada 1 · Período"] = "DENTRO DO PERÍODO"
+    macro["AUD_Camada 2 · Tipo"] = macro["Tipo II"].map({True: "EXCLUÍDO · TIPO II", False: "MATERIAL ENTREGÁVEL"})
+    macro["AUD_Camada 3 · Solicitação"] = macro["Solicitada antes da CM"].map({True: "ANTES DA CM", False: "NO DIA/APÓS CM OU SEM DATA"})
+    macro["AUD_Camada 4 · Causa atual"] = macro["Ação MRP"].replace("", "SEM PENDÊNCIA/SEM REGISTRO NO MRP")
+    macro["AUD_Camada 5 · Elegibilidade On Time Almox"] = macro["Qtd Elegível OnTime Almox"].gt(TOL).map({True: "ELEGÍVEL", False: "NÃO ELEGÍVEL"})
+    macro["AUD_Camada 6 · Resultado"] = macro["Classificação OnTime"]
+
+    # Preserva as colunas originais do Relatório Geral para a aba FUNIL_GERAL.
+    audit_idx = macro["Linha Relatório Geral"].astype(int) - 2
+    funil = rel_raw.iloc[audit_idx].copy().reset_index(drop=True)
+    funil.insert(0, "Linha Relatório Geral", macro["Linha Relatório Geral"].reset_index(drop=True))
+    audit_extra = macro[[
+        "Projeto_Código", "Grupo Solicitação", "Data CM", "Tipo", "Tipo II", "Solicitada antes da CM",
+        "Separada no prazo", "Conferida no prazo", "Necessidade MRP", "Estoque atual MRP", "Ação MRP",
+        "Qtd Excluída Compra", "Qtd Excluída Fabricação", "Qtd Excluída S.C.", "Qtd Excluída Causa Externa",
+        "Qtd Elegível OnTime Almox", "Qtd OnTime Almox", "Qtd OnTime Almox Simulado Entrega",
+        "AUD_Camada 1 · Período", "AUD_Camada 2 · Tipo", "AUD_Camada 3 · Solicitação",
+        "AUD_Camada 4 · Causa atual", "AUD_Camada 5 · Elegibilidade On Time Almox", "AUD_Camada 6 · Resultado",
+    ]].reset_index(drop=True)
+    funil = pd.concat([funil, audit_extra], axis=1)
+
+    hashes = {}
+    for key, f in [("relatorio", relatorio_file), ("for022", for022_file), ("cadastro", cadastro_file), ("mrp", mrp_file)]:
+        h, size = _file_hash(f)
+        hashes[f"{key}_nome"] = getattr(f, "name", key)
+        hashes[f"{key}_sha256"] = h
+        hashes[f"{key}_tamanho"] = size
 
     return {
         "data_registro": data_registro.isoformat(),
         "periodo_inicio": periodo_inicio.isoformat(),
         "periodo_fim": periodo_fim.isoformat(),
         "gerado_em": _agora_local().isoformat(),
-        "solicitacoes": solicitacoes,
-        "entregues_em_dia": entregues,
-        "entregas_atrasadas": atrasadas,
-        "projetos_programados": projetos_programados,
-        "atendidos_completamente": atendidos_completamente,
-        "entregas_em_dia_pct": entregas_em_dia_pct,
-        "projetos_atendidos_pct": projetos_atendidos_pct,
-        "resultado_final": resultado_final,
-        "diretas": int(c1.sum()),
-        "solicitacao_tardia": int(c2.sum()),
-        "tipo_ii": int(c3.sum()),
-        "sem_separacao": int(sem_sep.sum()),
-        "quantidade_pendente_total": int(resumo_projetos["Pendências no MRP"].sum()) if not resumo_projetos.empty else 0,
-        "base_fundida": base.to_dict("records"),
-        "atrasos": atrasos.to_dict("records"),
-        "sem_separacao_detalhe": sem_separacao.to_dict("records"),
-        "acoes_resumo": acao_resumo.to_dict("records"),
-        "demanda_projeto": demanda_auditoria.to_dict("records"),
-        "projetos": resumo_projetos.to_dict("records"),
-        "relatorio_nome": getattr(relatorio_file, "name", "RelatorioGeral.xlsx"),
-        "relatorio_sha256": rel_hash,
-        "relatorio_tamanho": rel_size,
-        "mrp_nome": getattr(mrp_file, "name", "MRP_Consulta.xlsx"),
-        "mrp_sha256": mrp_hash,
-        "mrp_tamanho": mrp_size,
+        "logic_version": LOGIC_VERSION,
+        "projetos_programados": int(datas_projeto["Projeto"].nunique()),
+        "linhas_macro": int(len(macro)),
+        "solicitacoes_consolidadas": int(len(solicit)),
+        "macro_qtd": macro_qtd,
+        "tipo_ii_qtd": tipo_ii_qtd,
+        "global_base_qtd": global_base,
+        "almox_base_ontime_qtd": almox_base,
+        "almox_ontime_qtd": almox_ontime,
+        "global_ontime_qtd": global_ontime,
+        "ontime_almox_pct": ontime_almox_pct,
+        "ontime_almox_sim_pct": ontime_almox_sim_pct,
+        "infull_almox_pct": infull_almox_pct,
+        "otif_almox_pct": otif_almox_pct,
+        "ontime_global_pct": ontime_global_pct,
+        "ontime_global_sim_pct": ontime_global_sim_pct,
+        "infull_global_pct": infull_global_pct,
+        "otif_global_pct": otif_global_pct,
+        "projetos_infull_almox": int(len(alm_proj)),
+        "projetos_completos_almox": int(alm_proj["Completo Almox"].eq("SIM").sum()) if not alm_proj.empty else 0,
+        "projetos_infull_global": int(len(glob_proj)),
+        "projetos_completos_global": int(glob_proj["Completo Global"].eq("SIM").sum()) if not glob_proj.empty else 0,
+        "qtd_solicitacao_tardia": late_qtd,
+        "qtd_externa_early": ext_early,
+        "qtd_compra_early": float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Compra"].sum()),
+        "qtd_fabricacao_early": float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída Fabricação"].sum()),
+        "qtd_sc_early": float(solicit.loc[solicit["Elegível Inicial OnTime Almox"], "Qtd Excluída S.C."].sum()),
+        "funil_geral": funil.to_dict("records"),
+        "solicitacoes": solicit.to_dict("records"),
+        "projetos": projetos.to_dict("records"),
+        "materiais_mrp": materiais.to_dict("records"),
+        "causas": causas.to_dict("records"),
+        "datas_projeto": datas_projeto.to_dict("records"),
+        **hashes,
     }
 
 
@@ -331,68 +573,88 @@ def _ultima_meta(indicadores):
         return 0.0
 
 
-@st.cache_data(show_spinner=False,max_entries=6)
+def _excel_safe(df):
+    out = df.copy()
+    for c in out.columns:
+        if pd.api.types.is_datetime64_any_dtype(out[c]):
+            out[c] = out[c].dt.tz_localize(None) if getattr(out[c].dt, "tz", None) is not None else out[c]
+    return out
+
+
+@st.cache_data(show_spinner=False, max_entries=6)
 def _excel_auditoria(resultado, meta):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
     output = BytesIO()
     resumo = [
-        ["RELATÓRIO DE AUDITORIA — ENTREGAS NO PRAZO", ""],
-        ["Data de registro", pd.to_datetime(resultado["data_registro"]).strftime("%d/%m/%Y")],
-        ["Período apurado", f"{pd.to_datetime(resultado['periodo_inicio']).strftime('%d/%m/%Y')} a {pd.to_datetime(resultado['periodo_fim']).strftime('%d/%m/%Y')}"],
-        ["Gerado em", pd.to_datetime(resultado["gerado_em"]).strftime("%d/%m/%Y %H:%M:%S")],
+        ["AUDITORIA · OTIF ALMOXARIFADO", ""],
+        ["Data de registro", _fmt_date(resultado["data_registro"])],
+        ["Período", f"{_fmt_date(resultado['periodo_inicio'])} a {_fmt_date(resultado['periodo_fim'])}"],
+        ["Versão da lógica", resultado["logic_version"]],
         ["", ""],
-        ["Solicitações", resultado["solicitacoes"]],
-        ["Entregues em dia", resultado["entregues_em_dia"]],
-        ["Entregas atrasadas", resultado["entregas_atrasadas"]],
-        ["Entregas em dia (%)", resultado["entregas_em_dia_pct"]],
-        ["Projetos programados", resultado["projetos_programados"]],
-        ["Atendidos completamente", resultado["atendidos_completamente"]],
-        ["Projetos atendidos (%)", resultado["projetos_atendidos_pct"]],
-        ["ENTREGAS NO PRAZO (%)", resultado["resultado_final"]],
+        ["ON TIME ALMOX (%)", resultado["ontime_almox_pct"]],
+        ["IN FULL ALMOX (%)", resultado["infull_almox_pct"]],
+        ["OTIF ALMOX (%)", resultado["otif_almox_pct"]],
         ["Meta (%)", meta],
+        ["Base elegível On Time Almox (qtd)", resultado["almox_base_ontime_qtd"]],
+        ["Atendida no prazo Almox (qtd)", resultado["almox_ontime_qtd"]],
+        ["Projetos completos Almox", f"{resultado['projetos_completos_almox']} / {resultado['projetos_infull_almox']}"],
         ["", ""],
-        ["Diretas — Separação <= CM", resultado["diretas"]],
-        ["Exceção — Solicitação posterior à CM", resultado["solicitacao_tardia"]],
-        ["Exceção — Tipo II", resultado["tipo_ii"]],
-        ["Linhas sem Data de Separação", resultado["sem_separacao"]],
-        ["Quantidade pendente total no MRP", resultado["quantidade_pendente_total"]],
+        ["VISÃO GLOBAL · ON TIME (%)", resultado["ontime_global_pct"]],
+        ["VISÃO GLOBAL · IN FULL (%)", resultado["infull_global_pct"]],
+        ["VISÃO GLOBAL · OTIF (%)", resultado["otif_global_pct"]],
+        ["On Time simulado pela conferência · Almox (%)", resultado["ontime_almox_sim_pct"]],
+        ["On Time simulado pela conferência · Global (%)", resultado["ontime_global_sim_pct"]],
         ["", ""],
-        ["Arquivo Relatório Geral", resultado["relatorio_nome"]],
+        ["Projetos programados", resultado["projetos_programados"]],
+        ["Linhas macro", resultado["linhas_macro"]],
+        ["Solicitações consolidadas", resultado["solicitacoes_consolidadas"]],
+        ["Quantidade macro", resultado["macro_qtd"]],
+        ["Quantidade Tipo II excluída", resultado["tipo_ii_qtd"]],
+        ["Quantidade solicitação tardia", resultado["qtd_solicitacao_tardia"]],
+        ["Quantidade compra excluída do Almox", resultado["qtd_compra_early"]],
+        ["Quantidade fabricação excluída do Almox", resultado["qtd_fabricacao_early"]],
+        ["Quantidade S.C. excluída do Almox", resultado["qtd_sc_early"]],
+        ["", ""],
+        ["Relatório Geral", resultado["relatorio_nome"]],
         ["SHA-256 Relatório Geral", resultado["relatorio_sha256"]],
-        ["Tamanho Relatório Geral (bytes)", resultado["relatorio_tamanho"]],
-        ["Arquivo MRP", resultado["mrp_nome"]],
+        ["FOR-022", resultado["for022_nome"]],
+        ["SHA-256 FOR-022", resultado["for022_sha256"]],
+        ["Cadastro", resultado["cadastro_nome"]],
+        ["SHA-256 Cadastro", resultado["cadastro_sha256"]],
+        ["MRP", resultado["mrp_nome"]],
         ["SHA-256 MRP", resultado["mrp_sha256"]],
-        ["Tamanho MRP (bytes)", resultado["mrp_tamanho"]],
     ]
     metodologia = [
-        ["ETAPA", "REGRA"],
-        ["Chave", "Projeto_Código = Projeto + '_' + Código normalizado; usada para Ação/Descrição."],
-        ["Fusão", "Data CM é buscada por Projeto. Ação e Descrição são buscadas por Projeto_Código."],
-        ["Período", "Data CM entre o primeiro dia do mês atual e hoje - 1 dia, inclusive."],
-        ["Solicitações", "Quantidade total de linhas do Relatório Geral após o filtro de Data CM."],
-        ["Entrega direta", "Compara somente a data, ignorando a hora: Data de Separação <= Data CM."],
-        ["Solicitação tardia", "Se ainda não entregue em dia e Última Solicitação > Data CM, considerar em dia."],
-        ["Tipo II", "Se ainda não entregue em dia e Tipo do material na aba MRP_Geral = II, considerar em dia."],
-        ["Atrasada", "Linha que permanece fora dos três critérios anteriores."],
-        ["Sem separação", "A coluna Ação é mantida e classificada para evidenciar Estoque, P.C., S.C., Fabricação e/ou Pré Nota."],
-        ["Projetos programados", "Quantidade distinta de projetos presentes na base usada para Entregas em Dia."],
-        ["Quantidade pendente", "Quantidade de linhas do projeto ainda existentes no Demanda_Projeto, igual ao COUNTIF da aba OPS."],
-        ["Atendido completamente", "Solicitado = linhas do projeto no Relatório Geral; Atendido = Solicitado - linhas do projeto no Demanda_Projeto; completo quando não resta nenhuma linha pendente."],
-        ["Entregas em dia (%)", "Entregues em dia / Solicitações × 100."],
-        ["Projetos atendidos (%)", "Atendidos completamente / Projetos programados × 100."],
-        ["Resultado final", "Entregas em dia (%) × Projetos atendidos (%) / 100."],
+        ["ETAPA", "REGRA DE NEGÓCIO"],
+        ["Período", "Primeiro dia do mês até hoje - 1 dia."],
+        ["Data CM", "FOR-022, aba Datas esperadas: OP em A e Separação em V. Se a OP repetir, usa a maior data que esteja dentro do período analisado."],
+        ["Fonte mestre", "Relatório Geral. A auditoria preserva as linhas originais e adiciona as camadas de tratamento."],
+        ["Consolidação", "Mesmo Projeto + Código + Data de Solicitação representa uma solicitação; as quantidades das linhas são somadas."],
+        ["Tipo II", "Excluído totalmente de On Time e In Full, tanto Global quanto Almox."],
+        ["Solicitação tardia", "Solicitada no dia da Data CM ou depois: permanece na visão Global, mas sai do On Time Almox."],
+        ["On Time oficial", "Usa Data de Separação, comparando somente a data, sem hora."],
+        ["On Time simulado", "Usa Data de Conferência apenas como leitura paralela para futura migração."],
+        ["Causa raiz", "MRP, 3ª aba Demanda_Projeto. A coluna Ação define a parcela pendente prevista por Estoque, Compra, Fabricação ou S.C."],
+        ["Pré Nota", "Mesma família de P.C.; ambos são classificados como COMPRA e não representam estoque disponível."],
+        ["Elegibilidade On Time Almox", "Não Tipo II + solicitação anterior à CM. Da pendência atual, retira a parcela explicitamente coberta por Compra, Fabricação ou S.C. no MRP."],
+        ["Perda Almox", "Quantidade elegível que não foi separada até a Data CM. Pendência em estoque permanece responsabilidade do Almox."],
+        ["On Time Almox", "Quantidade elegível atendida até a Data CM / quantidade elegível total."],
+        ["In Full Global", "Projeto com 100% da quantidade entregável (não Tipo II) atendida, independentemente da data."],
+        ["In Full Almox", "Projeto completo em toda a quantidade sob responsabilidade do Almox; pendências externas de Compra, Fabricação e S.C. são retiradas da base Almox."],
+        ["OTIF Almox", "ON TIME ALMOX (%) × IN FULL ALMOX (%) / 100."],
+        ["Visão Global", "Diagnóstico separado. Não altera o indicador principal do Almox; serve para explicar as perdas do processo."],
     ]
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         pd.DataFrame(resumo).to_excel(writer, sheet_name="RESUMO", index=False, header=False)
-        pd.DataFrame(resultado["base_fundida"]).to_excel(writer, sheet_name="BASE_FUNDIDA", index=False)
-        pd.DataFrame(resultado["projetos"]).to_excel(writer, sheet_name="PROJETOS", index=False)
-        pd.DataFrame(resultado["demanda_projeto"]).to_excel(writer, sheet_name="DEMANDA_PROJETO", index=False)
-        pd.DataFrame(resultado["atrasos"]).to_excel(writer, sheet_name="ATRASOS", index=False)
-        pd.DataFrame(resultado["sem_separacao_detalhe"]).to_excel(writer, sheet_name="SEM_SEPARACAO", index=False)
-        pd.DataFrame(resultado["acoes_resumo"]).to_excel(writer, sheet_name="RESUMO_ACOES", index=False)
+        _excel_safe(pd.DataFrame(resultado["funil_geral"])).to_excel(writer, sheet_name="FUNIL_GERAL", index=False)
+        _excel_safe(pd.DataFrame(resultado["solicitacoes"])).to_excel(writer, sheet_name="SOLICITACOES", index=False)
+        _excel_safe(pd.DataFrame(resultado["projetos"])).to_excel(writer, sheet_name="PROJETOS", index=False)
+        _excel_safe(pd.DataFrame(resultado["materiais_mrp"])).to_excel(writer, sheet_name="MATERIAIS_MRP", index=False)
+        _excel_safe(pd.DataFrame(resultado["causas"])).to_excel(writer, sheet_name="CAUSAS", index=False)
+        _excel_safe(pd.DataFrame(resultado["datas_projeto"])).to_excel(writer, sheet_name="DATAS_CM", index=False)
         pd.DataFrame(metodologia).to_excel(writer, sheet_name="METODOLOGIA", index=False, header=False)
 
         wb = writer.book
@@ -402,7 +664,6 @@ def _excel_auditoria(resultado, meta):
         white = Font(color="FFFFFF", bold=True)
         thin = Side(style="thin", color="D1D5DB")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
         for ws in wb.worksheets:
             ws.sheet_view.showGridLines = False
             ws.freeze_panes = "A2"
@@ -419,32 +680,28 @@ def _excel_auditoria(resultado, meta):
                     if ws.title not in ("RESUMO", "METODOLOGIA"):
                         cell.border = border
             for col in range(1, ws.max_column + 1):
-                letter = get_column_letter(col)
-                vals = [str(ws.cell(r, col).value or "") for r in range(1, min(ws.max_row, 200) + 1)]
-                ws.column_dimensions[letter].width = min(max(max((len(x) for x in vals), default=8) + 2, 10), 45)
-
+                vals = [str(ws.cell(r, col).value or "") for r in range(1, min(ws.max_row, 150) + 1)]
+                ws.column_dimensions[get_column_letter(col)].width = min(max(max((len(v) for v in vals), default=8) + 2, 10), 42)
         ws = wb["RESUMO"]
         ws.merge_cells("A1:B1")
         ws["A1"].fill = yellow
         ws["A1"].font = Font(size=14, bold=True, color="111111")
         ws["A1"].alignment = Alignment(horizontal="center")
-        ws.column_dimensions["A"].width = 42
+        ws.column_dimensions["A"].width = 52
         ws.column_dimensions["B"].width = 82
         for r in range(2, ws.max_row + 1):
             ws.cell(r, 1).font = Font(bold=True)
             ws.cell(r, 1).border = border
             ws.cell(r, 2).border = border
-        for r in range(6, 15):
+        for r in list(range(6, 13)) + list(range(14, 19)):
             ws.cell(r, 1).fill = soft
             ws.cell(r, 2).fill = soft
-
         ws = wb["METODOLOGIA"]
-        ws.column_dimensions["A"].width = 30
+        ws.column_dimensions["A"].width = 31
         ws.column_dimensions["B"].width = 115
         for cell in ws[1]:
             cell.fill = dark
             cell.font = white
-            cell.border = border
         for row in ws.iter_rows():
             for cell in row:
                 cell.border = border
@@ -457,24 +714,25 @@ def _excel_auditoria(resultado, meta):
 def _salvar(resultado, meta):
     client = get_client()
     competencia = resultado["data_registro"]
-    audit = {
-        k: resultado[k]
-        for k in [
-            "data_registro", "periodo_inicio", "periodo_fim", "gerado_em", "solicitacoes", "entregues_em_dia",
-            "entregas_atrasadas", "projetos_programados", "atendidos_completamente", "entregas_em_dia_pct",
-            "projetos_atendidos_pct", "resultado_final", "diretas", "solicitacao_tardia", "tipo_ii", "sem_separacao",
-            "quantidade_pendente_total", "relatorio_nome", "relatorio_sha256", "relatorio_tamanho", "mrp_nome",
-            "mrp_sha256", "mrp_tamanho",
-        ]
-    }
+    audit_keys = [
+        "logic_version", "data_registro", "periodo_inicio", "periodo_fim", "projetos_programados",
+        "linhas_macro", "solicitacoes_consolidadas", "macro_qtd", "tipo_ii_qtd", "global_base_qtd",
+        "almox_base_ontime_qtd", "almox_ontime_qtd", "ontime_almox_pct", "infull_almox_pct", "otif_almox_pct",
+        "ontime_global_pct", "infull_global_pct", "otif_global_pct", "ontime_almox_sim_pct", "ontime_global_sim_pct",
+        "projetos_infull_almox", "projetos_completos_almox", "projetos_infull_global", "projetos_completos_global",
+        "qtd_solicitacao_tardia", "qtd_compra_early", "qtd_fabricacao_early", "qtd_sc_early",
+        "relatorio_nome", "relatorio_sha256", "for022_nome", "for022_sha256", "cadastro_nome", "cadastro_sha256",
+        "mrp_nome", "mrp_sha256",
+    ]
+    audit = {k: resultado[k] for k in audit_keys}
     payload = {
         "competencia": competencia,
         "categoria": "OPERACIONAL",
         "indicador": INDICADOR,
-        "valor": round(float(resultado["resultado_final"]), 2),
+        "valor": round(float(resultado["otif_almox_pct"]), 2),
         "meta": round(float(meta), 2),
         "unidade": "%",
-        "observacao": json.dumps({"origem": "entregas_no_prazo_v2", **audit}, ensure_ascii=False, separators=(",", ":")),
+        "observacao": json.dumps({"origem": "otif_almox_funil_v4", **audit}, ensure_ascii=False, separators=(",", ":")),
         "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     existente = (
@@ -487,11 +745,10 @@ def _salvar(resultado, meta):
     else:
         client.table("almox_indicadores").insert(payload).execute()
         acao = "salvo"
-
     try:
         client.table("almox_historico").insert({
-            "tipo": "indicador_entregas_no_prazo_v2",
-            "descricao": f"Entregas no prazo {acao}: {pd.to_datetime(competencia).strftime('%d/%m/%Y')}",
+            "tipo": "indicador_otif_almox_auditoria",
+            "descricao": f"OTIF Almox {acao}: {_fmt_date(competencia)}",
             "dados": audit,
         }).execute()
     except Exception:
@@ -503,102 +760,96 @@ def _salvar(resultado, meta):
 def render_alimentacao_entregas_v2(indicadores):
     hoje = _agora_local().date()
     periodo_fim = hoje - timedelta(days=1)
-    with st.expander("ALIMENTAR · ENTREGAS NO PRAZO", expanded=False):
+    with st.expander("ALIMENTAR · ENTREGAS NO PRAZO / OTIF ALMOX", expanded=False):
         st.caption(
             f"Registro: {hoje.strftime('%d/%m/%Y')} · Período automático: 01/{hoje.strftime('%m/%Y')} a {periodo_fim.strftime('%d/%m/%Y')}. "
-            "Envie o Relatório Geral e o MRP_Consulta; a fusão e o cálculo são automáticos."
+            "Fonte mestre: Relatório Geral. O MRP é usado para explicar a causa atual das pendências."
         )
-        c1, c2, c3 = st.columns([1.25, 1.25, 0.75])
+        c1, c2 = st.columns(2)
         with c1:
-            relatorio = st.file_uploader(
-                "RELATÓRIO GERAL", type=["xlsx", "xlsm", "xltx"], key="entregas_v2_relatorio"
-            )
+            relatorio = st.file_uploader("RELATÓRIO GERAL", type=["xlsx", "xlsm"], key="otif_relatorio")
+            cadastro = st.file_uploader("CADASTROS", type=["xlsx", "xlsm", "xltx"], key="otif_cadastro")
         with c2:
-            mrp = st.file_uploader(
-                "MRP_CONSULTA", type=["xlsx", "xlsm", "xltx"], key="entregas_v2_mrp"
-            )
-        with c3:
-            st.text_input("Data do registro", value=hoje.strftime("%d/%m/%Y"), disabled=True, key="entregas_v2_data")
-            meta = st.number_input(
-                "Meta (%)", min_value=0.0, max_value=100.0, value=float(_ultima_meta(indicadores)), step=0.1,
-                key="entregas_v2_meta",
-            )
+            for022 = st.file_uploader("SEN-PCP-FOR-022 · PLANEJAMENTO MACRO", type=["xlsx", "xlsm"], key="otif_for022")
+            mrp = st.file_uploader("MRP · RELATÓRIOS COMPLETOS", type=["xlsx", "xlsm"], key="otif_mrp")
+        m1, m2 = st.columns([1, 1])
+        with m1:
+            st.text_input("Data do registro", value=hoje.strftime("%d/%m/%Y"), disabled=True, key="otif_data")
+        with m2:
+            meta = st.number_input("Meta OTIF Almox (%)", 0.0, 100.0, float(_ultima_meta(indicadores)), 0.1, key="otif_meta")
 
-        if relatorio is None or mrp is None:
-            st.info("Envie as duas bases para gerar automaticamente a apuração.")
+        if any(x is None for x in (relatorio, for022, cadastro, mrp)):
+            st.info("Envie as quatro bases para gerar a apuração em camadas.")
             return
 
-        fingerprint = hashlib.sha256(LOGIC_VERSION.encode() + relatorio.getvalue() + mrp.getvalue() + hoje.isoformat().encode()).hexdigest()
-        if st.session_state.get("entregas_v2_fingerprint") != fingerprint:
+        fingerprint = hashlib.sha256(
+            LOGIC_VERSION.encode() + relatorio.getvalue() + for022.getvalue() + cadastro.getvalue() + mrp.getvalue() + hoje.isoformat().encode()
+        ).hexdigest()
+        if st.session_state.get("otif_fingerprint") != fingerprint:
             try:
-                with st.spinner("Fundindo as bases e calculando o indicador..."):
-                    resultado = calcular_entregas_v2(relatorio, mrp, hoje)
-                st.session_state["entregas_v2_resultado"] = resultado
-                st.session_state["entregas_v2_fingerprint"] = fingerprint
-                st.session_state.pop("entregas_v2_registrado", None)
+                with st.spinner("Aplicando o funil de elegibilidade e calculando On Time / In Full..."):
+                    resultado = calcular_entregas_v2(relatorio, for022, cadastro, mrp, hoje)
+                st.session_state["otif_resultado"] = resultado
+                st.session_state["otif_fingerprint"] = fingerprint
+                st.session_state.pop("otif_registrado", None)
             except Exception as exc:
-                st.session_state.pop("entregas_v2_resultado", None)
+                st.session_state.pop("otif_resultado", None)
                 st.error(f"Não foi possível calcular: {exc}")
                 return
 
-        resultado = st.session_state.get("entregas_v2_resultado")
+        resultado = st.session_state.get("otif_resultado")
         if not resultado:
             return
 
-        st.success(
-            f"Base calculada: {resultado['solicitacoes']} solicitações em {resultado['projetos_programados']} projetos."
-        )
+        st.markdown("#### INDICADOR DO ALMOXARIFADO")
         a, b, c, d = st.columns(4)
-        a.metric("Solicitações", resultado["solicitacoes"])
-        b.metric("Entregues em dia", resultado["entregues_em_dia"])
-        c.metric("Projetos programados", resultado["projetos_programados"])
-        d.metric("Atendidos completamente", resultado["atendidos_completamente"])
-
-        p1, p2, p3 = st.columns(3)
-        p1.metric("Entregas em dia", f"{resultado['entregas_em_dia_pct']:.2f}%")
-        p2.metric("Projetos atendidos", f"{resultado['projetos_atendidos_pct']:.2f}%")
-        p3.metric("ENTREGAS NO PRAZO", f"{resultado['resultado_final']:.2f}%")
-
+        a.metric("ON TIME ALMOX", f"{resultado['ontime_almox_pct']:.2f}%")
+        b.metric("IN FULL ALMOX", f"{resultado['infull_almox_pct']:.2f}%")
+        c.metric("OTIF ALMOX", f"{resultado['otif_almox_pct']:.2f}%")
+        d.metric("BASE ELEGÍVEL", f"{resultado['almox_base_ontime_qtd']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         st.caption(
-            f"Entregas validadas: {resultado['diretas']} por Separação <= CM · "
-            f"{resultado['solicitacao_tardia']} por solicitação posterior à CM · "
-            f"{resultado['tipo_ii']} por Tipo II · {resultado['entregas_atrasadas']} permanecem atrasadas."
-        )
-        st.caption(
-            f"Sem Data de Separação: {resultado['sem_separacao']} linhas. "
-            f"Quantidade pendente no MRP para os projetos do período: {resultado['quantidade_pendente_total']:.2f}."
+            f"On Time oficial usa Data de Separação sem horas. Simulação pela Data de Conferência: {resultado['ontime_almox_sim_pct']:.2f}%. "
+            f"In Full: {resultado['projetos_completos_almox']} de {resultado['projetos_infull_almox']} projetos elegíveis completos."
         )
 
-        with st.expander("RESUMO DAS AÇÕES — LINHAS SEM DATA DE SEPARAÇÃO"):
-            st.dataframe(pd.DataFrame(resultado["acoes_resumo"]), use_container_width=True, hide_index=True)
-        with st.expander("CONFERÊNCIA POR PROJETO"):
+        with st.expander("VISÃO GLOBAL · DIAGNÓSTICO DO PROCESSO", expanded=False):
+            g1, g2, g3 = st.columns(3)
+            g1.metric("ON TIME GLOBAL", f"{resultado['ontime_global_pct']:.2f}%")
+            g2.metric("IN FULL GLOBAL", f"{resultado['infull_global_pct']:.2f}%")
+            g3.metric("OTIF GLOBAL", f"{resultado['otif_global_pct']:.2f}%")
+            st.caption(
+                f"Esta visão não altera o indicador do Almox. Ela explica a diferença causada por solicitação tardia, compra, fabricação, S.C. e demais fatores do processo. "
+                f"On Time global simulado pela conferência: {resultado['ontime_global_sim_pct']:.2f}%."
+            )
+
+        st.markdown("#### FUNIL DE ELEGIBILIDADE")
+        st.dataframe(pd.DataFrame(resultado["causas"]), use_container_width=True, hide_index=True)
+        with st.expander("CONFERÊNCIA POR PROJETO · IN FULL"):
             st.dataframe(pd.DataFrame(resultado["projetos"]), use_container_width=True, hide_index=True)
-        with st.expander("BASE FUNDIDA — LINHA A LINHA"):
-            st.dataframe(pd.DataFrame(resultado["base_fundida"]), use_container_width=True, hide_index=True)
+        with st.expander("SOLICITAÇÕES CONSOLIDADAS · ON TIME"):
+            st.dataframe(pd.DataFrame(resultado["solicitacoes"]), use_container_width=True, hide_index=True)
+        with st.expander("MATERIAIS · CONFRONTO RELATÓRIO GERAL x MRP"):
+            st.dataframe(pd.DataFrame(resultado["materiais_mrp"]), use_container_width=True, hide_index=True)
 
         excel_bytes = _excel_auditoria(resultado, meta)
         x1, x2 = st.columns(2)
         with x1:
             st.download_button(
                 "EXPORTAR AUDITORIA · EXCEL",
-                data=excel_bytes,
-                file_name=f"auditoria_entregas_no_prazo_{hoje.isoformat()}.xlsx",
+                excel_bytes,
+                file_name=f"auditoria_otif_almox_{hoje.isoformat()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
-                key="entregas_v2_excel",
+                key="otif_excel",
             )
         with x2:
-            if st.button(
-                f"REGISTRAR RESULTADO · {hoje.strftime('%d/%m/%Y')}", type="primary", use_container_width=True,
-                key="entregas_v2_salvar"
-            ):
+            if st.button(f"REGISTRAR OTIF ALMOX · {hoje.strftime('%d/%m/%Y')}", type="primary", use_container_width=True, key="otif_salvar"):
                 try:
                     acao = _salvar(resultado, meta)
-                    st.session_state["entregas_v2_registrado"] = True
+                    st.session_state["otif_registrado"] = True
                     st.cache_data.clear()
-                    st.success(f"Resultado {acao} com a data de hoje: {resultado['resultado_final']:.2f}%.")
+                    st.success(f"Resultado {acao}: OTIF Almox {resultado['otif_almox_pct']:.2f}%.")
                 except Exception as exc:
                     st.error(f"Não foi possível registrar no Supabase: {exc}")
-
-        if st.session_state.get("entregas_v2_registrado"):
-            st.info("A mesma data atualiza o registro existente, sem duplicar o indicador.")
+        if st.session_state.get("otif_registrado"):
+            st.info("O registro principal armazena apenas o OTIF Almox. A visão Global permanece como diagnóstico separado.")
