@@ -20,7 +20,8 @@ ALIASES = {
 }
 
 # Sempre que o desenho da imagem mudar, altere esta versão para invalidar o cache.
-EXPORT_LAYOUT_VERSION = "print-clean-a4-v6-unicode"
+EXPORT_LAYOUT_VERSION = "print-official-a4-v7"
+PRINT_STANDARD = "A4_EXECUTIVO_V1"
 
 LAST_INDICADORES = []
 _ORIGINAL_DOWNLOAD_BUTTON = st.download_button
@@ -246,7 +247,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
     rows = list(rows or [])
     latest = rows[-1] if rows else None
     value, meta, diff = _value_meta_diff(latest)
-    status, status_color, _ = _status(diff)
+    status, status_color, status_bg = _status(diff)
     if value is not None and meta is None:
         status = "SEM META"
     elif diff == 0:
@@ -284,10 +285,11 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
         _rounded(d, (x, top, end, bottom), BG, radius=20, width=2)
         _text(d, (x + 38, top + 36), label, font=_font(34, True), fill=MUTED)
         if i == 3:
-            words = main.split(" ", 1)
-            f = _font(54, True)
-            for j, line in enumerate(words):
-                _text(d, (x + 38, top + 115 + j * 64), line, font=f, fill=color)
+            # Badge executivo: destaca o status sem competir com os KPIs numéricos.
+            badge = (x + 34, top + 112, end - 34, top + 238)
+            _rounded(d, badge, status_bg, outline=None, radius=36, width=0)
+            status_font = _fit_font(d, main, 48, card_width - 116, True)
+            _center(d, main, badge, status_font, color)
         else:
             f = _fit_font(d, main, 116, card_width - 76, True)
             _text(d, (x + 38, top + 112), main, font=f, fill=color)
@@ -296,11 +298,11 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
 
     # Gráfico amplo; legenda na mesma linha do título.
     _text(d, (left, 865), "Evolução mensal do indicador", font=_font(58, True), fill=TEXT)
-    _text(d, (left, 940), "Último lançamento válido de cada mês", font=_font(38), fill=MUTED)
+    _text(d, (left, 940), "Último fechamento válido de cada mês", font=_font(38), fill=MUTED)
     d.rectangle((right - 640, 898, right - 592, 924), fill=YELLOW)
     _text(d, (right - 570, 886), "Resultado", font=_font(36), fill=TEXT)
-    d.line((right - 300, 910, right - 220, 910), fill=META, width=6)
-    d.ellipse((right - 268, 902, right - 252, 918), fill=BG, outline=META, width=4)
+    d.line((right - 300, 910, right - 220, 910), fill=META, width=4)
+    d.ellipse((right - 266, 904, right - 254, 916), fill=BG, outline=META, width=3)
     _text(d, (right - 192, 886), "Meta", font=_font(36), fill=TEXT)
 
     plot_l, plot_r = left + 145, right - 22
@@ -338,15 +340,15 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
             label = _month(row.get("competencia"))
             month, _, year = label.partition("/")
             _text(d, (x, plot_b + 52), month, anchor="mt", font=_font(40, True), fill=TEXT)
-            _text(d, (x, plot_b + 108), year, anchor="mt", font=_font(30), fill=MUTED)
+            _text(d, (x, plot_b + 108), year, anchor="mt", font=_font(32), fill="#334155")
         # Ausência de meta interrompe a linha, em vez de inventar uma meta zero.
         for a, b in zip(points, points[1:]):
             if a is not None and b is not None:
-                d.line((a, b), fill=META, width=6)
+                d.line((a, b), fill=META, width=4)
         for point in points:
             if point:
                 x, y = point
-                d.ellipse((x - 9, y - 9, x + 9, y + 9), fill=BG, outline=META, width=5)
+                d.ellipse((x - 7, y - 7, x + 7, y + 7), fill=BG, outline=META, width=4)
         # Rótulos sobre fundo branco permanecem legíveis perto da linha de meta.
         for x, y, label in labels:
             f = _fit_font(d, label, 42, step - 12, True)
@@ -357,7 +359,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
     d.line((left, 2300, right, 2300), fill=BORDER, width=2)
     now = datetime.now(ZoneInfo("America/Sao_Paulo"))
     _text(d, (left, 2334), f"GESTÃO OPERACIONAL  •  {now:%d/%m/%Y às %H:%M}", font=_font(30), fill=MUTED)
-    _text(d, (right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(30, True), fill=MUTED)
+    _text(d, (right, 2334), "FECHAMENTO MENSAL", anchor="rt", font=_font(32, True), fill="#334155")
     return im
 
 
