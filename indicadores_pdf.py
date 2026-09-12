@@ -19,7 +19,7 @@ ALIASES = {
 }
 
 # Sempre que o desenho da imagem mudar, altere esta versão para invalidar o cache.
-EXPORT_LAYOUT_VERSION = "print-approved-v3-logo"
+EXPORT_LAYOUT_VERSION = "print-approved-v4-typography"
 
 LAST_INDICADORES = []
 _ORIGINAL_DOWNLOAD_BUTTON = st.download_button
@@ -43,14 +43,39 @@ STATUS_BAD_BG = "#FEE2E2"
 
 
 def _font(size, bold=False):
-    path = (
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    )
+    """Fonte TrueType robusta para manter a escala tipográfica em produção.
+
+    O Streamlit Cloud pode não possuir o caminho DejaVu usado localmente.
+    Quando isso acontecia, Pillow caía na fonte bitmap padrão e ignorava
+    completamente os tamanhos definidos no layout.
+    """
+    bold_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        "DejaVuSans-Bold.ttf",
+        "LiberationSans-Bold.ttf",
+    ]
+    regular_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "DejaVuSans.ttf",
+        "LiberationSans-Regular.ttf",
+    ]
+    for candidate in (bold_candidates if bold else regular_candidates):
+        try:
+            return ImageFont.truetype(candidate, size=size)
+        except Exception:
+            continue
+
+    # Pillow recente permite escalar a fonte padrão. Isso evita voltar ao
+    # bitmap minúsculo mesmo em ambientes sem fontes de sistema conhecidas.
     try:
-        return ImageFont.truetype(path, size)
-    except Exception:
+        return ImageFont.load_default(size=size)
+    except TypeError:
         return ImageFont.load_default()
 
 
@@ -184,16 +209,17 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
     d = ImageDraw.Draw(im)
 
     # Hierarquia tipográfica do esboço aprovado.
-    f_title = _font(43, True)
-    f_subtitle = _font(18)
-    f_label = _font(17, True)
-    f_value = _font(49, True)
-    f_small = _font(16)
-    f_chart_title = _font(27, True)
-    f_axis = _font(16)
-    f_axis_bold = _font(17, True)
-    f_bar_label = _font(17, True)
-    f_status = _font(21, True)
+    # Escala visual equivalente ao esboço aprovado para leitura em mural/A4.
+    f_title = _font(50, True)
+    f_subtitle = _font(22)
+    f_label = _font(20, True)
+    f_value = _font(62, True)
+    f_small = _font(18)
+    f_chart_title = _font(31, True)
+    f_axis = _font(18)
+    f_axis_bold = _font(20, True)
+    f_bar_label = _font(20, True)
+    f_status = _font(25, True)
 
     rows = rows or []
     latest = rows[-1] if rows else None
@@ -212,7 +238,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
         )
     else:
         periodo_txt = "Fechamento mensal | último lançamento válido de cada mês"
-    d.text((80, 105), periodo_txt, font=f_subtitle, fill=MUTED)
+    d.text((80, 112), periodo_txt, font=f_subtitle, fill=MUTED)
 
     # Usa exatamente a logo cadastrada no app.
     _draw_logo(im, logo_base64, logo_mime)
@@ -225,7 +251,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
         ("STATUS", status, _month(latest.get("competencia")) if latest else "Sem lançamento", status_color),
     ]
 
-    cards_y1, cards_y2 = 168, 405
+    cards_y1, cards_y2 = 176, 405
     margin_x, gap = 38, 18
     card_w = (W - (margin_x * 2) - (gap * 3)) // 4
 
@@ -236,22 +262,22 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
         d.text((x1 + 28, cards_y1 + 28), label, font=f_label, fill="#475569")
 
         if i < 3:
-            d.text((x1 + 28, cards_y1 + 82), val, font=f_value, fill=color)
+            d.text((x1 + 28, cards_y1 + 76), val, font=f_value, fill=color)
         else:
             # Status vira badge central, como no esboço aprovado.
-            badge_box = (x1 + 36, cards_y1 + 88, x2 - 36, cards_y1 + 157)
+            badge_box = (x1 + 34, cards_y1 + 82, x2 - 34, cards_y1 + 164)
             _rounded(d, badge_box, status_bg, outline=None, radius=27, width=0)
             _center(d, val, badge_box, f_status, status_color)
 
         d.text((x1 + 28, cards_y2 - 50), sub, font=f_small, fill=MUTED)
 
     # Painel principal do gráfico.
-    cx1, cy1, cx2, cy2 = 38, 448, W - 38, H - 92
+    cx1, cy1, cx2, cy2 = 38, 440, W - 38, H - 92
     _rounded(d, (cx1, cy1, cx2, cy2), PANEL, outline=BORDER, radius=18, width=2)
     d.text((cx1 + 34, cy1 + 28), "Evolução mensal do indicador", font=f_chart_title, fill=TEXT)
 
     # Legenda ampla e clara.
-    legend_y = cy1 + 94
+    legend_y = cy1 + 100
     d.rounded_rectangle((cx1 + 34, legend_y, cx1 + 96, legend_y + 22), radius=5, fill=YELLOW)
     d.text((cx1 + 114, legend_y - 2), "Resultado", font=f_axis, fill=MUTED)
     d.line((cx1 + 260, legend_y + 11, cx1 + 326, legend_y + 11), fill=META, width=5)
@@ -259,7 +285,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
     d.text((cx1 + 342, legend_y - 2), "Meta", font=f_axis, fill=MUTED)
 
     plot_l, plot_r = cx1 + 105, cx2 - 38
-    plot_t, plot_b = cy1 + 168, cy2 - 85
+    plot_t, plot_b = cy1 + 178, cy2 - 90
     plot_h = plot_b - plot_t
     plot_w = plot_r - plot_l
 
@@ -309,7 +335,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
             result_txt = _pct(val)
             bb = d.textbbox((0, 0), result_txt, font=f_bar_label)
             d.text(
-                (center_x - (bb[2] - bb[0]) / 2, max(plot_t + 4, top - 31)),
+                (center_x - (bb[2] - bb[0]) / 2, max(plot_t + 4, top - 36)),
                 result_txt,
                 font=f_bar_label,
                 fill=TEXT,
@@ -318,7 +344,7 @@ def gerar_imagem_indicador(nome, rows, indice, logo_base64=None, logo_mime=None)
             month_txt = _month(row.get("competencia"))
             bbm = d.textbbox((0, 0), month_txt, font=f_axis_bold)
             d.text(
-                (center_x - (bbm[2] - bbm[0]) / 2, plot_b + 25),
+                (center_x - (bbm[2] - bbm[0]) / 2, plot_b + 27),
                 month_txt,
                 font=f_axis_bold,
                 fill="#475569",
