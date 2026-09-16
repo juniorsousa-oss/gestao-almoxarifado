@@ -1,4 +1,5 @@
 from pathlib import Path
+# trigger
 
 # 1) Dashboard: inclui PRODUTIVIDADE como 4º indicador no mesmo fluxo visual.
 p = Path('indicadores_dashboard.py')
