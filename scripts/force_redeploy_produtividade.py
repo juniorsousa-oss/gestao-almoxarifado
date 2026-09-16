@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# trigger workflow
 p = Path('streamlit_app.py')
 t = p.read_text(encoding='utf-8')
 marker = '# DEPLOY_VERSION: produtividade-v1\n'
