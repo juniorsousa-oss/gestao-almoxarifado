@@ -1,4 +1,5 @@
 from pathlib import Path
+# DEPLOY_VERSION: produtividade-v1
 import re
 
 # Executa a versão original do aplicativo aplicando apenas otimizações de
