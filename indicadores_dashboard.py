@@ -199,7 +199,7 @@ def _render_indicator(name, rows, index):
 
 
 def render_indicadores(indicadores):
-    groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": []}
+    groups = {"ACURÁCIA DE ESTOQUE": [], "ENTREGAS NO PRAZO": [], "5S": [], "PRODUTIVIDADE": []}
     aliases = {
         "ACURACIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
         "ACURÁCIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
@@ -207,6 +207,7 @@ def render_indicadores(indicadores):
         "ACURACIA DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
         "ENTREGAS NO PRAZO": "ENTREGAS NO PRAZO",
         "5S": "5S",
+        "PRODUTIVIDADE": "PRODUTIVIDADE",
     }
     for row in indicadores or []:
         key = aliases.get(str(row.get("indicador") or "").strip().upper())

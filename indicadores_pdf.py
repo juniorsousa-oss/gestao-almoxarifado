@@ -9,7 +9,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from PIL import Image, ImageDraw, ImageFont
 import streamlit as st
 
-GROUPS = ["ACURÁCIA DE ESTOQUE", "ENTREGAS NO PRAZO", "5S"]
+GROUPS = ["ACURÁCIA DE ESTOQUE", "ENTREGAS NO PRAZO", "5S", "PRODUTIVIDADE"]
 ALIASES = {
     "ACURACIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
     "ACURÁCIDADE DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
@@ -17,10 +17,11 @@ ALIASES = {
     "ACURACIA DE ESTOQUE": "ACURÁCIA DE ESTOQUE",
     "ENTREGAS NO PRAZO": "ENTREGAS NO PRAZO",
     "5S": "5S",
+    "PRODUTIVIDADE": "PRODUTIVIDADE",
 }
 
 # Sempre que o desenho da imagem mudar, altere esta versão para invalidar o cache.
-EXPORT_LAYOUT_VERSION = "print-official-a4-v7"
+EXPORT_LAYOUT_VERSION = "print-official-a4-v8-productividade"
 PRINT_STANDARD = "A4_EXECUTIVO_V1"
 
 LAST_INDICADORES = []
