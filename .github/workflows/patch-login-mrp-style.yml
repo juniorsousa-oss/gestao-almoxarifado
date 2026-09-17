@@ -1,0 +1,27 @@
+name: Patch login MRP style
+on:
+  push:
+    paths:
+      - 'patch_login_mrp_style.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply login style patch
+        run: python patch_login_mrp_style.py
+      - name: Validate Python
+        run: |
+          python -m py_compile controle_acesso.py
+          python -m py_compile streamlit_app.py
+      - name: Commit final patch and cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f patch_login_mrp_style.py .github/workflows/patch-login-mrp-style.yml
+          git add controle_acesso.py patch_login_mrp_style.py .github/workflows/patch-login-mrp-style.yml
+          git diff --cached --quiet || git commit -m 'Padroniza login do Gestão Operacional com o MRP'
+          git push
