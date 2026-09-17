@@ -1,5 +1,5 @@
 from pathlib import Path
-# DEPLOY_VERSION: access-control-v1
+# DEPLOY_VERSION: login-mrp-1to1-v2
 import importlib
 import sys
 import re
@@ -41,9 +41,10 @@ _page_config_anchor = (
 )
 if _page_config_anchor not in _source:
     raise RuntimeError("Configuração principal do Streamlit não encontrada.")
+_page_config_login = 'st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")\n'
 _source = _source.replace(
     _page_config_anchor,
-    _page_config_anchor + "\n_acesso_client,_acesso_perfil=render_login()\n",
+    _page_config_login + "\n_acesso_client,_acesso_perfil=render_login()\n",
     1,
 )
 

@@ -277,14 +277,19 @@ def render_login() -> tuple[Client | None, dict[str, Any] | None]:
           div[data-testid="stForm"] input {{
             width:100% !important; height:27px !important; min-height:27px !important; box-sizing:border-box !important;
             padding:0 10px !important; border:0 !important; outline:none !important; box-shadow:none !important;
-            border-radius:6px !important; background:transparent !important; color:#202020 !important; font-size:8px !important;
+            border-radius:6px !important; background:#f0f2f6 !important; color:#202020 !important; -webkit-text-fill-color:#202020 !important; font-size:8px !important;
           }}
-          div[data-testid="stForm"] [data-baseweb="input"] {{
+          div[data-testid="stForm"] [data-baseweb="input"],
+          div[data-testid="stForm"] [data-baseweb="base-input"] {{
             width:100% !important; height:31px !important; min-height:31px !important; box-sizing:border-box !important;
             display:flex !important; align-items:center !important; border:2px solid #050505 !important;
             border-radius:8px !important; background:#f0f2f6 !important; box-shadow:none !important; overflow:hidden !important;
+            color:#202020 !important;
           }}
-          div[data-testid="stForm"] [data-baseweb="input"] > div {{ height:27px !important; min-height:27px !important; }}
+          div[data-testid="stForm"] [data-baseweb="input"] > div,
+          div[data-testid="stForm"] [data-baseweb="base-input"] > div {{
+            height:27px !important; min-height:27px !important; background:#f0f2f6 !important; color:#202020 !important;
+          }}
           div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button {{
             width:34px !important; height:27px !important; min-height:27px !important; margin:0 !important; padding:0 !important;
             flex:0 0 34px !important; position:static !important; top:auto !important; border:0 !important;
@@ -294,7 +299,13 @@ def render_login() -> tuple[Client | None, dict[str, Any] | None]:
           div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button:hover {{ background:transparent !important; border:0 !important; color:#050505 !important; }}
           div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button svg {{ width:16px !important; height:16px !important; margin:0 !important; }}
           div[data-testid="stForm"] input::placeholder {{ color:#a6adb8 !important; opacity:1 !important; }}
-          div[data-testid="stForm"] input:focus {{ outline:none !important; border:0 !important; box-shadow:none !important; }}
+          div[data-testid="stForm"] input:focus {{ outline:none !important; border:0 !important; box-shadow:none !important; background:#f0f2f6 !important; color:#202020 !important; -webkit-text-fill-color:#202020 !important; }}
+          div[data-testid="stForm"] input:-webkit-autofill,
+          div[data-testid="stForm"] input:-webkit-autofill:hover,
+          div[data-testid="stForm"] input:-webkit-autofill:focus {{
+            -webkit-box-shadow:0 0 0 1000px #f0f2f6 inset !important;
+            -webkit-text-fill-color:#202020 !important;
+          }}
           div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button {{
             position:static !important; width:100% !important; height:29px !important; min-height:29px !important;
             margin:8px 0 0 !important; padding:0 !important; box-sizing:border-box !important; border-radius:7px !important;
