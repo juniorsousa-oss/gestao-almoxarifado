@@ -1,3 +1,4 @@
+# trigger: apply login MRP style
 from pathlib import Path
 
 p = Path("controle_acesso.py")
