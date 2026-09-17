@@ -1,27 +1,104 @@
 from pathlib import Path
-# DEPLOY_VERSION: produtividade-v2-reload
+# DEPLOY_VERSION: access-control-v1
 import importlib
 import sys
 import re
 
-# Garante que atualizacoes dos modulos de indicadores sejam carregadas em cada
-# execucao do app, mesmo quando o ambiente do Streamlit reaproveita o mesmo
-# processo Python entre atualizacoes vindas do GitHub.
+# Garante que atualizacoes dos modulos sejam carregadas em cada execucao do app,
+# mesmo quando o ambiente do Streamlit reaproveita o mesmo processo Python.
 for _module_name in (
     "indicadores_dashboard",
     "indicadores_pdf",
     "indicadores_regras",
     "indicadores_entregas_v2",
     "indicadores_historico",
+    "controle_acesso",
 ):
     sys.modules.pop(_module_name, None)
 importlib.invalidate_caches()
 
-# Executa a versão original do aplicativo aplicando apenas otimizações de
-# transferência de dados. A lógica funcional e o layout permanecem no arquivo
-# original preservado em streamlit_app_original.py.
+# Executa a versão original do aplicativo aplicando otimizações e camadas de
+# controle de acesso sem reescrever a base funcional preservada.
 _original = Path(__file__).with_name("streamlit_app_original.py")
 _source = _original.read_text(encoding="utf-8")
+
+# -----------------------------------------------------------------------------
+# Controle de acesso
+# O mesmo usuário do Supabase Auth pode ser reutilizado em vários aplicativos.
+# As permissões abaixo são específicas do Gestão Operacional.
+# -----------------------------------------------------------------------------
+_import_anchor = "from indicadores_dashboard import render_indicadores\n"
+_access_import = (
+    "from controle_acesso import render_login, permissao, render_admin_usuarios, render_usuario_sidebar\n"
+)
+if _import_anchor not in _source:
+    raise RuntimeError("Ponto de importação do controle de acesso não encontrado.")
+_source = _source.replace(_import_anchor, _import_anchor + _access_import, 1)
+
+_page_config_anchor = (
+    'st.set_page_config(page_title="GESTÃO | SETTA", page_icon="assets/mrp_setta_icon.png", '
+    'layout="wide", initial_sidebar_state="expanded")\n'
+)
+if _page_config_anchor not in _source:
+    raise RuntimeError("Configuração principal do Streamlit não encontrada.")
+_source = _source.replace(
+    _page_config_anchor,
+    _page_config_anchor + "\n_acesso_client,_acesso_perfil=render_login()\n",
+    1,
+)
+
+_old_paginas = 'paginas_ids=["dashboard","indicadores","historico","equipes","configuracoes"]'
+_new_paginas = (
+    'paginas_ids=[_id for _id in ["dashboard","indicadores","historico","equipes","configuracoes"] '
+    'if permissao(_acesso_perfil,_id,"ver")]'
+)
+if _old_paginas not in _source:
+    raise RuntimeError("Lista de páginas do menu não encontrada.")
+_source = _source.replace(_old_paginas, _new_paginas, 1)
+
+_old_carreira = 'if st.session_state.pagina=="carreira":st.session_state.pagina="equipes"\nwith st.sidebar:'
+_new_carreira = '''if st.session_state.pagina=="carreira":st.session_state.pagina="equipes"
+if not paginas_ids:
+    st.error("Seu usuário não possui nenhuma aba liberada neste aplicativo.")
+    st.stop()
+if st.session_state.pagina not in paginas_ids:
+    st.session_state.pagina=paginas_ids[0]
+with st.sidebar:'''
+if _old_carreira not in _source:
+    raise RuntimeError("Ponto de inicialização do menu lateral não encontrado.")
+_source = _source.replace(_old_carreira, _new_carreira, 1)
+
+_logo_anchor = "    st.markdown(f'<div class=\"sidebar-logo-section\"><div class=\"sidebar-logo-wrap\" style=\"--logo-bg:{logo_bg};--logo-border:{logo_border};\">{logo_html}</div></div>',unsafe_allow_html=True)\n"
+if _logo_anchor not in _source:
+    raise RuntimeError("Ponto da logo lateral não encontrado.")
+_source = _source.replace(
+    _logo_anchor,
+    _logo_anchor + "    render_usuario_sidebar(_acesso_perfil)\n",
+    1,
+)
+
+_pagina_anchor = "pagina=st.session_state.pagina\n"
+_pagina_guard = '''pagina=st.session_state.pagina
+if not permissao(_acesso_perfil,pagina,"ver"):
+    st.error("Você não possui permissão para acessar esta área.")
+    st.stop()
+'''
+if _pagina_anchor not in _source:
+    raise RuntimeError("Ponto de seleção da página não encontrado.")
+_source = _source.replace(_pagina_anchor, _pagina_guard, 1)
+
+_config_anchor = '''elif pagina=="configuracoes":
+    st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True);st.write("As configurações ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
+'''
+_config_replacement = '''elif pagina=="configuracoes":
+    st.markdown(f'<div class="section">{txt("secao_configuracoes")}</div>',unsafe_allow_html=True);st.write("As configurações ficam salvas no Supabase e são carregadas novamente quando o aplicativo abre.")
+    if str((_acesso_perfil or {}).get("perfil") or "").upper()=="ADMINISTRADOR":
+        render_admin_usuarios(_acesso_client,_acesso_perfil)
+        st.markdown("---")
+'''
+if _config_anchor not in _source:
+    raise RuntimeError("Tela de configurações não encontrada para integração de usuários.")
+_source = _source.replace(_config_anchor, _config_replacement, 1)
 
 # -----------------------------------------------------------------------------
 # Fotos de colaboradores
