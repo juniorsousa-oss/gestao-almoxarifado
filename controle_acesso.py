@@ -279,15 +279,18 @@ def render_login() -> tuple[Client | None, dict[str, Any] | None]:
             padding:0 10px !important; border:0 !important; outline:none !important; box-shadow:none !important;
             border-radius:6px !important; background:#f0f2f6 !important; color:#202020 !important; -webkit-text-fill-color:#202020 !important; font-size:8px !important;
           }}
-          div[data-testid="stForm"] [data-baseweb="input"],
-          div[data-testid="stForm"] [data-baseweb="base-input"] {{
+          div[data-testid="stForm"] [data-baseweb="input"] {{
             width:100% !important; height:31px !important; min-height:31px !important; box-sizing:border-box !important;
             display:flex !important; align-items:center !important; border:2px solid #050505 !important;
             border-radius:8px !important; background:#f0f2f6 !important; box-shadow:none !important; overflow:hidden !important;
             color:#202020 !important;
           }}
-          div[data-testid="stForm"] [data-baseweb="input"] > div,
-          div[data-testid="stForm"] [data-baseweb="base-input"] > div {{
+          div[data-testid="stForm"] [data-baseweb="base-input"] {{
+            width:100% !important; height:27px !important; min-height:27px !important;
+            border:0 !important; outline:0 !important; box-shadow:none !important;
+            background:#f0f2f6 !important; color:#202020 !important;
+          }}
+          div[data-testid="stForm"] [data-baseweb="input"] > div {{
             height:27px !important; min-height:27px !important; background:#f0f2f6 !important; color:#202020 !important;
           }}
           div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button {{
@@ -316,7 +319,16 @@ def render_login() -> tuple[Client | None, dict[str, Any] | None]:
           div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button p {{ color:#fff !important; }}
           div[data-testid="stAlert"] {{ position:fixed !important; left:50% !important; top:calc(50% + 205px) !important; transform:translateX(-50%) !important; width:286px !important; box-sizing:border-box !important; z-index:30 !important; }}
           @media (max-width:480px) {{
-            .setta-login-wrap, div[data-testid="stForm"] {{ width:286px !important; }}
+            .setta-login-wrap {{
+              width:286px !important;
+              transform:translate(-50%,-50%) scale(1.18) !important;
+              transform-origin:center center !important;
+            }}
+            div[data-testid="stForm"] {{
+              width:286px !important;
+              transform:translateX(-50%) scale(1.18) !important;
+              transform-origin:top center !important;
+            }}
           }}
         </style>
         <div class="setta-login-wrap">
