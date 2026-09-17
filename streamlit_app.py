@@ -1,6 +1,21 @@
 from pathlib import Path
-# DEPLOY_VERSION: produtividade-v1
+# DEPLOY_VERSION: produtividade-v2-reload
+import importlib
+import sys
 import re
+
+# Garante que atualizacoes dos modulos de indicadores sejam carregadas em cada
+# execucao do app, mesmo quando o ambiente do Streamlit reaproveita o mesmo
+# processo Python entre atualizacoes vindas do GitHub.
+for _module_name in (
+    "indicadores_dashboard",
+    "indicadores_pdf",
+    "indicadores_regras",
+    "indicadores_entregas_v2",
+    "indicadores_historico",
+):
+    sys.modules.pop(_module_name, None)
+importlib.invalidate_caches()
 
 # Executa a versão original do aplicativo aplicando apenas otimizações de
 # transferência de dados. A lógica funcional e o layout permanecem no arquivo
